@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -12,15 +12,58 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Aggressive UI Reset to remove blue/white outlines and highlights */
+* {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  box-shadow: none !important; /* Only if not explicitly defined */
+}
+
+/* Reset focus-visible specifically for modern browsers */
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Maintain custom shadows where explicitly needed in components */
+.custom-shadow {
+  box-shadow: 0 0 50px rgba(255,255,255,0.02) !important;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  -webkit-user-select: none; /* Prevent accidental text selection on UI elements */
+  user-select: none;
+}
+
+/* Allow selection in inputs/textareas */
+input, textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+::selection {
+  background-color: rgba(255, 255, 255, 0.1);
 }
