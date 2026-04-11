@@ -1,0 +1,23 @@
+{
+  "name": "wup-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Unified Brain - AI-powered multi-source database intelligence platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
