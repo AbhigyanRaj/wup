@@ -25,6 +25,8 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
+  connections: { _id: string; name: string; type: string }[];
+  onDeleteConnection: (id: string) => void;
   onOpenAddDb: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -36,6 +38,8 @@ export function DashboardSidebar({
   onNewChat, 
   onSelectChat,
   onDeleteChat, 
+  connections,
+  onDeleteConnection,
   onOpenAddDb,
   isMobileOpen,
   onCloseMobile
@@ -51,7 +55,6 @@ export function DashboardSidebar({
       <div className="p-6 flex items-center justify-between">
         <span className={`text-xl font-bold tracking-tighter text-white ${collapsed && !isMobileOpen ? "hidden" : "block"}`}>WUP</span>
         
-        {/* Toggle / Close Buttons */}
         <div className="flex items-center gap-2">
           {isMobileOpen ? (
             <button 
@@ -85,6 +88,7 @@ export function DashboardSidebar({
         </button>
         
         <SidebarItem 
+          key="nav-search"
           icon={<Search size={18} />} 
           label="Search" 
           collapsed={collapsed && !isMobileOpen} 
@@ -111,9 +115,9 @@ export function DashboardSidebar({
             </h3>
           )}
           <div className="space-y-1">
-            <SidebarItem icon={<MessageSquare size={18} />} label="Chats" collapsed={collapsed && !isMobileOpen} />
-            <SidebarItem icon={<Box size={18} />} label="Projects" collapsed={collapsed && !isMobileOpen} />
-            <SidebarItem icon={<Layers size={18} />} label="Artifacts" collapsed={collapsed && !isMobileOpen} />
+            <SidebarItem key="nav-chats" icon={<MessageSquare size={18} />} label="Chats" collapsed={collapsed && !isMobileOpen} />
+            <SidebarItem key="nav-projects" icon={<Box size={18} />} label="Projects" collapsed={collapsed && !isMobileOpen} />
+            <SidebarItem key="nav-artifacts" icon={<Layers size={18} />} label="Artifacts" collapsed={collapsed && !isMobileOpen} />
           </div>
         </div>
 
@@ -127,18 +131,18 @@ export function DashboardSidebar({
             <div className="space-y-0.5">
               {chats.map((chat) => (
                 <div 
-                  key={chat.id} 
+                  key={`chat-${chat._id}`} 
                   onClick={() => {
-                    onSelectChat(chat.id);
+                    onSelectChat(chat._id);
                     onCloseMobile?.();
                   }}
                   className={`group flex items-center gap-2 px-2 py-2 rounded-lg transition-all cursor-pointer ${
-                    activeChatId === chat.id ? "bg-white/10" : "hover:bg-white/5"
+                    activeChatId === chat._id ? "bg-white/10" : "hover:bg-white/5"
                   } ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
                 >
                   {(!collapsed || isMobileOpen) && (
                     <p className={`flex-1 text-[12px] font-light truncate transition-colors ${
-                      activeChatId === chat.id ? "text-white" : "text-white/40 group-hover:text-white/80"
+                      activeChatId === chat._id ? "text-white" : "text-white/40 group-hover:text-white/80"
                     }`}>
                       {chat.title}
                     </p>
@@ -147,10 +151,10 @@ export function DashboardSidebar({
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteChat(chat.id);
+                        onDeleteChat(chat._id);
                       }}
                       className={`p-1 hover:text-red-400 transition-all ${
-                        activeChatId === chat.id ? "text-white/40 opacity-100" : "opacity-0 group-hover:opacity-100 text-white/20"
+                        activeChatId === chat._id ? "text-white/40 opacity-100" : "opacity-0 group-hover:opacity-100 text-white/20"
                       }`}
                     >
                       <Trash2 size={12} />
@@ -158,8 +162,53 @@ export function DashboardSidebar({
                   )}
                   {collapsed && !isMobileOpen && (
                      <div className={`w-1.5 h-1.5 rounded-full transition-all transform group-hover:scale-125 ${
-                       activeChatId === chat.id ? "bg-white" : "bg-white/20 group-hover:bg-white"
+                       activeChatId === chat._id ? "bg-white" : "bg-white/20 group-hover:bg-white"
                      }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {connections.length > 0 && (
+          <div className="pt-2">
+            {(!collapsed || isMobileOpen) && (
+              <h3 className="px-2 text-[10px] uppercase tracking-widest text-white/20 font-bold mb-3">
+                Active Bridges
+              </h3>
+            )}
+            <div className="space-y-1">
+              {connections.map((conn) => (
+                <div 
+                  key={`bridge-${conn._id}`} 
+                  className={`group flex items-center gap-2 px-2 py-2 rounded-lg transition-all bg-white/[0.02] border border-white/[0.03] ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
+                >
+                  {(!collapsed || isMobileOpen) && (
+                    <div className="p-1 rounded bg-white/5 text-white/40 group-hover:text-white/60">
+                       <Database size={10} />
+                    </div>
+                  )}
+                  {(!collapsed || isMobileOpen) && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-white/60 truncate group-hover:text-white/90">
+                        {conn.name}
+                      </p>
+                    </div>
+                  )}
+                  {(!collapsed || isMobileOpen) && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteConnection(conn._id);
+                      }}
+                      className="p-1 text-white/10 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                  {collapsed && !isMobileOpen && (
+                     <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
                   )}
                 </div>
               ))}
@@ -195,7 +244,6 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isMobileOpen && (
           <div className="fixed inset-0 z-[100] lg:hidden">
@@ -219,7 +267,6 @@ export function DashboardSidebar({
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar */}
       <div className="hidden lg:block h-full shrink-0">
         {sidebarContent}
       </div>

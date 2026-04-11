@@ -1,0 +1,19 @@
+{
+  "name": "@wup/brain",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "mongodb": "^6.3.0",
+    "googleapis": "^129.0.0"
+  }
+}

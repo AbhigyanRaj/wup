@@ -10,7 +10,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@wup/brain": ["../../packages/brain/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

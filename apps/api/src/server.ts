@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
+import connectionRoutes from "./routes/connection";
+import chatRoutes from "./routes/chat";
 
 dotenv.config();
 
@@ -34,6 +36,8 @@ mongoose.connect(MONGODB_URI)
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/connections", connectionRoutes);
+app.use("/chats", chatRoutes);
 
 // Health Check
 app.get("/health", (req, res) => {
