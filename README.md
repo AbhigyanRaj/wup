@@ -76,6 +76,29 @@ Once a bridge is active, the assistant can be queried directly about the data. E
 ## Architecture Notes
 
 WUP is structured as a Monorepo using Turborepo to manage applications and shared packages.
+
+### System Flow Diagram
+```mermaid
+graph TD
+    User((User)) -->|Natural Language| Web[Web Application - apps/web]
+    Web -->|API Request| API[API Service - apps/api]
+    
+    subgraph "Intelligence Layer"
+    API -->|Orchestrate| Brain[Brain Orchestrator - packages/brain]
+    Brain -->|Model Rotation| Gemini[Gemini AI Cluster]
+    end
+    
+    subgraph "Data Bridges"
+    Brain -->|Function Call| Mongo[(MongoDB)]
+    Brain -->|Function Call| Sheets[(Google Sheets)]
+    end
+    
+    Gemini -->|Synthesis| Brain
+    Brain -->|Structured Data| API
+    API -->|JSON Response| Web
+    Web -->|Premium UI Message| User
+```
+
 - **apps/web**: Next.js frontend handling the UI layer and model status visualization.
 - **apps/api**: Express backend managing authentication, session persistence, and credential storage.
 - **packages/brain**: Core intelligence package containing the orchestrator logic, tool registry, and model rotation protocols.
@@ -97,4 +120,4 @@ WUP is structured as a Monorepo using Turborepo to manage applications and share
 - **Edge Intelligence**: Optimized local-first processing for reduced latency and improved privacy on sensitive on-premise datasets.
 
 ---
-Developed by **Abhigyan Raj** | 2026 Unified Brain Project
+Developed by **Abhigyan Raj and Team** | 2026 Unified Brain Project
