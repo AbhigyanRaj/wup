@@ -1,6 +1,6 @@
 # WUP
 
-WUP is a high-performance AI orchestration platform designed to unify disparate data sources into a single, document-centric workspace. It addresses the challenge of data fragmentation by allowing users to interact with live databases and spreadsheets via natural language. The platform is engineered for data analysts, engineers, and product teams who require immediate, conversational access to multi-source data without the overhead of manual querying.
+WUP is a high-performance AI orchestration platform designed to unify disparate data sources and productivity tools into a single, document-centric workspace. By bridging live databases with natural language intelligence and the Model Context Protocol (MCP), WUP enables teams to not only analyze data in real-time but also execute automated cross-platform workflows across Slack, Notion, and beyond. The platform is engineered for data analysts, engineers, and product teams who require a centralized hub for data-driven operations without the overhead of manual querying.
 
 
 ## Features
@@ -117,6 +117,7 @@ graph TD
 - **Enhanced Data Visualization**: Specialized components for rendering interactive charts and graphs directly within the thread.
 - **Automated Intelligence**: Scheduled query execution with AI-synthesized summaries delivered via Slack, Teams, or Email.
 - **Role-Based Access Control (RBAC)**: Fine-grained permissions and audit logging for shared database bridges.
+- **MCP Integration & Workflow Automation**: Support for the Model Context Protocol (MCP) to seamlessly integrate tools like Slack, Notion, and Jira. This transforms WUP into a unified data hub that not only analyzes multiple databases but also executes automated cross-platform workflow actions.
 - **Edge Intelligence**: Optimized local-first processing for reduced latency and improved privacy on sensitive on-premise datasets.
 
 ---
