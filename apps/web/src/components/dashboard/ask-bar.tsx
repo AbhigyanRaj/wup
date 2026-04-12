@@ -48,8 +48,8 @@ export function AskBar({ onSubmit }: AskBarProps) {
   return (
     <div className="w-full max-w-2xl mx-auto group">
       <div className={`
-        relative bg-[#1a1a1a] border border-white/5 rounded-[24px] lg:rounded-[28px] p-2 transition-all duration-500
-        ${active ? "border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.02)] ring-1 ring-white/10" : "hover:border-white/10 shadow-lg"}
+        relative bg-[#0d0d0d] border border-white/5 rounded-[24px] lg:rounded-[28px] p-2 transition-all duration-500
+        ${active ? "border-white/10 shadow-[0_0_60px_rgba(226,125,96,0.05)] ring-1 ring-white/5" : "hover:border-white/10 shadow-lg"}
       `}>
         {/* Main Input Area */}
         <div className="flex flex-col">

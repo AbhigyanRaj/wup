@@ -57,5 +57,28 @@ WUP implements AES-256 encryption for all external database connection strings. 
 ## Quality Score
 As of the latest audit, the project holds a **9.5/10 Quality Score** for its architectural modularity, clean UI/UX patterns, and responsive performance.
 
+## Roadmap & Next Steps
+
+WUP is currently evolving from a single-turn AI prototype into a production-grade stateful intelligence system.
+
+### Phase 1: Context & Intelligence Core (In Progress)
+- [ ] **Stateful Chat Memory**: Implement automated history retrieval from MongoDB.
+- [ ] **Context Injection**: Pass conversation turns to Gemini to enable follow-up questions.
+- [ ] **Sliding Window Optimization**: Efficient memory management for long threads.
+
+### Phase 2: Data Bridge Reliability ("The Truth Fix")
+- [ ] **Multi-Source Metadata**: Add exploration tools for Google Sheets, MongoDB, and Supabase.
+- [ ] **Schema Sampling**: AI-led data discovery to prevent hallucinations of field/tab names.
+- [ ] **Hallucination Hardening**: Strict "Verify-Before-Answer" protocol in the system prompt.
+
+### Phase 3: High-Performance UX
+- [ ] **Token Streaming**: Implement Server-Sent Events (SSE) for instant, real-time responses.
+- [ ] **Streaming Renderer**: Update the UI to display tokens one-by-one as they arrive.
+- [ ] **Asynchronous Feedback**: Better visual cues during complex multi-tool executions.
+
+### Phase 4: Advanced Analytics
+- [ ] **Multi-Source Joins**: Let the AI combine data from MongoDB and Sheets in a single analysis.
+- [ ] **Data Visualization**: Specialized components for AI-generated charts and graphs.
+
 ---
 Developed by **Abhigyan Raj** | 2026 Unified Brain Project

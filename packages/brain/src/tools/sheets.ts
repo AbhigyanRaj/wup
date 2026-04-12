@@ -52,3 +52,44 @@ export const read_sheets = async ({ connectionId, sheetName, range = "A1:Z100" }
     };
   }
 };
+
+/**
+ * Lists the available sheets (tabs) in a Google Spreadsheet.
+ */
+export const get_sheets_metadata = async ({ connectionId }: { connectionId: string }) => {
+  console.log(`[WUP Brain Tool] Getting Spreadsheet metadata for connection ${connectionId}`);
+
+  try {
+    const conn = await Connection.findById(connectionId);
+    if (!conn) throw new Error("Connection not found");
+
+    const sheetConfig = cryptoService.decrypt(conn.config);
+    const spreadsheetIdMatch = sheetConfig.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    const spreadsheetId = spreadsheetIdMatch ? spreadsheetIdMatch[1] : sheetConfig;
+
+    const auth = new google.auth.GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    const res = await sheets.spreadsheets.get({
+      spreadsheetId,
+      includeGridData: false
+    });
+
+    const sheetsInfo = res.data.sheets?.map(s => s.properties?.title) || [];
+    
+    return {
+      success: true,
+      title: res.data.properties?.title,
+      sheets: sheetsInfo
+    };
+  } catch (err: any) {
+    console.error("[WUP Brain Tool] Sheets Meta EXECUTION ERROR:", err);
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+};
