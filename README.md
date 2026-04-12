@@ -1,80 +1,100 @@
-# WUP - Unified Brain 2.0
+# WUP
 
-WUP is a high-performance, minimalist AI orchestration platform designed to bridge disparate data sources into a unified, document-centric workspace. Inspired by state-of-the-art AI interfaces like Claude, WUP focuses on premium aesthetics, liquid responsiveness, and secure data orchestration.
+WUP is a high-performance AI orchestration platform designed to unify disparate data sources into a single, document-centric workspace. It addresses the challenge of data fragmentation by allowing users to interact with live databases and spreadsheets via natural language. The platform is engineered for data analysts, engineers, and product teams who require immediate, conversational access to multi-source data without the overhead of manual querying.
 
-![WUP Dashboard](/apps/web/public/logo.png)
 
-## 🌟 Key Features
+## Features
 
-- **Claude-Inspired Workspace**: A distraction-free, "Document Style" chat interface with refined typography and fluid animations.
-- **Intelligent Model Rotation**: 🔄 Automatically switches between available Gemini models (Gemini 3 Flash, 2.5 Flash, 2.0 Flash) if quota limits are reached, ensuring zero downtime.
-- **Model Intelligence Selector**: A premium dashboard widget that allows users to manually select their preferred model or use "Auto-Rotate" with real-time exhaustion (429) tracking.
-- **Multi-DB Connection Bridge**: Seamlessly connect MongoDB, Google Sheets, Supabase, and PostgreSQL via an encrypted credential vault.
-- **Hybrid Sheets Authentication**: Supports both secure Service Account JSON keys and simplified API Key fallback for public/link-shared spreadsheets.
-- **Session-Aware Chat**: Full persistence for multiple conversation threads with local memory and real-time synchronization.
+- **Intelligent Model Rotation**: System maintains zero downtime by automatically switching between multiple Gemini models (3.0 Flash, 2.5 Flash, 2.0 Flash) when rate limits or daily quotas are reached.
+- **Multi-Source Data Bridges**: Secure connectivity for MongoDB and Google Sheets with an encrypted credential vault for sensitive information.
+- **Autonomous Tool Orchestration**: Leverages LLM function-calling loops to introspect schemas and execute read-only queries across bridged databases.
+- **Conversational Persistence**: Full multi-turn thread management with optimized context windows for precise and reliable long-form interaction.
+- **Premium Interface Architecture**: A minimalist, high-fidelity workspace inspired by state-of-the-art AI interfaces, focused on readability and data presentation.
 
-## 🧠 Technical Architecture (Monorepo)
-
-- **`apps/web`**: Next.js 15 (App Router) frontend utilizing Tailwind CSS and Framer Motion for high-fidelity interactions. Features dynamic model state management and bridge status visualization.
-- **`apps/api`**: Modular Node.js / Express backend with an MVC architecture, MongoDB integration, and JWT-based authentication.
-- **`packages/brain`**: Core AI orchestration logic with multi-turn function calling loops and adaptive model fallback protocols.
-
-## 🚀 Getting Started
+## Setup and Installation
 
 ### Prerequisites
-- Node.js 18+
-- MongoDB instance (local or Atlas)
-- Google Cloud Project (with Gemini and Sheets APIs enabled)
 
-### Setup
-1. **Clone and Install**:
+- Node.js 18.0 or higher
+- MongoDB instance (Local or Atlas)
+- Google Cloud Project with Gemini and Sheets APIs enabled
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/AbhigyanRaj/wup.git
+   cd wup
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**:
+   Create `.env` files in `apps/api` and `apps/web` using the provided `.env.example` templates. Refer to the specific application directories for configuration keys.
+
+### Running the Project
+
+To start the development environment for both the API and Web applications, run:
 ```bash
-git clone https://github.com/AbhigyanRaj/wup.git
-cd wup
-npm install
-```
-
-2. **Configure Environment**:
-Create `.env` files in `apps/api` and `apps/web`:
-```env
-# apps/api/.env
-PORT=4000
-MONGODB_URI=your_mongo_url
-JWT_SECRET=your_secret_key
-GEMINI_API_KEY=your_gemini_key
-
-# Optional: For secure private sheets
-GOOGLE_SERVICE_ACCOUNT_JSON_PATH=./path/to/service-account.json
-```
-
-3. **Run Development Mode**:
-```bash
-# Start both Web and API simultaneously
 npm run dev
 ```
 
-## 🔐 Security & Reliability
+The Web interface will be accessible at `http://localhost:3000` and the API at `http://localhost:4000`.
 
-- **AES-256 Encryption**: All external database connection strings are encrypted at rest.
-- **Fail-Fast Protocol**: The brain instantly detects daily quota exhaustion and switches to the next available intelligence core to prevent UI hangs.
-- **Bridge Verifier**: Enhanced error handling for Google Sheets "API Disabled" and "Permission Denied" states with actionable user feedback.
+## Tech Stack
 
-## 🛤️ Roadmap & Next Steps
+- **Languages**: TypeScript
+- **Frontend Framework**: Next.js 15 (App Router), Framer Motion, Tailwind CSS
+- **Backend Framework**: Node.js, Express
+- **Databases**: MongoDB (Primary), Google Sheets Integration
+- **AI Models**: Google Gemini (Direct API orchestration)
 
-### Phase 2: Data Bridge & Model Intelligence ✅ COMPLETED (April 2026)
-- [x] **Dynamic Intelligence Rotation**: Automated fallback between Gemini models.
-- [x] **Hybrid Sheets Connectivity**: Support for API key access to public sheets.
-- [x] **Exhaustion Visualizers**: UI indicators for rate-limited models.
-- [x] **Context Bridge Status**: Dashboard indicator for active data connections.
+## Usage Examples
 
-### Phase 3: High-Performance UX
-- [ ] **Token Streaming**: Implement Server-Sent Events (SSE) for instant, real-time responses.
-- [ ] **Streaming Renderer**: Update the UI to display tokens one-by-one as they arrive.
-- [ ] **Asynchronous Feedback**: Better visual cues during complex multi-tool executions.
+### Connecting a Data Bridge
+Users can connect external databases via the dashboard UI or API. Example API call to bridge a MongoDB collection:
+```bash
+curl -X POST http://localhost:4000/connections \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Inventory DB",
+    "type": "mongodb",
+    "config": "mongodb+srv://user:pass@cluster.mongodb.net/"
+  }'
+```
 
-### Phase 4: Advanced Analytics
-- [ ] **Multi-Source Joins**: Let the AI combine data from MongoDB and Sheets in a single analysis.
-- [ ] **Data Visualization**: Specialized components for AI-generated charts and graphs.
+### Querying the Brain
+Once a bridge is active, the assistant can be queried directly about the data. Example query sequence:
+1. **Request**: "Which products in the Inventory DB have a stock level below 10?"
+2. **System Action**: Brain calls `get_mongodb_schema`, then `query_mongodb` with a filter `{ stock: { $lt: 10 } }`.
+3. **Response**: Assistant returns a Markdown table showing the relevant products.
+
+## Architecture Notes
+
+WUP is structured as a Monorepo using Turborepo to manage applications and shared packages.
+- **apps/web**: Next.js frontend handling the UI layer and model status visualization.
+- **apps/api**: Express backend managing authentication, session persistence, and credential storage.
+- **packages/brain**: Core intelligence package containing the orchestrator logic, tool registry, and model rotation protocols.
+
+## Limitations
+
+- **Read-Only Access**: The system is strictly forbidden from performing write or delete operations on bridged data sources.
+- **Database Support**: Performance and introspection features are currently optimized for MongoDB and Google Sheets. Other drivers are not yet supported.
+- **Context Window**: Long-form conversations are subject to a sliding window of the 10 most recent messages to manage LLM token usage effectively.
+
+## Future Improvements
+
+- **Token Streaming**: Integration of Server-Sent Events (SSE) for real-time token rendering in the UI.
+- **Multi-Source Joins**: Ability for the AI to synthesize data from MongoDB and Google Sheets into a single cohesive report.
+- **Semantic Search & RAG**: Integration with vector databases to allow natural language search across unstructured documents (PDFs, Notion) alongside structured data.
+- **Enhanced Data Visualization**: Specialized components for rendering interactive charts and graphs directly within the thread.
+- **Automated Intelligence**: Scheduled query execution with AI-synthesized summaries delivered via Slack, Teams, or Email.
+- **Role-Based Access Control (RBAC)**: Fine-grained permissions and audit logging for shared database bridges.
+- **Edge Intelligence**: Optimized local-first processing for reduced latency and improved privacy on sensitive on-premise datasets.
 
 ---
 Developed by **Abhigyan Raj** | 2026 Unified Brain Project

@@ -99,7 +99,62 @@ export class BrainOrchestrator {
     ).join("\n");
     const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
 
-    let lastErr: any = null;
+interface GeminiError extends Error {
+  status?: number;
+  errorDetails?: Array<{
+    "@type": string;
+    retryDelay?: string;
+    [key: string]: any;
+  }>;
+}
+
+export class BrainOrchestrator {
+  /** List of models to try in order during auto-rotation */
+  private static readonly MODEL_ROTATION = [
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-flash-lite-latest",
+  ];
+
+  /** TRACKER: Models that hit daily limits in this run */
+  private static exhaustedModels = new Set<string>();
+
+  /**
+   * Main entry point for a user's question to the Brain.
+   * Handles the Function Calling loop (Tools) internally.
+   * @param chatHistory prior turns in this thread (oldest → newest); current user message is sent separately via `prompt`.
+   */
+  async ask(
+    userId: string,
+    prompt: string,
+    options?: { chatHistory?: ChatTurn[]; model?: string }
+  ): Promise<BrainResponse & { usedModel?: string; exhausted?: string[] }> {
+    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
+    const geminiHistory = buildGeminiHistory(historyTurns);
+
+    const requestedModel = options?.model;
+    const modelsToTry = requestedModel && requestedModel !== "Auto-Rotate"
+      ? [requestedModel]
+      : BrainOrchestrator.MODEL_ROTATION.filter(m => !BrainOrchestrator.exhaustedModels.has(m));
+
+    // Fallback if all preferred models are exhausted
+    if (modelsToTry.length === 0) {
+      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[1]); // Try 1.5-flash as final hope
+    }
+
+    console.log(
+      `[WUP Brain] Processing query for user ${userId} using ${requestedModel || "Auto-Rotate"}: "${prompt.slice(0, 100)}..."`
+    );
+
+    // 1. Fetch available connections
+    const connections = await Connection.find({ userId });
+    const bridgeInfo = connections.map(c => 
+      `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`
+    ).join("\n");
+    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
+
+    let lastErr: GeminiError | null = null;
 
     for (const modelName of modelsToTry) {
       try {
@@ -143,18 +198,19 @@ export class BrainOrchestrator {
           usedModel: modelName,
           exhausted: Array.from(BrainOrchestrator.exhaustedModels)
         };
-      } catch (err: any) {
-        lastErr = err;
-        const isDailyQuota = JSON.stringify(err.errorDetails)?.includes("PerDay");
+      } catch (err: unknown) {
+        const error = err as GeminiError;
+        lastErr = error;
+        const isDailyQuota = JSON.stringify(error.errorDetails)?.includes("PerDay");
         
-        if (isDailyQuota || err.status === 429) {
+        if (isDailyQuota || error.status === 429) {
           console.warn(`[WUP Brain] Model ${modelName} hit limits. Tracking as exhausted.`);
           BrainOrchestrator.exhaustedModels.add(modelName);
           // If we have more models to try, continue the loop
           continue;
         }
         // For other errors (like 404), switch to next model too
-        console.error(`[WUP Brain] Error with ${modelName}:`, err.message);
+        console.error(`[WUP Brain] Error with ${modelName}:`, error.message);
         continue;
       }
     }
@@ -177,26 +233,27 @@ export class BrainOrchestrator {
     fn: () => Promise<T>,
     maxRetries: number = 3
   ): Promise<T> {
-    let lastError: any;
+    let lastError: GeminiError | null = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         return await fn();
-      } catch (err: any) {
-        lastError = err;
+      } catch (err: unknown) {
+        const error = err as GeminiError;
+        lastError = error;
         
         // Check for 429 Too Many Requests
-        if (err.status === 429 || err.message?.includes("429")) {
+        if (error.status === 429 || error.message?.includes("429")) {
           // If it's a DAILY quota limit, don't bother retrying
-          const isDailyLimit = JSON.stringify(err.errorDetails)?.includes("PerDay");
+          const isDailyLimit = JSON.stringify(error.errorDetails)?.includes("PerDay");
           if (isDailyLimit) {
             console.error("[WUP Brain] Daily quota exhausted. Failing fast.");
-            throw err;
+            throw error;
           }
 
           let delayMs = Math.pow(2, attempt) * 2000; // Default exponential backoff
 
           // Try to extract retryDelay from Google API error details
-          const retryInfo = err.errorDetails?.find(
+          const retryInfo = error.errorDetails?.find(
             (d: any) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
           );
 
@@ -210,7 +267,7 @@ export class BrainOrchestrator {
           // Safety cap: don't wait more than 15 seconds in a web request
           if (delayMs > 15000) {
             console.warn(`[WUP Brain] Retry delay ${delayMs}ms is too long. Failing.`);
-            throw err;
+            throw error;
           }
 
           console.warn(
@@ -220,10 +277,10 @@ export class BrainOrchestrator {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
         }
-        throw err;
+        throw error;
       }
     }
-    throw lastError;
+    throw lastError || new Error("Unknown error during retry sequence");
   }
 }
 
