@@ -39,6 +39,10 @@ export default function DashboardPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Model Selection & Exhaustion
+  const [currentModel, setCurrentModel] = useState("Auto-Rotate");
+  const [exhaustedModels, setExhaustedModels] = useState<string[]>([]);
+
   // 1. Initial Load
   useEffect(() => {
     const fetchData = async () => {
@@ -85,7 +89,7 @@ export default function DashboardPage() {
     fetchMessages();
   }, [activeChatId]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, model: string = "Auto-Rotate") => {
     const token = localStorage.getItem("wup_token");
     let currentChatId = activeChatId;
     setError(null);
@@ -124,7 +128,7 @@ export default function DashboardPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ role: "user", content })
+        body: JSON.stringify({ role: "user", content, model })
       });
 
       if (!msgRes.ok) {
@@ -133,6 +137,12 @@ export default function DashboardPage() {
       }
 
       const data = await msgRes.json();
+      
+      // Update exhausted models list if provided
+      if (data.exhausted) {
+        setExhaustedModels(data.exhausted);
+      }
+
       setActiveMessages(prev => [...prev, { 
         role: "assistant", 
         content: data.assistantMessage.content 
@@ -141,7 +151,6 @@ export default function DashboardPage() {
     } catch (err: any) {
       console.error("Chat Error:", err);
       setError(err.message || "An unexpected error occurred.");
-      // Remove optimistic message or add error state? For simplicity, we just show alert.
     } finally {
       setIsTyping(false);
     }
@@ -225,7 +234,12 @@ export default function DashboardPage() {
               <div className="flex-1 flex flex-col justify-center items-center py-12">
                 <DashboardHero userName={userName} />
                 <div className="w-full max-w-2xl">
-                  <AskBar onSubmit={handleSendMessage} />
+                  <AskBar 
+                    onSubmit={handleSendMessage} 
+                    selectedModel={currentModel}
+                    onModelChange={setCurrentModel}
+                    exhaustedModels={exhaustedModels}
+                  />
                   <CategoryPills />
                 </div>
               </div>
@@ -241,7 +255,12 @@ export default function DashboardPage() {
         {activeChatId && activeMessages.length > 0 && (
           <div className="absolute bottom-6 lg:bottom-10 left-0 right-0 z-20 px-4 lg:px-8">
             <div className="max-w-2xl mx-auto">
-              <AskBar onSubmit={handleSendMessage} />
+              <AskBar 
+                onSubmit={handleSendMessage} 
+                selectedModel={currentModel}
+                onModelChange={setCurrentModel}
+                exhaustedModels={exhaustedModels}
+              />
             </div>
           </div>
         )}

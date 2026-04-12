@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Chat } from "../models/Chat";
 import { Message } from "../models/Message";
-import { brain } from "@wup/brain";
+import { brain, CHAT_CONTEXT_MAX_MESSAGES, type ChatTurn } from "@wup/brain";
 
 /**
  * Controller for managing user chat sessions and messages.
@@ -46,9 +46,9 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 };
 
-export const saveMessage = async (req: Request, res: Response) => {
+    export const saveMessage = async (req: Request, res: Response) => {
   const { chatId } = req.params;
-  const { role, content } = req.body;
+  const { role, content, model } = req.body;
   const userId = (req as any).user.id;
 
   try {
@@ -63,8 +63,21 @@ export const saveMessage = async (req: Request, res: Response) => {
       content
     });
 
-    // 2. Trigger Brain Intelligence
-    const brainResponse = await brain.ask(userId, content);
+    // Prior messages in this thread (exclude the message we just saved — it is sent as `prompt`)
+    const priorDocs = await Message.find({
+      chatId,
+      _id: { $ne: userMessage._id },
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const chatHistory: ChatTurn[] = priorDocs.slice(-CHAT_CONTEXT_MAX_MESSAGES).map((m) => ({
+      role: m.role as ChatTurn["role"],
+      content: m.content,
+    }));
+
+    // 2. Trigger Brain Intelligence (with conversational context and model selection)
+    const brainResponse = await brain.ask(userId, content, { chatHistory, model });
 
     // 3. Save Assistant Message
     const assistantMessage = await Message.create({
@@ -80,7 +93,9 @@ export const saveMessage = async (req: Request, res: Response) => {
 
     res.status(201).json({ 
       userMessage, 
-      assistantMessage 
+      assistantMessage,
+      usedModel: brainResponse.usedModel,
+      exhausted: brainResponse.exhausted
     });
   } catch (err) {
     console.error("[WUP API] Chat Processing Error:", err);

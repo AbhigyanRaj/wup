@@ -9,32 +9,40 @@ import {
   Brain,
   Zap,
   Sparkles,
-  Bot
+  Bot,
+  AlertCircle
 } from "lucide-react";
 
 interface AskBarProps {
-  onSubmit: (message: string) => void;
+  onSubmit: (message: string, model: string) => void;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
+  exhaustedModels?: string[];
 }
 
-export function AskBar({ onSubmit }: AskBarProps) {
+export function AskBar({ 
+  onSubmit, 
+  selectedModel, 
+  onModelChange, 
+  exhaustedModels = [] 
+}: AskBarProps) {
   const [active, setActive] = useState(false);
   const [modelDropdown, setModelDropdown] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("Sonnet 4.6");
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const models = [
-    { name: "Sonnet 4.6", desc: "Balanced & Data-Smart", icon: <Brain size={14} /> },
-    { name: "GPT-4o", desc: "Reasoning Powerhouse", icon: <Bot size={14} /> },
-    { name: "Haiku 4.0", desc: "Fast & Precise", icon: <Zap size={14} /> },
-    { name: "DeepSeek V3", desc: "In-depth Discovery", icon: <Sparkles size={14} /> },
+    { id: "Auto-Rotate", name: "Auto-Rotate", desc: "Best available model", icon: <Sparkles size={14} className="text-amber-400" /> },
+    { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", desc: "Next-gen Intelligence", icon: <Bot size={14} className="text-purple-400" /> },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", desc: "Premium Efficiency", icon: <Brain size={14} className="text-blue-400" /> },
+    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "Fast & Balanced", icon: <Zap size={14} className="text-cyan-400" /> },
+    { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", desc: "Ultra-fast Tasks", icon: <Zap size={14} className="text-green-400" /> },
   ];
 
   const handleSubmit = () => {
     if (!input.trim()) return;
-    onSubmit(input);
+    onSubmit(input, selectedModel);
     setInput("");
-    // Collapse mobile UI after sending
     setModelDropdown(false);
   };
 
@@ -76,31 +84,46 @@ export function AskBar({ onSubmit }: AskBarProps) {
               <div className="relative">
                 <button 
                   onClick={() => setModelDropdown(!modelDropdown)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-white/10 rounded-full border border-white/5 text-[10px] lg:text-[11px] font-medium text-white/60 hover:text-white transition-all group/model"
+                  className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-white/10 rounded-full border border-white/5 text-[10px] lg:text-[11px] font-medium text-white/60 hover:text-white transition-all group/model min-w-[100px]"
                 >
-                  {selectedModel}
+                  <div className="flex items-center gap-2">
+                    {models.find(m => m.id === selectedModel)?.icon || <Sparkles size={10} />}
+                    {models.find(m => m.id === selectedModel)?.name || "Auto-Rotate"}
+                  </div>
                   <ChevronDown size={10} className={`text-white/20 transition-transform ${modelDropdown ? "rotate-180" : ""}`} />
                 </button>
 
                 {modelDropdown && (
-                  <div className="absolute top-full mt-2 left-0 w-48 sm:w-56 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold">Select Model</div>
-                    {models.map((m) => (
-                      <button
-                        key={m.name}
-                        onClick={() => {
-                          setSelectedModel(m.name);
-                          setModelDropdown(false);
-                        }}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-left transition-all ${selectedModel === m.name ? "bg-white/5" : ""}`}
-                      >
-                        <div className="text-white/40">{m.icon}</div>
-                        <div>
-                          <p className={`text-[11px] lg:text-xs font-medium ${selectedModel === m.name ? "text-white" : "text-white/60"}`}>{m.name}</p>
-                          <p className="text-[10px] text-white/20 font-light hidden sm:block">{m.desc}</p>
-                        </div>
-                      </button>
-                    ))}
+                  <div className="absolute top-full mt-2 left-0 w-56 sm:w-64 bg-[#121212] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold">Intelligence Core</div>
+                    {models.map((m) => {
+                      const isExhausted = exhaustedModels.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          disabled={isExhausted && m.id !== "Auto-Rotate"}
+                          onClick={() => {
+                            onModelChange(m.id);
+                            setModelDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-all ${selectedModel === m.id ? "bg-white/10" : "hover:bg-white/5"} ${isExhausted ? "opacity-50 grayscale" : ""}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="text-white/40">{m.icon}</div>
+                            <div className="text-left">
+                              <p className={`text-[11px] lg:text-xs font-medium ${selectedModel === m.id ? "text-white" : "text-white/60"}`}>{m.name}</p>
+                              <p className="text-[9px] text-white/20 font-light hidden sm:block">{m.desc}</p>
+                            </div>
+                          </div>
+                          {isExhausted && (
+                            <div className="flex items-center gap-1 text-[9px] text-red-400 font-bold bg-red-400/10 px-1.5 py-0.5 rounded-full">
+                              <AlertCircle size={10} strokeWidth={3} />
+                              EXT
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

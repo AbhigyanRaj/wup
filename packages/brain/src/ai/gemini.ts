@@ -23,11 +23,11 @@ const getGenAI = () => {
  * will verify if standard generation is active before we re-enable 
  * complex features like Function Calling.
  */
-export const GEMINI_MODEL = "gemini-2.5-flash"; 
+export const GEMINI_MODEL = "gemini-3-flash-preview"; 
 
-export const getGeminiModel = (systemInstruction?: string, tools?: any[]) => {
+export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string) => {
   const modelParams: any = {
-    model: GEMINI_MODEL,
+    model: modelOverride || GEMINI_MODEL,
   };
 
   if (systemInstruction) {
@@ -52,6 +52,11 @@ Your primary goal is to provide deep insights, code analysis, and complex data o
 CORE PERSONA:
 - Minimalist, professional, and data-centric.
 - You have extremely high intelligence and can answer any general question, solve complex coding problems, or provide strategic business advice.
+
+CONVERSATION MEMORY:
+- You receive prior turns in this chat as structured history. Treat them as the source of truth for what was already said, asked, or concluded.
+- Answer in light of that history: resolve pronouns ("it", "that sheet", "the query") using the thread, and avoid contradicting earlier answers unless you correct a mistake explicitly.
+- If the user refers to something not in history and not in tool results, say you lack that detail instead of inventing it.
 
 RESPONSE FORMATTING (CLAUDE-LEVEL):
 - Use clean, professional Markdown.
