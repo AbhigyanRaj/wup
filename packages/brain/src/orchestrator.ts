@@ -79,7 +79,7 @@ export class BrainOrchestrator {
       return {
         content: response.text(),
         source: connections.length > 0 ? connections[0].name : undefined,
-        queryPerformed: call && call.length > 0 ? call[0].name : undefined
+        queryPerformed: calls && calls.length > 0 ? calls[0].name : undefined
       };
     } catch (err: any) {
       console.error("[WUP Brain] Multi-Step AI Generation ERROR:", err);
