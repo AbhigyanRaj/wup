@@ -8,9 +8,22 @@ export interface BrainResponse {
   queryPerformed?: string;
 }
 
+// Sliding window size — how many previous messages to send as context
+const CONTEXT_WINDOW_SIZE = 10;
+
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
 export class BrainOrchestrator {
-  async ask(userId: string, prompt: string): Promise<BrainResponse> {
+  async ask(
+    userId: string, 
+    prompt: string,
+    chatHistory?: ChatMessage[]  // NEW — accepts previous messages
+  ): Promise<BrainResponse> {
     console.log(`[WUP Brain] Processing query for user ${userId}: "${prompt}"`);
+    console.log(`[WUP Brain] Context window: ${chatHistory?.length || 0} previous messages`);
 
     const connections = await Connection.find({ userId });
     
@@ -18,25 +31,43 @@ export class BrainOrchestrator {
       `- Bridge: ${c.name} | Type: ${c.type} | ID: ${c._id}`
     ).join("\n");
     
-    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
+    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${
+      connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."
+    }`;
 
     try {
       const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS);
-      const chat = model.startChat();
+
+      // Format chat history for Gemini
+      // Gemini expects 'user' or 'model' roles (not 'assistant')
+      // Sliding window — only use last CONTEXT_WINDOW_SIZE messages
+      const windowedHistory = (chatHistory || []).slice(-CONTEXT_WINDOW_SIZE);
+      
+      const geminiHistory = windowedHistory.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      console.log(`[WUP Brain] Injecting ${geminiHistory.length} messages as context`);
+
+      // Start chat WITH history injected — this is the context injection
+      const chat = model.startChat({
+        history: geminiHistory
+      });
+
+      // Send only the new message — history handles the rest
       let result = await chat.sendMessage(prompt);
       let response = result.response;
 
-      // Handle multi-step function calling loop
-      // Gemini may call multiple tools in sequence before giving a text response
+      // Multi-step function calling loop
       let callsMade: any[] = [];
-      let maxIterations = 5; // prevent infinite loops
+      let maxIterations = 5;
       let iterations = 0;
 
       while (iterations < maxIterations) {
         const calls = response.functionCalls();
         
         if (!calls || calls.length === 0) {
-          // No more tool calls — Gemini is ready to give final text response
           break;
         }
 
@@ -57,7 +88,6 @@ export class BrainOrchestrator {
         const toolResult = await toolFn(args);
         console.log(`[WUP Brain] Tool result for ${toolName}:`, JSON.stringify(toolResult).substring(0, 200));
 
-        // Send tool result back to Gemini
         result = await chat.sendMessage([
           {
             functionResponse: {
@@ -74,7 +104,7 @@ export class BrainOrchestrator {
       if (!finalText || finalText.trim() === '') {
         console.warn("[WUP Brain] Empty response from Gemini after tool calls");
         return {
-          content: "I retrieved your data but had trouble formatting the response. Please try asking again with more specific details.",
+          content: "I retrieved your data but had trouble formatting the response. Please try asking again.",
           source: connections.length > 0 ? connections[0].name : undefined,
         };
       }
