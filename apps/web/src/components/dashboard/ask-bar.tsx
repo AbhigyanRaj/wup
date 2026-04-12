@@ -83,7 +83,7 @@ export function AskBar({ onSubmit }: AskBarProps) {
                 </button>
 
                 {modelDropdown && (
-                  <div className="absolute top-full mt-2 left-0 w-48 sm:w-56 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute bottom-full mb-2 left-0 w-48 sm:w-56 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
                     <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold">Select Model</div>
                     {models.map((m) => (
                       <button

@@ -2,11 +2,6 @@ import { Connection } from "../../../apps/api/src/models/Connection";
 import { getGeminiModel, WUP_SYSTEM_PROMPT } from "./ai/gemini";
 import { WUP_AI_TOOLS, WUP_TOOLS_REGISTRY } from "./tools/registry";
 
-/**
- * The BrainOrchestrator coordinates between user prompts, 
- * connected databases, and the Gemini AI model.
- */
-
 export interface BrainResponse {
   content: string;
   source?: string;
@@ -14,17 +9,11 @@ export interface BrainResponse {
 }
 
 export class BrainOrchestrator {
-  /**
-   * Main entry point for a user's question to the Brain.
-   * Handles the Function Calling loop (Tools) internally.
-   */
   async ask(userId: string, prompt: string): Promise<BrainResponse> {
     console.log(`[WUP Brain] Processing query for user ${userId}: "${prompt}"`);
 
-    // 1. Fetch available connections for this user to provide "Context" to the AI
     const connections = await Connection.find({ userId });
     
-    // 2. Prepare Tool/Bridge description for the AI System Instruction
     const bridgeInfo = connections.map(c => 
       `- Bridge: ${c.name} | Type: ${c.type} | ID: ${c._id}`
     ).join("\n");
@@ -32,46 +21,70 @@ export class BrainOrchestrator {
     const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
 
     try {
-      // 3. Initialize Gemini with Tools
       const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS);
-      
-      // 4. Start Chat Session
       const chat = model.startChat();
       let result = await chat.sendMessage(prompt);
       let response = result.response;
 
-      // 5. Handle Function Calling Loop
-      const call = response.functionCalls();
-      if (call && call.length > 0) {
-        const functionCall = call[0];
+      // Handle multi-step function calling loop
+      // Gemini may call multiple tools in sequence before giving a text response
+      let callsMade: any[] = [];
+      let maxIterations = 5; // prevent infinite loops
+      let iterations = 0;
+
+      while (iterations < maxIterations) {
+        const calls = response.functionCalls();
+        
+        if (!calls || calls.length === 0) {
+          // No more tool calls — Gemini is ready to give final text response
+          break;
+        }
+
+        iterations++;
+        const functionCall = calls[0];
         const toolName = functionCall.name;
         const args = functionCall.args;
 
         console.log(`[WUP Brain] Gemini is requesting tool: ${toolName}`, args);
+        callsMade.push(functionCall);
 
-        // Execute the tool from our registry
         const toolFn = WUP_TOOLS_REGISTRY[toolName];
-        if (toolFn) {
-          const toolResult = await toolFn(args);
-          
-          // Send the tool results back to Gemini for the final synthesis
-          result = await chat.sendMessage([
-            {
-              functionResponse: {
-                name: toolName,
-                response: toolResult
-              }
-            }
-          ]);
-          response = result.response;
+        if (!toolFn) {
+          console.warn(`[WUP Brain] Tool not found: ${toolName}`);
+          break;
         }
+
+        const toolResult = await toolFn(args);
+        console.log(`[WUP Brain] Tool result for ${toolName}:`, JSON.stringify(toolResult).substring(0, 200));
+
+        // Send tool result back to Gemini
+        result = await chat.sendMessage([
+          {
+            functionResponse: {
+              name: toolName,
+              response: toolResult
+            }
+          }
+        ]);
+        response = result.response;
+      }
+
+      // Guard against empty response
+      const finalText = response.text();
+      if (!finalText || finalText.trim() === '') {
+        console.warn("[WUP Brain] Empty response from Gemini after tool calls");
+        return {
+          content: "I retrieved your data but had trouble formatting the response. Please try asking again with more specific details.",
+          source: connections.length > 0 ? connections[0].name : undefined,
+        };
       }
 
       return {
-        content: response.text(),
+        content: finalText,
         source: connections.length > 0 ? connections[0].name : undefined,
-        queryPerformed: call && call.length > 0 ? call[0].name : undefined
+        queryPerformed: callsMade.length > 0 ? callsMade.map(c => c.name).join(', ') : undefined
       };
+
     } catch (err: any) {
       console.error("[WUP Brain] Multi-Step AI Generation ERROR:", err);
       return {

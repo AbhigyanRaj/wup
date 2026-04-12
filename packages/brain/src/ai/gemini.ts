@@ -23,21 +23,24 @@ const getGenAI = () => {
  * will verify if standard generation is active before we re-enable 
  * complex features like Function Calling.
  */
-export const GEMINI_MODEL = "gemini-1.5-flash"; 
+export const GEMINI_MODEL = "gemini-2.5-flash"; 
 
+// FIXED
 export const getGeminiModel = (systemInstruction?: string, tools?: any[]) => {
-  // Stripping tools for diagnostic verification
   const modelParams: any = {
     model: GEMINI_MODEL,
   };
 
-  // Only trying systemInstruction
   if (systemInstruction) {
     modelParams.systemInstruction = systemInstruction;
   }
 
-  // Explicitly using 'v1' for the first successful handshake
-  return getGenAI().getGenerativeModel(modelParams, { apiVersion: 'v1' });
+  // Re-enable tools for function calling
+  if (tools && tools.length > 0) {
+    modelParams.tools = tools;
+  }
+
+  return getGenAI().getGenerativeModel(modelParams, { apiVersion: 'v1beta' });
 };
 
 /**
