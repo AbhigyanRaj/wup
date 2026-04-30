@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/auth-context";
+import { motion, AnimatePresence } from "framer-motion";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { AskBar } from "@/components/dashboard/ask-bar";

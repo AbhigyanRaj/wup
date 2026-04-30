@@ -221,7 +221,7 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
                         className="flex items-center gap-3 rounded-xl px-3 py-2.5"
                         style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
                       >
-                        <FileText size={13} style={{ color: "var(--text-muted)", shrink: 0 }} />
+                        <FileText size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-[12.5px] font-medium truncate" style={{ color: "var(--text-secondary)" }}>
                             {u.file.name}
