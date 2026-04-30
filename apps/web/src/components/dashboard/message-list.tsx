@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import { MessageItem, MessageProps } from "./message-item";
 import { TypingIndicator } from "./typing-indicator";
 
@@ -18,13 +19,23 @@ export function MessageList({ messages, isTyping }: MessageListProps) {
 
   return (
     <div className="w-full h-full">
-      {messages.map((msg, index) => (
-        <MessageItem key={index} role={msg.role} content={msg.content} />
-      ))}
-      
-      {isTyping && <TypingIndicator />}
-      
-      <div ref={bottomRef} className="h-40" />
+      <AnimatePresence initial={false}>
+        {messages.map((msg, index) => (
+          <MessageItem
+            key={`msg-${index}`}
+            role={msg.role}
+            content={msg.content}
+            ragSources={msg.ragSources}
+          />
+        ))}
+      </AnimatePresence>
+
+      {/* Typing indicator — wrapped in AnimatePresence so it animates in/out */}
+      <AnimatePresence>
+        {isTyping && <TypingIndicator key="typing" />}
+      </AnimatePresence>
+
+      <div ref={bottomRef} className="h-36" />
     </div>
   );
 }

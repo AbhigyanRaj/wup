@@ -1,23 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Plus, 
-  Search, 
-  Database, 
-  MessageSquare, 
-  Box, 
-  Layers, 
-  ChevronLeft, 
-  ChevronRight,
-  LogOut,
-  Trash2,
-  X
+import {
+  Plus, Search, Database, Upload,
+  LogOut, Trash2, X, MessageSquare,
+  ChevronRight, ChevronLeft, Loader2,
 } from "lucide-react";
-import Link from "next/link";
 import { useAuth } from "@/components/auth-context";
 import { Chat } from "@/app/dashboard/page";
 import { AnimatePresence, motion } from "framer-motion";
+import { KnowledgeSource } from "./upload-modal";
 
 interface SidebarProps {
   chats: Chat[];
@@ -28,142 +20,214 @@ interface SidebarProps {
   connections: { _id: string; name: string; type: string }[];
   onDeleteConnection: (id: string) => void;
   onOpenAddDb: () => void;
+  onOpenUpload: () => void;
+  knowledgeSources: KnowledgeSource[];
+  onDeleteSource: (id: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
 
-export function DashboardSidebar({ 
-  chats, 
-  activeChatId,
-  onNewChat, 
-  onSelectChat,
-  onDeleteChat, 
-  connections,
-  onDeleteConnection,
-  onOpenAddDb,
-  isMobileOpen,
-  onCloseMobile
+function StatusDot({ status }: { status: KnowledgeSource["status"] }) {
+  if (status === "indexing" || status === "pending")
+    return <Loader2 size={10} className="animate-spin shrink-0" style={{ color: "var(--amber)" }} />;
+  if (status === "indexed")
+    return <div className="w-1.5 h-1.5 rounded-full shrink-0 shadow-[0_0_8px_rgba(74,222,128,0.4)]" style={{ background: "var(--green)" }} />;
+  return <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--red)" }} />;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] opacity-30 select-none">
+      {label}
+    </p>
+  );
+}
+
+export function DashboardSidebar({
+  chats, activeChatId, onNewChat, onSelectChat, onDeleteChat,
+  connections, onDeleteConnection, onOpenAddDb, onOpenUpload,
+  knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
+  const expanded = !collapsed || !!isMobileOpen;
 
   const sidebarContent = (
-    <div className={`h-full bg-[#0f0f0f] border-r border-white/5 flex flex-col transition-all duration-300 relative z-50 shrink-0 ${
-      collapsed ? "w-[70px]" : "w-64"
-    } ${isMobileOpen ? "w-72 border-r-0" : ""}`}>
-      {/* Header / Brand */}
-      <div className="p-6 flex items-center justify-between">
-        <span className={`text-xl font-bold tracking-tighter text-white ${collapsed && !isMobileOpen ? "hidden" : "block"}`}>WUP</span>
-        
-        <div className="flex items-center gap-2">
-          {isMobileOpen ? (
-            <button 
-              onClick={onCloseMobile}
-              className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors lg:hidden"
-            >
-              <X size={18} />
-            </button>
-          ) : (
-            <button 
-              onClick={() => setCollapsed(!collapsed)}
-              className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors hidden lg:block"
-            >
-              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Primary Actions */}
-      <div className="px-4 py-4 space-y-1">
-        <button
-          onClick={() => {
-            onNewChat();
-            onCloseMobile?.();
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group bg-white/5 text-white/80 hover:bg-white/10 border border-white/5 ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
-        >
-          <Plus size={18} />
-          {(!collapsed || isMobileOpen) && <span className="font-light tracking-tight">New chat</span>}
-        </button>
-        
-        <SidebarItem 
-          key="nav-search"
-          icon={<Search size={18} />} 
-          label="Search" 
-          collapsed={collapsed && !isMobileOpen} 
-        />
-        
-        <button
-          onClick={() => {
-            onOpenAddDb();
-            onCloseMobile?.();
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all group text-white/40 hover:text-white hover:bg-white/5 ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
-        >
-          <Database size={18} />
-          {(!collapsed || isMobileOpen) && <span className="font-light tracking-tight">Add DB</span>}
-        </button>
-      </div>
-
-      {/* Navigation Sections */}
-      <div className="flex-1 px-4 py-8 overflow-y-auto overflow-x-hidden space-y-6 scrollbar-hide">
-        <div>
-          {(!collapsed || isMobileOpen) && (
-            <h3 className="px-2 text-[10px] uppercase tracking-widest text-white/20 font-bold mb-3">
-              Explore
-            </h3>
-          )}
-          <div className="space-y-1">
-            <SidebarItem key="nav-chats" icon={<MessageSquare size={18} />} label="Chats" collapsed={collapsed && !isMobileOpen} />
-            <SidebarItem key="nav-projects" icon={<Box size={18} />} label="Projects" collapsed={collapsed && !isMobileOpen} />
-            <SidebarItem key="nav-artifacts" icon={<Layers size={18} />} label="Artifacts" collapsed={collapsed && !isMobileOpen} />
+    <div
+      className={`h-full flex flex-col transition-all duration-300 shrink-0 ${
+        isMobileOpen ? "w-[240px]" : collapsed ? "w-[64px]" : "w-[240px]"
+      }`}
+      style={{ background: "var(--bg-sidebar)", borderRight: "1px solid var(--border)" }}
+    >
+      {/* Logo bar */}
+      <div className="flex items-center justify-between px-5 h-14 shrink-0">
+        {expanded && (
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-2 h-2 rounded-full shadow-[0_0_10px_rgba(255,95,31,0.3)]"
+              style={{ background: "var(--orange)" }}
+            />
+            <span className="text-[14px] tracking-[0.2em] font-bold uppercase text-white/90" style={{ fontFamily: "var(--font-display)" }}>WUP</span>
           </div>
-        </div>
+        )}
 
+        {!isMobileOpen && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1.5 rounded-lg hidden lg:flex items-center justify-center transition-all hover:bg-white/5"
+            style={{ color: "var(--text-muted)", marginLeft: expanded ? 0 : "auto", marginRight: expanded ? 0 : "auto" }}
+          >
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        )}
+
+        {isMobileOpen && (
+          <button onClick={onCloseMobile} className="p-1.5 rounded-lg lg:hidden" style={{ color: "var(--text-muted)" }}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="px-3 pt-2 pb-4 space-y-1 shrink-0">
+        {/* New Chat — accent colored */}
+        <button
+          onClick={() => { onNewChat(); onCloseMobile?.(); }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group ${!expanded ? "justify-center" : ""}`}
+          style={{
+            background: "rgba(255, 95, 31, 0.04)",
+            border: "1px solid rgba(255, 95, 31, 0.15)",
+            color: "var(--text-primary)",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.08)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.3)";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.04)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.15)";
+          }}
+        >
+          <Plus size={16} strokeWidth={2.5} className="transition-transform group-hover:scale-110" style={{ color: "var(--orange)" }} />
+          {expanded && <span>New chat</span>}
+        </button>
+
+        <div className="pt-2 space-y-0.5">
+          {[
+            { icon: <Search size={15} />, label: "Search", onClick: undefined },
+            { icon: <Database size={15} />, label: "Add Bridge", onClick: () => { onOpenAddDb(); onCloseMobile?.(); } },
+            { icon: <Upload size={15} />, label: "Import", onClick: () => { onOpenUpload(); onCloseMobile?.(); } },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all hover:bg-white/[0.04] ${!expanded ? "justify-center" : ""}`}
+              style={{ color: "var(--text-secondary)" }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
+              }}
+            >
+              <span className="opacity-70 group-hover:opacity-100">{item.icon}</span>
+              {expanded && <span className="font-light tracking-wide">{item.label}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Scrollable list */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-3 py-2 space-y-6">
+
+        {/* Chats */}
         {chats.length > 0 && (
           <div>
-            {(!collapsed || isMobileOpen) && (
-              <h3 className="px-2 text-[10px] uppercase tracking-widest text-white/20 font-bold mb-3">
-                Recents
-              </h3>
-            )}
+            {expanded && <SectionLabel label="Recents" />}
             <div className="space-y-0.5">
-              {chats.map((chat) => (
-                <div 
-                  key={`chat-${chat._id}`} 
-                  onClick={() => {
-                    onSelectChat(chat._id);
-                    onCloseMobile?.();
-                  }}
-                  className={`group flex items-center gap-2 px-2 py-2 rounded-lg transition-all cursor-pointer ${
-                    activeChatId === chat._id ? "bg-white/10" : "hover:bg-white/5"
-                  } ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
+              {chats.map((chat) => {
+                const isActive = activeChatId === chat._id;
+                return (
+                  <div
+                    key={`c-${chat._id}`}
+                    onClick={() => { onSelectChat(chat._id); onCloseMobile?.(); }}
+                    className="group relative flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all"
+                    style={{
+                      background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+                    }}
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; }}
+                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="active-chat"
+                        className="absolute left-0 w-0.5 h-4 bg-[var(--orange)] rounded-full shadow-[0_0_8px_rgba(255,95,31,0.4)]"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    
+                    {expanded ? (
+                      <>
+                        <MessageSquare
+                          size={14}
+                          className="shrink-0"
+                          style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}
+                        />
+                        <span
+                          className="flex-1 text-[13px] truncate font-light tracking-wide"
+                          style={{ color: isActive ? "var(--text-primary)" : "var(--text-secondary)" }}
+                        >
+                          {chat.title}
+                        </span>
+                        <button
+                          onClick={e => { e.stopPropagation(); onDeleteChat(chat._id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-white/10"
+                          style={{ color: "var(--text-muted)" }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <div
+                        className="w-1.5 h-1.5 rounded-full mx-auto"
+                        style={{ background: isActive ? "var(--text-primary)" : "var(--text-muted)" }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* DB Bridges */}
+        {connections.length > 0 && (
+          <div>
+            {expanded && <SectionLabel label="Bridges" />}
+            <div className="space-y-0.5">
+              {connections.map((conn) => (
+                <div
+                  key={`b-${conn._id}`}
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-white/[0.03]"
                 >
-                  {(!collapsed || isMobileOpen) && (
-                    <p className={`flex-1 text-[12px] font-light truncate transition-colors ${
-                      activeChatId === chat._id ? "text-white" : "text-white/40 group-hover:text-white/80"
-                    }`}>
-                      {chat.title}
-                    </p>
-                  )}
-                  {(!collapsed || isMobileOpen) && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteChat(chat._id);
-                      }}
-                      className={`p-1 hover:text-red-400 transition-all ${
-                        activeChatId === chat._id ? "text-white/40 opacity-100" : "opacity-0 group-hover:opacity-100 text-white/20"
-                      }`}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                  {collapsed && !isMobileOpen && (
-                     <div className={`w-1.5 h-1.5 rounded-full transition-all transform group-hover:scale-125 ${
-                       activeChatId === chat._id ? "bg-white" : "bg-white/20 group-hover:bg-white"
-                     }`} />
+                  {expanded ? (
+                    <>
+                      <div className="w-1 h-1 rounded-full shrink-0 opacity-40" style={{ background: "var(--text-primary)" }} />
+                      <span className="flex-1 text-[13px] font-light truncate tracking-wide" style={{ color: "var(--text-secondary)" }}>{conn.name}</span>
+                      <button
+                        onClick={() => onDeleteConnection(conn._id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-white/10"
+                        style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="w-1 h-1 rounded-full mx-auto opacity-40" style={{ background: "var(--text-primary)" }} />
                   )}
                 </div>
               ))}
@@ -171,44 +235,34 @@ export function DashboardSidebar({
           </div>
         )}
 
-        {connections.length > 0 && (
-          <div className="pt-2">
-            {(!collapsed || isMobileOpen) && (
-              <h3 className="px-2 text-[10px] uppercase tracking-widest text-white/20 font-bold mb-3">
-                Active Bridges
-              </h3>
-            )}
-            <div className="space-y-1">
-              {connections.map((conn) => (
-                <div 
-                  key={`bridge-${conn._id}`} 
-                  className={`group flex items-center gap-2 px-2 py-2 rounded-lg transition-all bg-white/[0.02] border border-white/[0.03] ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
+        {/* Knowledge sources */}
+        {knowledgeSources.length > 0 && (
+          <div>
+            {expanded && <SectionLabel label="Knowledge" />}
+            <div className="space-y-0.5">
+              {knowledgeSources.map((src) => (
+                <div
+                  key={`s-${src._id}`}
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-white/[0.03]"
                 >
-                  {(!collapsed || isMobileOpen) && (
-                    <div className="p-1 rounded bg-white/5 text-white/40 group-hover:text-white/60">
-                       <Database size={10} />
-                    </div>
-                  )}
-                  {(!collapsed || isMobileOpen) && (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-medium text-white/60 truncate group-hover:text-white/90">
-                        {conn.name}
-                      </p>
-                    </div>
-                  )}
-                  {(!collapsed || isMobileOpen) && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteConnection(conn._id);
-                      }}
-                      className="p-1 text-white/10 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                  {collapsed && !isMobileOpen && (
-                     <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                  {expanded ? (
+                    <>
+                      <StatusDot status={src.status} />
+                      <span className="flex-1 text-[13px] font-light truncate tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                        {src.name}
+                      </span>
+                      <button
+                        onClick={() => onDeleteSource(src._id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-white/10"
+                        style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="mx-auto"><StatusDot status={src.status} /></div>
                   )}
                 </div>
               ))}
@@ -217,27 +271,44 @@ export function DashboardSidebar({
         )}
       </div>
 
-      {/* Footer / Profile & Logout */}
-      <div className="p-4 border-t border-white/5 shrink-0">
-        <button 
-          onClick={logout}
-          className={`w-full flex items-center gap-3 p-2 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-400/5 transition-all group mb-2 ${collapsed && !isMobileOpen ? "justify-center" : ""}`}
-        >
-          <LogOut size={18} className="group-hover:scale-110 transition-transform" />
-          {(!collapsed || isMobileOpen) && <span className="text-xs font-light">Logout</span>}
-        </button>
-
-        <div className={`flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group ${collapsed && !isMobileOpen ? "justify-center" : ""}`}>
-          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium text-white/60 group-hover:bg-white/20 transition-all border border-white/5 shadow-inner">
-            {user?.email?.[0].toUpperCase() || "A"}
-          </div>
-          {(!collapsed || isMobileOpen) && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white/80 truncate">{user?.email?.split('@')[0] || "abhigyan"}</p>
-              <p className="text-[10px] text-white/20 uppercase tracking-wider">Free plan</p>
+      {/* Footer */}
+      <div className="px-3 py-4 shrink-0 space-y-2">
+        {expanded && (
+          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0 shadow-inner"
+              style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              {user?.email?.[0].toUpperCase() ?? "U"}
             </div>
-          )}
-        </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium truncate leading-none mb-1" style={{ color: "var(--text-primary)" }}>
+                {user?.email?.split("@")[0] ?? "User"}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">Pro Plan</p>
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded-lg transition-all hover:bg-red-500/10 hover:text-red-400 opacity-40 hover:opacity-100"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
+
+        {!expanded && (
+          <button
+            onClick={logout}
+            className="w-full flex justify-center p-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all opacity-40 hover:opacity-100"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <LogOut size={16} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -247,55 +318,23 @@ export function DashboardSidebar({
       <AnimatePresence>
         {isMobileOpen && (
           <div className="fixed inset-0 z-[100] lg:hidden">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={onCloseMobile}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0"
+              style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
             />
-            <motion.div 
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute left-0 top-0 bottom-0 w-72"
+            <motion.div
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+              className="absolute left-0 top-0 bottom-0"
             >
               {sidebarContent}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      <div className="hidden lg:block h-full shrink-0">
-        {sidebarContent}
-      </div>
+      <div className="hidden lg:block h-full shrink-0">{sidebarContent}</div>
     </>
-  );
-}
-
-function SidebarItem({ 
-  icon, 
-  label, 
-  collapsed, 
-  active = false,
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
-  collapsed: boolean;
-  active?: boolean;
-}) {
-  return (
-    <Link 
-      href="#" 
-      className={`flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm transition-all group ${
-        active 
-          ? "bg-white/10 text-white shadow-sm" 
-          : "text-white/40 hover:text-white hover:bg-white/5"
-      } ${collapsed ? "justify-center" : ""}`}
-    >
-      <span className="flex-shrink-0 transition-transform group-hover:scale-110">{icon}</span>
-      {!collapsed && <span className="font-light tracking-tight truncate">{label}</span>}
-    </Link>
   );
 }

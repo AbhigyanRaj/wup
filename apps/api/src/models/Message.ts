@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 /**
  * The Message model represents an individual entry in a Chat thread.
+ * ragSources stores the RAG citation data returned by the Brain so the
+ * frontend can render citation pills when the conversation is reloaded.
  */
 
 const messageSchema = new mongoose.Schema({
@@ -24,6 +26,12 @@ const messageSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  // RAG source citations — only present on assistant messages (optional)
+  ragSources: [{
+    sourceFile: { type: String },
+    pageNumber: { type: Number },
+    score: { type: Number },
+  }],
   createdAt: { 
     type: Date, 
     default: Date.now 
@@ -34,3 +42,4 @@ const messageSchema = new mongoose.Schema({
 messageSchema.index({ chatId: 1, createdAt: 1 });
 
 export const Message = mongoose.model("Message", messageSchema);
+

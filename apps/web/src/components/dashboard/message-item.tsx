@@ -2,72 +2,111 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles, User } from "lucide-react";
+import { FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+interface RagSource { sourceFile: string; pageNumber: number; score: number; }
+
+function CitationPill({ source }: { source: RagSource }) {
+  return (
+    <span
+      title={`Relevance: ${Math.round(source.score * 100)}%`}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium cursor-default transition-all hover:bg-white/[0.08]"
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        color: "var(--text-secondary)",
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.3)";
+        (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.04)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+      }}
+    >
+      <FileText size={10} className="opacity-50" />
+      <span className="truncate tracking-wide" style={{ maxWidth: 140 }}>{source.sourceFile}</span>
+      {source.pageNumber > 0 && (
+        <span className="opacity-30 ml-0.5">p.{source.pageNumber}</span>
+      )}
+    </span>
+  );
+}
 
 export interface MessageProps {
   role: "user" | "assistant";
   content: string;
+  ragSources?: RagSource[];
 }
 
-export function MessageItem({ role, content }: MessageProps) {
+export function MessageItem({ role, content, ragSources }: MessageProps) {
   const isAssistant = role === "assistant";
+  const hasCitations = isAssistant && ragSources && ragSources.length > 0;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 8, filter: "blur(8px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ 
-        duration: 0.6, 
-        ease: [0.16, 1, 0.3, 1] 
-      }}
-      className="w-full py-8 border-b border-white/[0.01]"
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`w-full ${isAssistant ? "py-8" : "py-4"}`}
     >
-      <div className={`
-        flex gap-4 lg:gap-8 max-w-4xl mx-auto px-6
-        ${isAssistant ? "flex-row items-start" : "flex-row-reverse items-start"}
-      `}>
-        {/* Avatar Area */}
-        <div className={`
-          flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-500
-          ${isAssistant 
-            ? "bg-[#e27d60]/10 border-[#e27d60]/20 text-[#e27d60] shadow-[0_0_20px_rgba(226,125,96,0.1)]" 
-            : "bg-white/[0.05] border-white/10 text-white/40 shadow-sm"}
-        `}>
-          {isAssistant ? <Sparkles size={18} /> : <User size={18} />}
-        </div>
+      <div className={`flex gap-5 max-w-3xl mx-auto px-6 ${isAssistant ? "items-start" : "justify-end"}`}>
 
-        {/* Content Area */}
-        <div className={`flex-1 flex flex-col ${isAssistant ? "items-start" : "items-end"}`}>
-          <div className={`
-            prose prose-invert max-w-none text-[15px] leading-[1.7] font-light selection:bg-[#e27d60]/20
-            ${isAssistant ? "text-white/80" : "text-white/90 bg-[#111] p-5 rounded-2xl border border-white/[0.05] shadow-2xl"}
-          `}>
-             <ReactMarkdown 
-               remarkPlugins={[remarkGfm]}
-               components={{
-                 table: ({node, ...props}) => (
-                   <div className="overflow-x-auto my-6 rounded-xl border border-white/10 bg-white/[0.02]">
-                     <table className="w-full text-sm text-left border-collapse" {...props} />
-                   </div>
-                 ),
-                 thead: ({node, ...props}) => <thead className="bg-white/5 text-white/40 uppercase tracking-widest text-[10px] font-bold" {...props} />,
-                 th: ({node, ...props}) => <th className="px-5 py-3 border-b border-white/10 font-bold" {...props} />,
-                 td: ({node, ...props}) => <td className="px-5 py-4 border-b border-white/[0.05] font-light text-white/60" {...props} />,
-                 code: ({node, ...props}) => (
-                   <code className="bg-white/10 px-1.5 py-0.5 rounded text-[#e27d60] font-mono text-sm" {...props} />
-                 ),
-                 pre: ({node, ...props}) => (
-                   <pre className="p-5 rounded-2xl bg-[#0d0d0d] border border-white/5 my-6 overflow-x-auto shadow-2xl" {...props} />
-                 ),
-                 p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
-                 a: ({node, ...props}) => <a className="text-[#e27d60] underline underline-offset-4 hover:text-[#e27d60]/80 transition-colors" {...props} />,
-               }}
-             >
-               {content}
-             </ReactMarkdown>
+        {isAssistant && (
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg overflow-hidden relative group"
+            style={{
+              background: "var(--bg-sidebar)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--orange)]/10 to-transparent opacity-40" />
+            <div className="w-2 h-2 rounded-full bg-[var(--orange)] relative z-10 shadow-[0_0_12px_rgba(255,95,31,0.6)]" />
           </div>
+        )}
+
+        {/* Content */}
+        <div className={`flex flex-col gap-3 ${isAssistant ? "flex-1" : "max-w-[85%] sm:max-w-[70%]"}`}>
+          {isAssistant ? (
+            <div className="wup-prose selectable tracking-wide leading-relaxed">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div
+              className="selectable px-5 py-3.5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm tracking-wide"
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                color: "var(--text-primary)",
+              }}
+            >
+              {content}
+            </div>
+          )}
+
+          {/* Citations */}
+          {hasCitations && (
+            <motion.div
+              initial={{ opacity: 0, x: -5 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+              className="flex flex-wrap gap-2 items-center pt-3 mt-2 border-t border-white/[0.04]"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] mr-2 opacity-20 select-none">
+                Sources
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {ragSources!.map((src, i) => (
+                  <CitationPill key={`${src.sourceFile}-${i}`} source={src} />
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.div>

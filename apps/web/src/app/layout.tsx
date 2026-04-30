@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,17 +13,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-serif",
-  weight: "400",
-  subsets: ["latin"],
-  style: "italic"
+/* Custom display fonts from assets */
+const fontDisplay = localFont({
+  src: "../../public/fonts/font-1.otf",
+  variable: "--font-display",
+  display: "swap",
+});
+
+const fontDisplay2 = localFont({
+  src: "../../public/fonts/font-2.otf",
+  variable: "--font-display-2",
+  display: "swap",
 });
 
 import { AuthProvider } from "@/components/auth-context";
 
 export const metadata: Metadata = {
-  title: "WUP | Unified Brain",
+  title: "Wup | AI Data Intelligence",
   description: "AI-powered data intelligence platform",
 };
 
@@ -34,9 +41,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fontDisplay.variable} ${fontDisplay2.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>

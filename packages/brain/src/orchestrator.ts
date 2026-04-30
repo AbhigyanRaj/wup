@@ -2,16 +2,32 @@ import type { Content } from "@google/generative-ai";
 import { Connection } from "../../../apps/api/src/models/Connection";
 import { getGeminiModel, WUP_SYSTEM_PROMPT } from "./ai/gemini";
 import { WUP_AI_TOOLS, WUP_TOOLS_REGISTRY } from "./tools/registry";
+import { ragService, safeRetrieve, buildRagContext } from "./rag/retriever";
 
 /**
- * The BrainOrchestrator coordinates between user prompts, 
- * connected databases, and the Gemini AI model.
+ * BrainOrchestrator: The central intelligence engine for WUP.
+ *
+ * Query pipeline (RAG-first):
+ *   1. Fetch user's active DB bridges (connections)
+ *   2. RAG retrieval — embed query → vector search → top-K chunks (non-blocking)
+ *   3. Build context: [RAG chunks] + [chat history] + [bridge list]
+ *   4. Call Gemini LLM with full context + tools
+ *   5. Execute tool calls if any (DB bridge function-calling loop)
+ *   6. Return grounded answer + source citations
  */
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface BrainResponse {
   content: string;
   source?: string;
   queryPerformed?: string;
+  /** Chunks retrieved by RAG — used to render citation pills in the UI */
+  ragSources?: Array<{
+    sourceFile: string;
+    pageNumber: number;
+    score: number;
+  }>;
 }
 
 /** One stored message role + text (from DB or tests). */
@@ -20,9 +36,24 @@ export interface ChatTurn {
   content: string;
 }
 
+interface GeminiError extends Error {
+  status?: number;
+  errorDetails?: Array<{
+    "@type": string;
+    retryDelay?: string;
+    [key: string]: unknown;
+  }>;
+}
+
 /** Sliding window: max prior messages (user + assistant) injected into Gemini history */
 export const CHAT_CONTEXT_MAX_MESSAGES = 10;
 
+// ─── History Builder ──────────────────────────────────────────────────────────
+
+/**
+ * Converts ChatTurn[] into the strict alternating user/model format
+ * required by Gemini's multi-turn chat API.
+ */
 function buildGeminiHistory(turns: ChatTurn[]): Content[] {
   const raw: Content[] = [];
   for (const t of turns) {
@@ -35,13 +66,11 @@ function buildGeminiHistory(turns: ChatTurn[]): Content[] {
     });
   }
 
-  while (raw.length > 0 && raw[0].role !== "user") {
-    raw.shift();
-  }
-  while (raw.length > 0 && raw[raw.length - 1].role !== "model") {
-    raw.pop();
-  }
+  // History must start with "user" and end with "model"
+  while (raw.length > 0 && raw[0].role !== "user") raw.shift();
+  while (raw.length > 0 && raw[raw.length - 1].role !== "model") raw.pop();
 
+  // Enforce strict alternation
   const fixed: Content[] = [];
   for (const c of raw) {
     const want = fixed.length % 2 === 0 ? "user" : "model";
@@ -50,25 +79,31 @@ function buildGeminiHistory(turns: ChatTurn[]): Content[] {
   while (fixed.length > 0 && fixed[fixed.length - 1].role !== "model") {
     fixed.pop();
   }
+
   return fixed;
 }
 
+// ─── Orchestrator ─────────────────────────────────────────────────────────────
+
 export class BrainOrchestrator {
-  /** List of models to try in order during auto-rotation */
+  /** Models tried in order during Auto-Rotate mode */
   private static readonly MODEL_ROTATION = [
-    "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-flash-lite-latest",
+    "gemini-1.5-flash",
   ];
 
-  /** TRACKER: Models that hit daily limits in this run */
+  /** Models that hit daily limits in this server process lifetime */
   private static exhaustedModels = new Set<string>();
 
   /**
    * Main entry point for a user's question to the Brain.
-   * Handles the Function Calling loop (Tools) internally.
-   * @param chatHistory prior turns in this thread (oldest → newest); current user message is sent separately via `prompt`.
+   *
+   * @param userId      Authenticated user ID (used for RAG scoping + bridge lookup)
+   * @param prompt      The current user message
+   * @param options.chatHistory  Prior turns in this thread (oldest → newest)
+   * @param options.model        Specific model name, or "Auto-Rotate"
    */
   async ask(
     userId: string,
@@ -79,108 +114,83 @@ export class BrainOrchestrator {
     const geminiHistory = buildGeminiHistory(historyTurns);
 
     const requestedModel = options?.model;
-    const modelsToTry = requestedModel && requestedModel !== "Auto-Rotate"
-      ? [requestedModel]
-      : BrainOrchestrator.MODEL_ROTATION.filter(m => !BrainOrchestrator.exhaustedModels.has(m));
+    const modelsToTry =
+      requestedModel && requestedModel !== "Auto-Rotate"
+        ? [requestedModel]
+        : BrainOrchestrator.MODEL_ROTATION.filter(
+            (m) => !BrainOrchestrator.exhaustedModels.has(m)
+          );
 
-    // Fallback if all preferred models are exhausted
+    // Fallback: if all preferred models are exhausted, try the last one anyway
     if (modelsToTry.length === 0) {
-      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[1]); // Try 1.5-flash as final hope
+      modelsToTry.push(
+        BrainOrchestrator.MODEL_ROTATION[BrainOrchestrator.MODEL_ROTATION.length - 1]
+      );
     }
 
     console.log(
-      `[WUP Brain] Processing query for user ${userId} using ${requestedModel || "Auto-Rotate"}: "${prompt.slice(0, 100)}..."`
+      `[WUP Brain] Query from userId=${userId} | model=${requestedModel || "Auto-Rotate"} | prompt="${prompt.slice(0, 80)}..."`
     );
 
-    // 1. Fetch available connections
+    // ── Step 1: Fetch active DB bridges ──────────────────────────────────────
     const connections = await Connection.find({ userId });
-    const bridgeInfo = connections.map(c => 
-      `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`
-    ).join("\n");
-    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
+    const bridgeInfo = connections
+      .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
+      .join("\n");
 
-interface GeminiError extends Error {
-  status?: number;
-  errorDetails?: Array<{
-    "@type": string;
-    retryDelay?: string;
-    [key: string]: any;
-  }>;
-}
+    // ── Step 2: RAG Retrieval (non-blocking — failure returns []) ─────────────
+    const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
 
-export class BrainOrchestrator {
-  /** List of models to try in order during auto-rotation */
-  private static readonly MODEL_ROTATION = [
-    "gemini-3-flash-preview",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-flash-lite-latest",
-  ];
-
-  /** TRACKER: Models that hit daily limits in this run */
-  private static exhaustedModels = new Set<string>();
-
-  /**
-   * Main entry point for a user's question to the Brain.
-   * Handles the Function Calling loop (Tools) internally.
-   * @param chatHistory prior turns in this thread (oldest → newest); current user message is sent separately via `prompt`.
-   */
-  async ask(
-    userId: string,
-    prompt: string,
-    options?: { chatHistory?: ChatTurn[]; model?: string }
-  ): Promise<BrainResponse & { usedModel?: string; exhausted?: string[] }> {
-    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
-    const geminiHistory = buildGeminiHistory(historyTurns);
-
-    const requestedModel = options?.model;
-    const modelsToTry = requestedModel && requestedModel !== "Auto-Rotate"
-      ? [requestedModel]
-      : BrainOrchestrator.MODEL_ROTATION.filter(m => !BrainOrchestrator.exhaustedModels.has(m));
-
-    // Fallback if all preferred models are exhausted
-    if (modelsToTry.length === 0) {
-      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[1]); // Try 1.5-flash as final hope
+    if (retrievedChunks.length > 0) {
+      console.log(
+        `[WUP Brain] RAG: ${retrievedChunks.length} chunks retrieved | ` +
+        `top_score=${retrievedChunks[0].score.toFixed(3)}`
+      );
+    } else {
+      console.log(`[WUP Brain] RAG: no relevant chunks found — answering from general knowledge`);
     }
 
-    console.log(
-      `[WUP Brain] Processing query for user ${userId} using ${requestedModel || "Auto-Rotate"}: "${prompt.slice(0, 100)}..."`
-    );
+    // ── Step 3: Build dynamic system instruction ──────────────────────────────
+    const ragContext = buildRagContext(retrievedChunks);
+    const bridgeSection =
+      connections.length > 0
+        ? bridgeInfo
+        : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
 
-    // 1. Fetch available connections
-    const connections = await Connection.find({ userId });
-    const bridgeInfo = connections.map(c => 
-      `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`
-    ).join("\n");
-    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}\n\nACTIVE BRIDGES FOR THIS USER:\n${connections.length > 0 ? bridgeInfo : "NONE. Remind user to add a DB."}`;
+    const dynamicInstruction =
+      `${WUP_SYSTEM_PROMPT}` +
+      `${ragContext}` +
+      `\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
 
+    // ── Step 4: Model rotation loop ───────────────────────────────────────────
     let lastErr: GeminiError | null = null;
 
     for (const modelName of modelsToTry) {
       try {
         console.log(`[WUP Brain] Attempting model: ${modelName}`);
-        
-        // 3. Initialize Gemini with Tools
+
         const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName);
-        
-        // 4. Start chat
         const chat = model.startChat({ history: geminiHistory });
         let result = await this.callWithRetry(() => chat.sendMessage(prompt));
         let response = result.response;
 
-        // 5. Tool Loop
+        // ── Step 5: Tool call loop (DB bridge function-calling) ───────────────
         let calls = response.functionCalls();
         let turns = 0;
-        const MAX_TURNS = 5;
+        const MAX_TURNS = 5; // L-5: prevent runaway tool loops
 
         while (calls && calls.length > 0 && turns < MAX_TURNS) {
           turns++;
           const toolResponses = [];
+
           for (const call of calls) {
             const toolFn = WUP_TOOLS_REGISTRY[call.name];
             if (toolFn) {
+              console.log(`[WUP Brain] Tool call: ${call.name} (turn ${turns})`);
               const toolResult = await toolFn(call.args);
-              toolResponses.push({ functionResponse: { name: call.name, response: toolResult } });
+              toolResponses.push({
+                functionResponse: { name: call.name, response: toolResult },
+              });
             }
           }
 
@@ -188,101 +198,121 @@ export class BrainOrchestrator {
             result = await this.callWithRetry(() => chat.sendMessage(toolResponses));
             response = result.response;
             calls = response.functionCalls();
-          } else break;
+          } else {
+            break;
+          }
         }
 
+        // ── Step 6: Return enriched response ──────────────────────────────────
         return {
           content: response.text(),
           source: connections.length > 0 ? connections[0].name : undefined,
           queryPerformed: calls && calls.length > 0 ? calls[0].name : undefined,
+          ragSources: retrievedChunks.map((c) => ({
+            sourceFile: c.metadata.sourceFile,
+            pageNumber: c.metadata.pageNumber,
+            score: c.score,
+          })),
           usedModel: modelName,
-          exhausted: Array.from(BrainOrchestrator.exhaustedModels)
+          exhausted: Array.from(BrainOrchestrator.exhaustedModels),
         };
       } catch (err: unknown) {
         const error = err as GeminiError;
         lastErr = error;
-        const isDailyQuota = JSON.stringify(error.errorDetails)?.includes("PerDay");
-        
+
+        const isDailyQuota =
+          JSON.stringify(error.errorDetails)?.includes("PerDay") ||
+          error.message?.includes("RESOURCE_EXHAUSTED");
+
         if (isDailyQuota || error.status === 429) {
-          console.warn(`[WUP Brain] Model ${modelName} hit limits. Tracking as exhausted.`);
+          console.warn(
+            `[WUP Brain] Model ${modelName} hit limits. Marking exhausted.`
+          );
           BrainOrchestrator.exhaustedModels.add(modelName);
-          // If we have more models to try, continue the loop
-          continue;
+          continue; // Try next model
         }
-        // For other errors (like 404), switch to next model too
-        console.error(`[WUP Brain] Error with ${modelName}:`, error.message);
+
+        // Non-quota errors (404, 500, etc.) — try next model too
+        console.error(`[WUP Brain] Error with ${modelName}: ${error.message}`);
         continue;
       }
     }
 
-    // If we reach here, all attempted models failed
-    const isQuotaError = lastErr?.message?.includes("quota") || JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
+    // All models failed
+    const isQuotaError =
+      lastErr?.message?.includes("quota") ||
+      JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
 
     return {
-      content: isQuotaError 
-        ? "All available Gemini models have reached their daily limits. Please try again tomorrow or use a different API key." 
-        : "I'm currently unable to process your request. Please try a different model.",
-      exhausted: Array.from(BrainOrchestrator.exhaustedModels)
+      content: isQuotaError
+        ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
+        : "I'm currently unable to process your request. Please try a different model or try again in a moment.",
+      exhausted: Array.from(BrainOrchestrator.exhaustedModels),
     };
   }
 
   /**
-   * Helper to handle API retries, especially for 429 (Rate Limit) errors.
+   * Wraps an API call with exponential backoff for transient 429 rate limits.
+   * Daily quota errors (PerDay) are re-thrown immediately without retrying.
    */
   private async callWithRetry<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 3
+    maxRetries = 3
   ): Promise<T> {
     let lastError: GeminiError | null = null;
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         return await fn();
       } catch (err: unknown) {
         const error = err as GeminiError;
         lastError = error;
-        
-        // Check for 429 Too Many Requests
+
         if (error.status === 429 || error.message?.includes("429")) {
-          // If it's a DAILY quota limit, don't bother retrying
-          const isDailyLimit = JSON.stringify(error.errorDetails)?.includes("PerDay");
+          // Daily limit — fail fast, model rotation will handle it
+          const isDailyLimit =
+            JSON.stringify(error.errorDetails)?.includes("PerDay");
           if (isDailyLimit) {
             console.error("[WUP Brain] Daily quota exhausted. Failing fast.");
             throw error;
           }
 
-          let delayMs = Math.pow(2, attempt) * 2000; // Default exponential backoff
+          // Per-minute rate limit — use backoff
+          let delayMs = Math.pow(2, attempt) * 2000;
 
-          // Try to extract retryDelay from Google API error details
+          // Respect Google's retryDelay hint if available
           const retryInfo = error.errorDetails?.find(
-            (d: any) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+            (d) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
           );
-
           if (retryInfo?.retryDelay) {
-            const seconds = parseInt(retryInfo.retryDelay.replace("s", ""));
-            if (!isNaN(seconds)) {
-              delayMs = seconds * 1000;
-            }
+            const seconds = parseInt(
+              (retryInfo.retryDelay as string).replace("s", ""),
+              10
+            );
+            if (!isNaN(seconds)) delayMs = seconds * 1000;
           }
 
-          // Safety cap: don't wait more than 15 seconds in a web request
+          // Safety cap: don't stall a web request for more than 15 seconds
           if (delayMs > 15000) {
-            console.warn(`[WUP Brain] Retry delay ${delayMs}ms is too long. Failing.`);
+            console.warn(
+              `[WUP Brain] Retry delay ${delayMs}ms exceeds cap. Failing.`
+            );
             throw error;
           }
 
           console.warn(
-            `[WUP Brain] Rate limit hit (429). Retrying in ${delayMs}ms... (Attempt ${attempt + 1}/${maxRetries})`
+            `[WUP Brain] Rate limit (429). Retry in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})`
           );
-          
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await new Promise((r) => setTimeout(r, delayMs));
           continue;
         }
+
         throw error;
       }
     }
-    throw lastError || new Error("Unknown error during retry sequence");
+
+    throw lastError ?? new Error("Unknown error during retry sequence");
   }
 }
-
 
 export const brain = new BrainOrchestrator();

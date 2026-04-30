@@ -5,16 +5,22 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import connectionRoutes from "./routes/connection";
 import chatRoutes from "./routes/chat";
+import knowledgeRoutes from "./routes/knowledge";
+
+// Register models so Mongoose knows them before any package references them by name
+import "./models/KnowledgeSource";
+import "./models/KnowledgeChunk";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/wup";
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+app.use(express.json({ limit: "2mb" }));
 
 // MongoDB Connection
 mongoose.connect(MONGODB_URI)
@@ -29,7 +35,7 @@ mongoose.connect(MONGODB_URI)
         console.log("[WUP API] Cleaned stale indexes.");
       }
     } catch (err) {
-      // Index might not exist yet
+      // Index might not exist yet — safe to ignore
     }
   })
   .catch(err => console.error("[WUP API] Database connection error:", err));
@@ -38,6 +44,7 @@ mongoose.connect(MONGODB_URI)
 app.use("/auth", authRoutes);
 app.use("/connections", connectionRoutes);
 app.use("/chats", chatRoutes);
+app.use("/knowledge", knowledgeRoutes);
 
 // Health Check
 app.get("/health", (req, res) => {
@@ -51,5 +58,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 app.listen(PORT, () => {
-  console.log(`[WUP API] Infrastructure running on http://localhost:${PORT}`);
+  console.log(`[WUP API] Server running on http://localhost:${PORT}`);
 });
+

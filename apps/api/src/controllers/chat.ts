@@ -79,12 +79,13 @@ export const getMessages = async (req: Request, res: Response) => {
     // 2. Trigger Brain Intelligence (with conversational context and model selection)
     const brainResponse = await brain.ask(userId, content, { chatHistory, model });
 
-    // 3. Save Assistant Message
+    // 3. Save Assistant Message (with RAG citations if available)
     const assistantMessage = await Message.create({
       chatId,
       userId,
       role: "assistant",
-      content: brainResponse.content
+      content: brainResponse.content,
+      ragSources: brainResponse.ragSources ?? [],
     });
 
     // 4. Update chat timestamp

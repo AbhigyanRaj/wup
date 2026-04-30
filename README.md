@@ -1,124 +1,110 @@
 # WUP
 
-WUP is a high-performance AI orchestration platform designed to unify disparate data sources and productivity tools into a single, document-centric workspace. By bridging live databases with natural language intelligence and the Model Context Protocol (MCP), WUP enables teams to not only analyze data in real-time but also execute automated cross-platform workflows across Slack, Notion, and beyond. The platform is engineered for data analysts, engineers, and product teams who require a centralized hub for data-driven operations without the overhead of manual querying.
+WUP is a high-performance intelligence orchestration platform designed to bridge the gap between structured databases, unstructured documents, and natural language. By unifying disparate data sources into a single, document-centric workspace, WUP enables real-time data analysis, semantic document retrieval, and automated cross-platform workflows.
 
-
-## Features
-
-- **Intelligent Model Rotation**: System maintains zero downtime by automatically switching between multiple Gemini models (3.0 Flash, 2.5 Flash, 2.0 Flash) when rate limits or daily quotas are reached.
-- **Multi-Source Data Bridges**: Secure connectivity for MongoDB and Google Sheets with an encrypted credential vault for sensitive information.
-- **Autonomous Tool Orchestration**: Leverages LLM function-calling loops to introspect schemas and execute read-only queries across bridged databases.
-- **Conversational Persistence**: Full multi-turn thread management with optimized context windows for precise and reliable long-form interaction.
-- **Premium Interface Architecture**: A minimalist, high-fidelity workspace inspired by state-of-the-art AI interfaces, focused on readability and data presentation.
-
-## Setup and Installation
-
-### Prerequisites
-
-- Node.js 18.0 or higher
-- MongoDB instance (Local or Atlas)
-- Google Cloud Project with Gemini and Sheets APIs enabled
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/AbhigyanRaj/wup.git
-   cd wup
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables**:
-   Create `.env` files in `apps/api` and `apps/web` using the provided `.env.example` templates. Refer to the specific application directories for configuration keys.
-
-### Running the Project
-
-To start the development environment for both the API and Web applications, run:
-```bash
-npm run dev
-```
-
-The Web interface will be accessible at `http://localhost:3000` and the API at `http://localhost:4000`.
-
-## Tech Stack
-
-- **Languages**: TypeScript
-- **Frontend Framework**: Next.js 15 (App Router), Framer Motion, Tailwind CSS
-- **Backend Framework**: Node.js, Express
-- **Databases**: MongoDB (Primary), Google Sheets Integration
-- **AI Models**: Google Gemini (Direct API orchestration)
-
-## Usage Examples
-
-### Connecting a Data Bridge
-Users can connect external databases via the dashboard UI or API. Example API call to bridge a MongoDB collection:
-```bash
-curl -X POST http://localhost:4000/connections \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Inventory DB",
-    "type": "mongodb",
-    "config": "mongodb+srv://user:pass@cluster.mongodb.net/"
-  }'
-```
-
-### Querying the Brain
-Once a bridge is active, the assistant can be queried directly about the data. Example query sequence:
-1. **Request**: "Which products in the Inventory DB have a stock level below 10?"
-2. **System Action**: Brain calls `get_mongodb_schema`, then `query_mongodb` with a filter `{ stock: { $lt: 10 } }`.
-3. **Response**: Assistant returns a Markdown table showing the relevant products.
-
-## Architecture Notes
-
-WUP is structured as a Monorepo using Turborepo to manage applications and shared packages.
-
-### System Flow Diagram
-```mermaid
-graph TD
-    User((User)) -->|Natural Language| Web[Web Application - apps/web]
-    Web -->|API Request| API[API Service - apps/api]
-    
-    subgraph "Intelligence Layer"
-    API -->|Orchestrate| Brain[Brain Orchestrator - packages/brain]
-    Brain -->|Model Rotation| Gemini[Gemini AI Cluster]
-    end
-    
-    subgraph "Data Bridges"
-    Brain -->|Function Call| Mongo[(MongoDB)]
-    Brain -->|Function Call| Sheets[(Google Sheets)]
-    end
-    
-    Gemini -->|Synthesis| Brain
-    Brain -->|Structured Data| API
-    API -->|JSON Response| Web
-    Web -->|Premium UI Message| User
-```
-
-- **apps/web**: Next.js frontend handling the UI layer and model status visualization.
-- **apps/api**: Express backend managing authentication, session persistence, and credential storage.
-- **packages/brain**: Core intelligence package containing the orchestrator logic, tool registry, and model rotation protocols.
-
-## Limitations
-
-- **Read-Only Access**: The system is strictly forbidden from performing write or delete operations on bridged data sources.
-- **Database Support**: Performance and introspection features are currently optimized for MongoDB and Google Sheets. Other drivers are not yet supported.
-- **Context Window**: Long-form conversations are subject to a sliding window of the 10 most recent messages to manage LLM token usage effectively.
-
-## Future Improvements
-
-- **Token Streaming**: Integration of Server-Sent Events (SSE) for real-time token rendering in the UI.
-- **Multi-Source Joins**: Ability for the AI to synthesize data from MongoDB and Google Sheets into a single cohesive report.
-- **Semantic Search & RAG**: Integration with vector databases to allow natural language search across unstructured documents (PDFs, Notion) alongside structured data.
-- **Enhanced Data Visualization**: Specialized components for rendering interactive charts and graphs directly within the thread.
-- **Automated Intelligence**: Scheduled query execution with AI-synthesized summaries delivered via Slack, Teams, or Email.
-- **Role-Based Access Control (RBAC)**: Fine-grained permissions and audit logging for shared database bridges.
-- **MCP Integration & Workflow Automation**: Support for the Model Context Protocol (MCP) to seamlessly integrate tools like Slack, Notion, and Jira. This transforms WUP into a unified data hub that not only analyzes multiple databases but also executes automated cross-platform workflow actions.
-- **Edge Intelligence**: Optimized local-first processing for reduced latency and improved privacy on sensitive on-premise datasets.
+The platform is engineered for data-driven operations, providing a centralized hub where users can query live databases (MongoDB, Google Sheets) and internal knowledge bases (PDFs, Text) using plain English, with all responses grounded in verifiable citations.
 
 ---
-Developed by **Abhigyan Raj and Team** | 2026 Unified Brain Project
+
+## Core Architecture
+
+WUP is built as a robust monorepo, utilizing a modular service-oriented architecture to ensure scalability and reliability.
+
+| Component | Responsibility | Technology |
+| :--- | :--- | :--- |
+| **Frontend** | High-fidelity user interface and visualization | Next.js 15, Framer Motion, Tailwind CSS |
+| **API Service** | Session management, authentication, and routing | Node.js, Express, MongoDB |
+| **Brain Package** | Intelligence orchestration and tool registry | TypeScript, Google Gemini API |
+| **Ingestor** | Multi-format data processing and vectorization | LangChain, PDF-Parse |
+
+### System Workflow
+
+```mermaid
+graph TD
+    User((User)) -->|Natural Language| Web[Web Interface]
+    Web -->|Secure API Request| API[Orchestration Layer]
+    
+    subgraph "Intelligence Engine"
+    API -->|Contextual Analysis| Brain[Brain Package]
+    Brain -->|Model Rotation| LLM[Gemini Cluster]
+    end
+    
+    subgraph "Data Integration"
+    Brain -->|Semantic Search| RAG[(Vector Store / RAG)]
+    Brain -->|Live Query| DB[(MongoDB / Sheets)]
+    end
+    
+    LLM -->|Synthesized Response| Brain
+    Brain -->|Grounded Answer| API
+    API -->|JSON Payload| Web
+    Web -->|Premium UI Rendering| User
+```
+
+---
+
+## Key Capabilities
+
+### 1. Intelligent Model Rotation
+The platform ensures continuous availability by automatically rotating between multiple Gemini models (Flash 3.0, 2.5, and 2.0). If a primary model reaches its rate limit or quota, the system seamlessly transitions to the next available instance without disrupting the user session.
+
+### 2. Live Data Bridges
+WUP maintains secure, read-only connections to structured data sources. 
+- **MongoDB**: Full schema introspection and automated query generation.
+- **Google Sheets**: Real-time retrieval from cloud spreadsheets.
+- **Encrypted Vault**: Credentials are stored using industry-standard encryption protocols.
+
+### 3. Knowledge Base (RAG)
+Users can upload unstructured documents (PDF, .txt) to create a private knowledge base. The system utilizes Retrieval-Augmented Generation (RAG) to:
+- Segment and vectorize document content.
+- Retrieve the most relevant context for every query.
+- Provide direct citations and source references in every response.
+
+---
+
+## Technical Stack
+
+| Category | Technologies |
+| :--- | :--- |
+| **Languages** | TypeScript, JavaScript |
+| **UI/UX** | React, Next.js (App Router), Framer Motion, CSS Variables |
+| **Backend** | Express, Node.js, JWT Authentication |
+| **Databases** | MongoDB (State), Vector Store (Knowledge) |
+| **Intelligence** | Google Gemini (1.5 Flash, 2.0 Flash) |
+| **Orchestration** | Turborepo, MCP (Model Context Protocol) |
+
+---
+
+## Evaluation Metrics
+
+Success is measured through a rigorous framework focusing on performance and accuracy.
+
+| Metric | Measurement Goal | Target Benchmark |
+| :--- | :--- | :--- |
+| **Latency** | End-to-end response time for complex queries | < 2.5 Seconds |
+| **Retrieval Accuracy** | Relevance of document chunks retrieved via RAG | > 92% Accuracy |
+| **Model Reliability** | Success rate of rotation system during rate limits | 100% Uptime |
+| **Groundedness** | Percentage of responses with valid source citations | > 95% Verifiability |
+
+---
+
+## Roadmap and Future Direction
+
+WUP is evolving from a data analyzer into a proactive intelligence agent.
+
+- **Server-Sent Events (SSE)**: Implementing real-time token streaming for a more responsive interaction.
+- **Advanced Visualization**: Integration of Recharts for dynamic graph generation within chat threads.
+- **Multi-Source Synthesis**: Enabling the AI to join data across MongoDB and Google Sheets in a single query.
+- **Verified Writes**: Future expansion into safe, human-in-the-loop data modifications.
+- **Workflow Automation**: Deep integration with Slack and Notion via MCP for cross-platform task execution.
+
+---
+
+## Documentation and Resources
+
+Detailed technical documentation, API references, and deployment guides are available on our official documentation portal:
+
+[Official Wup Documentation](https://www.notion.so/Wup-350d9fc386ee80fa8d2dea6736f86625?source=copy_link)
+
+---
+
+Developed by **Abhigyan Raj** | 2026 Wup Intelligence Project

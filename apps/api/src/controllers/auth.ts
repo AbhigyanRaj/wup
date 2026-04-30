@@ -7,7 +7,16 @@ import { UserPayload } from "@wup/auth";
 const JWT_SECRET = process.env.JWT_SECRET || "wup_super_secret_brain_key_2026";
 
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+  
+  // Handle Demo Mode
+  if (email === "google-demo@wup.ai" && !password) {
+    password = "demo_password_2026";
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: "Password is required" });
+  }
   
   try {
     const user = await User.findOne({ email });
