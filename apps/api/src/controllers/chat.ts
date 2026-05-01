@@ -95,6 +95,8 @@ export const getMessages = async (req: Request, res: Response) => {
     res.status(201).json({ 
       userMessage, 
       assistantMessage,
+      followUps: brainResponse.followUps ?? [],
+      clarification: brainResponse.clarification ?? null,
       usedModel: brainResponse.usedModel,
       exhausted: brainResponse.exhausted
     });

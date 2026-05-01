@@ -8,14 +8,21 @@ import { TypingIndicator } from "./typing-indicator";
 interface MessageListProps {
   messages: MessageProps[];
   isTyping: boolean;
+  onFollowUpSelect: (prompt: string) => void;
 }
 
-export function MessageList({ messages, isTyping }: MessageListProps) {
+export function MessageList({ messages, isTyping, onFollowUpSelect }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  // Find the index of the last assistant message to show follow-up chips only there
+  const lastAssistantIndex = messages.reduce(
+    (lastIdx, msg, idx) => (msg.role === "assistant" ? idx : lastIdx),
+    -1
+  );
 
   return (
     <div className="w-full h-full">
@@ -26,6 +33,11 @@ export function MessageList({ messages, isTyping }: MessageListProps) {
             role={msg.role}
             content={msg.content}
             ragSources={msg.ragSources}
+            // Only show follow-ups on the last assistant message and not while typing
+            followUps={
+              index === lastAssistantIndex && !isTyping ? msg.followUps : undefined
+            }
+            onFollowUpSelect={onFollowUpSelect}
           />
         ))}
       </AnimatePresence>

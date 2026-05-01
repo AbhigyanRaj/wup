@@ -12,6 +12,7 @@ import { Menu, AlertCircle } from "lucide-react";
 import { ConnectDbModal } from "@/components/dashboard/connect-db-modal";
 import { UploadModal, KnowledgeSource } from "@/components/dashboard/upload-modal";
 import { MessageProps } from "@/components/dashboard/message-item";
+import { ClarificationModal } from "@/components/dashboard/clarification-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ export default function DashboardPage() {
 
   // Knowledge sources
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([]);
+
+  // Clarification state
+  const [clarification, setClarification] = useState<{ question: string; options: string[]; originalPrompt: string } | null>(null);
 
   // Model selection
   const [currentModel, setCurrentModel] = useState("Auto-Rotate");
@@ -209,13 +213,25 @@ export default function DashboardPage() {
 
       if (data.exhausted) setExhaustedModels(data.exhausted);
 
-      // Append assistant message WITH ragSources for citation pills
+      // Handle clarification response
+      if (data.clarification) {
+        setClarification({
+          question: data.clarification.question,
+          options: data.clarification.options,
+          originalPrompt: content,
+        });
+      } else {
+        setClarification(null);
+      }
+
+      // Append assistant message WITH ragSources and followUps
       setActiveMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content: data.assistantMessage.content,
           ragSources: data.assistantMessage.ragSources ?? [],
+          followUps: data.clarification ? [] : (data.followUps ?? []),
         },
       ]);
     } catch (err: unknown) {
@@ -345,7 +361,11 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="flex-1 flex flex-col py-6">
-                <MessageList messages={activeMessages} isTyping={isTyping} />
+                <MessageList
+                  messages={activeMessages}
+                  isTyping={isTyping}
+                  onFollowUpSelect={(prompt) => handleSendMessage(prompt, currentModel)}
+                />
               </div>
             )}
           </div>
@@ -357,14 +377,31 @@ export default function DashboardPage() {
             className="absolute bottom-0 left-0 right-0 z-20 px-4 lg:px-6 pb-8 pt-12 pointer-events-none"
             style={{ background: "linear-gradient(to top, var(--bg-base) 40%, rgba(15,15,15,0.8) 70%, transparent)" }}
           >
-            <div className="max-w-2xl mx-auto pointer-events-auto">
+            <div className="max-w-2xl mx-auto pointer-events-auto flex flex-col gap-3">
+              {/* Clarification Modal — appears above the AskBar */}
+              <AnimatePresence>
+                {clarification && (
+                  <ClarificationModal
+                    question={clarification.question}
+                    options={clarification.options}
+                    onSelect={(answer) => {
+                      setClarification(null);
+                      handleSendMessage(
+                        `${clarification.originalPrompt} — specifically: ${answer}`,
+                        currentModel
+                      );
+                    }}
+                    onDismiss={() => setClarification(null)}
+                  />
+                )}
+              </AnimatePresence>
               <AskBar
                 onSubmit={handleSendMessage}
                 selectedModel={currentModel}
                 onModelChange={setCurrentModel}
                 exhaustedModels={exhaustedModels}
               />
-              <p className="text-[10px] text-center mt-3 opacity-20 font-bold uppercase tracking-widest select-none">
+              <p className="text-[10px] text-center opacity-20 font-bold uppercase tracking-widest select-none">
                 AI may display inaccurate info.
               </p>
             </div>

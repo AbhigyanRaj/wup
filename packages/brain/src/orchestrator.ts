@@ -18,10 +18,24 @@ import { ragService, safeRetrieve, buildRagContext } from "./rag/retriever";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
+export interface FollowUpSuggestion {
+  label: string;
+  suggestedPrompt: string;
+}
+
+export interface ClarificationData {
+  question: string;
+  options: string[];
+}
+
 export interface BrainResponse {
   content: string;
   source?: string;
   queryPerformed?: string;
+  /** When set, the AI is asking for clarification before answering */
+  clarification?: ClarificationData;
+  /** Structured follow-up suggestions for the UI chips */
+  followUps?: FollowUpSuggestion[];
   /** Chunks retrieved by RAG — used to render citation pills in the UI */
   ragSources?: Array<{
     sourceFile: string;
@@ -81,6 +95,60 @@ function buildGeminiHistory(turns: ChatTurn[]): Content[] {
   }
 
   return fixed;
+}
+
+// ─── Structured Response Parser ───────────────────────────────────────────────
+
+const META_START = "---WUP_META---";
+const META_END = "---END_WUP_META---";
+
+/**
+ * Splits the model's response on delimiter markers to extract:
+ *   - content: the clean markdown before the meta block
+ *   - followUps: structured chip suggestions
+ *   - visualType: hint for the UI renderer
+ *
+ * Gracefully falls back to plain text with empty followUps if parsing fails.
+ */
+function parseStructuredResponse(raw: string): {
+  content: string;
+  followUps: FollowUpSuggestion[];
+  clarification?: ClarificationData;
+  visualType: string;
+} {
+  const metaStart = raw.indexOf(META_START);
+  const metaEnd = raw.indexOf(META_END);
+
+  if (metaStart === -1 || metaEnd === -1) {
+    return { content: raw.trim(), followUps: [], visualType: "none" };
+  }
+
+  const content = raw.slice(0, metaStart).trim();
+  const metaJson = raw.slice(metaStart + META_START.length, metaEnd).trim();
+
+  try {
+    const parsed = JSON.parse(metaJson);
+
+    if (parsed.type === "clarification") {
+      return {
+        content,
+        followUps: [],
+        visualType: "none",
+        clarification: {
+          question: parsed.question ?? content,
+          options: Array.isArray(parsed.options) ? parsed.options : [],
+        },
+      };
+    }
+
+    return {
+      content,
+      followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
+      visualType: parsed.visualType ?? "none",
+    };
+  } catch {
+    return { content, followUps: [], visualType: "none" };
+  }
 }
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
@@ -204,8 +272,11 @@ export class BrainOrchestrator {
         }
 
         // ── Step 6: Return enriched response ──────────────────────────────────
+        const structured = parseStructuredResponse(response.text());
         return {
-          content: response.text(),
+          content: structured.content,
+          followUps: structured.followUps,
+          clarification: structured.clarification,
           source: connections.length > 0 ? connections[0].name : undefined,
           queryPerformed: calls && calls.length > 0 ? calls[0].name : undefined,
           ragSources: retrievedChunks.map((c) => ({

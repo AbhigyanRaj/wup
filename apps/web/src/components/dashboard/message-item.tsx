@@ -5,8 +5,15 @@ import { motion } from "framer-motion";
 import { FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MermaidDiagram } from "./mermaid-diagram";
+import { FollowUpChips } from "./follow-up-chips";
 
 interface RagSource { sourceFile: string; pageNumber: number; score: number; }
+
+export interface FollowUpSuggestion {
+  label: string;
+  suggestedPrompt: string;
+}
 
 function CitationPill({ source }: { source: RagSource }) {
   return (
@@ -40,11 +47,47 @@ export interface MessageProps {
   role: "user" | "assistant";
   content: string;
   ragSources?: RagSource[];
+  followUps?: FollowUpSuggestion[];
+  onFollowUpSelect?: (prompt: string) => void;
 }
 
-export function MessageItem({ role, content, ragSources }: MessageProps) {
+// ─── Custom Markdown Renderers ────────────────────────────────────────────────
+// Intercepts ```mermaid code blocks and renders them as interactive diagrams.
+
+function CodeBlock({ node, className, children, ...props }: any) {
+  const match = /language-(\w+)/.exec(className || "");
+  const lang = match?.[1];
+  const code = String(children).replace(/\n$/, "");
+
+  if (lang === "mermaid") {
+    return <MermaidDiagram code={code} />;
+  }
+
+  return (
+    <code
+      className={className}
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: "8px",
+        padding: lang ? "16px" : "2px 6px",
+        display: lang ? "block" : "inline",
+        fontSize: "12.5px",
+        fontFamily: "ui-monospace, SFMono-Regular, monospace",
+        overflowX: "auto",
+        lineHeight: "1.7",
+      }}
+      {...props}
+    >
+      {children}
+    </code>
+  );
+}
+
+export function MessageItem({ role, content, ragSources, followUps, onFollowUpSelect }: MessageProps) {
   const isAssistant = role === "assistant";
   const hasCitations = isAssistant && ragSources && ragSources.length > 0;
+  const hasFollowUps = isAssistant && followUps && followUps.length > 0 && onFollowUpSelect;
 
   return (
     <motion.div
@@ -72,7 +115,10 @@ export function MessageItem({ role, content, ragSources }: MessageProps) {
         <div className={`flex flex-col gap-3 ${isAssistant ? "flex-1" : "max-w-[85%] sm:max-w-[70%]"}`}>
           {isAssistant ? (
             <div className="wup-prose selectable tracking-wide leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{ code: CodeBlock }}
+              >
                 {content}
               </ReactMarkdown>
             </div>
@@ -106,6 +152,14 @@ export function MessageItem({ role, content, ragSources }: MessageProps) {
                 ))}
               </div>
             </motion.div>
+          )}
+
+          {/* Follow-up Chips */}
+          {hasFollowUps && (
+            <FollowUpChips
+              followUps={followUps!}
+              onSelect={onFollowUpSelect!}
+            />
           )}
         </div>
       </div>
