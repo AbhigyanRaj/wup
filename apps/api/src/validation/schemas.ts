@@ -3,10 +3,11 @@ import { z } from "zod";
 export const createConnectionSchema = z.object({
   body: z.object({
     name: z.string().min(1, "Name is required"),
-    type: z.enum(["mongodb", "sheets", "postgresql", "supabase"], {
-      errorMap: () => ({ message: "Direct bridge only supported for MongoDB, Sheets, PostgreSQL, or Supabase" }),
-    }),
-    config: z.union([z.string(), z.record(z.any())]).describe("Encrypted or raw configuration object"),
+    type: z.string().refine(
+      (val) => ["mongodb", "sheets", "postgresql", "supabase"].includes(val),
+      { message: "Direct bridge only supported for MongoDB, Sheets, PostgreSQL, or Supabase" }
+    ),
+    config: z.union([z.string(), z.record(z.string(), z.any())]).describe("Encrypted or raw configuration object"),
   }),
 });
 

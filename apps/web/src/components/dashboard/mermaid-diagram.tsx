@@ -15,6 +15,30 @@ function sanitizeMermaid(code: string): string {
 }
 
 /**
+ * Fixes the common LLM mistake of putting classDef lines BEFORE the graph type declaration.
+ * Mermaid requires: graph type first → nodes/edges → classDef last.
+ */
+function fixClassDefOrder(code: string): string {
+  const lines = code.split("\n");
+  const classDefLines: string[] = [];
+  const otherLines: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().startsWith("classDef ")) {
+      classDefLines.push(line);
+    } else {
+      otherLines.push(line);
+    }
+  }
+
+  // If classDef lines exist and were mixed in, re-append them at the end
+  if (classDefLines.length > 0) {
+    return [...otherLines, ...classDefLines].join("\n");
+  }
+  return code;
+}
+
+/**
  * Post-processes the Mermaid SVG output to apply premium visual styling:
  * - Rounded corners on all rect elements
  * - Responsive width
@@ -98,7 +122,8 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
         });
 
         const id = `mermaid-${uid}`;
-        const { svg: rendered } = await mermaid.render(id, sanitizeMermaid(code));
+        const cleanCode = fixClassDefOrder(sanitizeMermaid(code));
+        const { svg: rendered } = await mermaid.render(id, cleanCode);
         if (!cancelled) {
           setSvg(postProcessSvg(rendered));
           setError(null);

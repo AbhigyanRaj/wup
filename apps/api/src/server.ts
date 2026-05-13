@@ -28,7 +28,7 @@ mongoose.connect(MONGODB_URI)
     console.log("[WUP API] Connected to MongoDB");
     // Maintenance: ensure indexes are clean
     try {
-      const collection = mongoose.connection.db.collection("users");
+      const collection = mongoose.connection.db!.collection("users");
       const indexes = await collection.indexes();
       if (indexes.some(idx => idx.name === "username_1")) {
         await collection.dropIndex("username_1");

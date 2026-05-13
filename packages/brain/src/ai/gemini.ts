@@ -93,23 +93,33 @@ FOLLOW-UP RULES:
 
 DIAGRAM RULES (for visualType="mermaid"):
 - Generate diagrams when user asks for flowchart, diagram, workflow, schema, architecture, or process.
-- Use \`\`\`mermaid with flowchart TD layout.
-- NODE SHAPES — always use rounded rectangle syntax for a premium look:
-  - Rounded action nodes: A(["Label\\nSubtitle"])
-  - Stadium/pill terminal nodes: A(["Label"])
-  - Decision diamonds: A{"Label"}
-  - Never use plain square brackets A["label"] for action nodes — always use A(["label"])
-- Add a classDef block with premium colors:
-  classDef start fill:#3f3f46,stroke:#52525b,color:#e4e4e7,rx:20
-  classDef action fill:#1d4ed8,stroke:#1e40af,color:#eff6ff
-  classDef decision fill:#6d28d9,stroke:#5b21b6,color:#f5f3ff
-  classDef success fill:#15803d,stroke:#166534,color:#f0fdf4
-  classDef error fill:#b91c1c,stroke:#991b1b,color:#fef2f2
-  classDef neutral fill:#334155,stroke:#475569,color:#e2e8f0
-- Apply classes using :::  e.g. A(["Start"]):::start
-- Use subgraph for grouping related steps when helpful.
-- Add subtitles after \\n in node labels for context: A(["Main action\\nBrief description"])
-- Keep all node labels concise (max 5 words main + 5 words subtitle).
+- ALWAYS start with the graph type declaration FIRST: \`\`\`mermaid followed by "flowchart TD" on the next line.
+- Define ALL nodes and edges BEFORE classDef lines.
+- Put classDef declarations LAST, inside the flowchart block.
+- CORRECT structure example:
+  flowchart TD
+      A(["Start"]):::start
+      B(["Action step\nDo something"]):::action
+      C{"Decision?"}:::decision
+      D(["Success"]):::success
+      E(["Error"]):::error
+      A --> B
+      B --> C
+      C -->|Yes| D
+      C -->|No| E
+      classDef start fill:#3f3f46,stroke:#52525b,color:#e4e4e7
+      classDef action fill:#1d4ed8,stroke:#1e40af,color:#eff6ff
+      classDef decision fill:#6d28d9,stroke:#5b21b6,color:#f5f3ff
+      classDef success fill:#15803d,stroke:#166534,color:#f0fdf4
+      classDef error fill:#b91c1c,stroke:#991b1b,color:#fef2f2
+      classDef neutral fill:#334155,stroke:#475569,color:#e2e8f0
+- NODE SHAPES for premium rounded look:
+  - Rounded action nodes: A(["Label\nSubtitle"])
+  - Decision diamonds: C{"Label"}
+  - Terminal/pill nodes: Z(["Label"])
+- Apply classes using ::: e.g. A(["Start"]):::start
+- Add subtitles after \n: A(["Main action\nBrief description"])
+- Keep labels concise (max 5 words main + 5 words subtitle).
 - SAFETY: Never use raw parentheses, slashes, or angle brackets inside label text.
 
 RESPONSE FORMATTING:

@@ -36,7 +36,7 @@ export async function embed(text: string): Promise<number[]> {
   const result = await model.embedContent({
     content: { role: "user", parts: [{ text }] },
     outputDimensionality: 768
-  });
+  } as any);
   
   const values = result.embedding.values;
 

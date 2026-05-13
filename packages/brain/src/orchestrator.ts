@@ -249,7 +249,7 @@ export class BrainOrchestrator {
 
         while (calls && calls.length > 0 && turns < MAX_TURNS) {
           turns++;
-          const toolResponses = [];
+          const toolResponses: any[] = [];
 
           for (const call of calls) {
             const toolFn = WUP_TOOLS_REGISTRY[call.name];

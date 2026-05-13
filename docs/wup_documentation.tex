@@ -1,0 +1,660 @@
+\documentclass[11pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[margin=2.2cm, top=2.5cm, bottom=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{mdframed}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usepackage{pgffor}
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{primary}{HTML}{185FA5}
+\definecolor{primarylight}{HTML}{E6F1FB}
+\definecolor{success}{HTML}{3B6D11}
+\definecolor{successlight}{HTML}{EAF3DE}
+\definecolor{warning}{HTML}{854F0B}
+\definecolor{warninglight}{HTML}{FAEEDA}
+\definecolor{danger}{HTML}{A32D2D}
+\definecolor{dangerlight}{HTML}{FCEBEB}
+\definecolor{muted}{HTML}{5F5E5A}
+\definecolor{mutedlight}{HTML}{F1EFE8}
+\definecolor{purple}{HTML}{3C3489}
+\definecolor{purplelight}{HTML}{EEEDFE}
+\definecolor{teal}{HTML}{085041}
+\definecolor{teallight}{HTML}{E1F5EE}
+\definecolor{border}{HTML}{D3D1C7}
+\definecolor{pagebg}{HTML}{FAFAF8}
+
+% ── Page style ────────────────────────────────────────────────────────────────
+\pagecolor{white}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{border}\leaders\hrule height \headrulewidth\hfill}}
+\fancyhead[L]{\small\color{muted}\textbf{Abhigyan Raj} \ \textcolor{border}{|} \ Career Roadmap \& Single Source of Truth}
+\fancyhead[R]{\small\color{muted}Last updated: May 2026}
+\fancyfoot[C]{\small\color{muted}\thepage}
+
+% ── Section formatting ────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{primary}}
+  {}
+  {0em}
+  {}
+  [\vspace{-4pt}\textcolor{border}{\rule{\linewidth}{0.4pt}}\vspace{2pt}]
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{primary!80!black}}
+  {}
+  {0em}
+  {}
+
+\titleformat{\subsubsection}
+  {\small\bfseries\color{muted}}
+  {}
+  {0em}
+  {}
+
+\titlespacing{\section}{0pt}{18pt}{8pt}
+\titlespacing{\subsection}{0pt}{12pt}{4pt}
+\titlespacing{\subsubsection}{0pt}{8pt}{2pt}
+
+% ── Custom environments ───────────────────────────────────────────────────────
+\newmdenv[
+  backgroundcolor=primarylight,
+  linecolor=primary,
+  linewidth=1.5pt,
+  leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt
+]{infobox}
+
+\newmdenv[
+  backgroundcolor=successlight,
+  linecolor=success,
+  linewidth=1.5pt,
+  leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt
+]{successbox}
+
+\newmdenv[
+  backgroundcolor=warninglight,
+  linecolor=warning,
+  linewidth=1.5pt,
+  leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt
+]{warningbox}
+
+\newmdenv[
+  backgroundcolor=dangerlight,
+  linecolor=danger,
+  linewidth=1.5pt,
+  leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt
+]{dangerbox}
+
+\newmdenv[
+  backgroundcolor=purplelight,
+  linecolor=purple,
+  linewidth=1.5pt,
+  leftline=true, rightline=false, topline=false, bottomline=false,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt
+]{purplebox}
+
+% ── Badge command ─────────────────────────────────────────────────────────────
+\DeclareRobustCommand{\badge}[2]{%
+  \tikz[baseline=(n.base)]{
+    \node[inner sep=3pt, rounded corners=3pt,
+          fill=#1!15, text=#1!70!black,
+          font=\fontsize{8}{8}\selectfont\bfseries] (n) {#2};
+  }%
+}
+
+\DeclareRobustCommand{\critical}{\badge{danger}{CRITICAL}}
+\DeclareRobustCommand{\high}{\badge{warning}{HIGH}}
+\DeclareRobustCommand{\medium}{\badge{primary}{MEDIUM}}
+\DeclareRobustCommand{\done}{\badge{success}{DONE WHEN}}
+
+% ── Checklist ─────────────────────────────────────────────────────────────────
+\newlist{checklist}{itemize}{2}
+\setlist[checklist]{label=\textcolor{border}{$\square$}, leftmargin=1.4em, itemsep=3pt, parsep=0pt}
+
+% ── Hyperref ──────────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primary,
+  urlcolor=primary,
+  pdftitle={Abhigyan Raj — Career Roadmap},
+  pdfauthor={Abhigyan Raj}
+}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+% ══════════════════════════════════════════════════════════════════════════════
+
+% ── Title block ───────────────────────────────────────────────────────────────
+\begin{center}
+  {\fontsize{26}{30}\selectfont\bfseries\color{primary} Abhigyan Raj}\\[6pt]
+  {\large\color{muted} Career Roadmap — Single Source of Truth}\\[4pt]
+  {\small\color{muted} B.Tech ECE, IIIT Delhi \ $\cdot$ \ Target: Remote Applied AI / Backend Engineer \ $\cdot$ \ \$1k--\$1.5k/month}\\[10pt]
+  \textcolor{border}{\rule{0.6\linewidth}{0.4pt}}\\[6pt]
+  {\small\color{muted}
+    This document is the single source of truth for your next 90 days.\\
+    Everything is ordered by hiring impact, not complexity.\\
+    Read top to bottom. Execute in order. Update as you go.
+  }
+\end{center}
+
+\vspace{16pt}
+
+% ── Context ───────────────────────────────────────────────────────────────────
+\begin{infobox}
+\textbf{\color{primary}Where you stand right now (honest assessment):}\\[4pt]
+You have three live projects, three real internships, and genuine AI/backend experience. Your resume scores 7.2/10 for \$1k roles and 5.6/10 for \$1.5k roles. The gap is not skill — it is \textbf{presentation, depth of production thinking, and one critical missing item}: your strongest project (Wup) is not on your resume and its backend is running locally. Fix these two things first before anything else.
+\end{infobox}
+
+\vspace{8pt}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 1 — Immediate Wins (Week 1–2)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{1.1 \ Resume Surgery \hfill \critical}
+
+These changes take 2–3 hours and directly increase your interview callback rate. Do this before any coding.
+
+\subsubsection{Remove immediately}
+\begin{checklist}
+  \item \textbf{YOLOv3 Object Detector} — every CS student has this. It adds zero signal and wastes resume space.
+  \item \textbf{Vok.Chat metrics} — ``50ms latency, 97\% uptime'' without methodology looks fabricated. Keep the project, remove the numbers.
+\end{checklist}
+
+\subsubsection{Add immediately}
+\begin{checklist}
+  \item \textbf{Wup} — add as your \#1 project. See Section~\ref{sec:wup} for exact bullet language.
+  \item \textbf{Postgres} to your skills section under Databases.
+  \item \textbf{Redis} to your skills section if you add it to Wup.
+\end{checklist}
+
+\subsubsection{Rewrite these bullets}
+
+\begin{warningbox}
+\textbf{Rule:} Every bullet must answer \textit{``so what?''} \ Format: \textbf{Action} + \textbf{what you built} + \textbf{why it mattered / what changed}.
+\end{warningbox}
+
+\vspace{6pt}
+
+\noindent\textbf{Instafix — current (weak):}
+\begin{quote}
+\color{danger}\small ``Developing full-stack and mobile application features using React Native and Expo, supporting scalable cross-platform delivery for a production-grade repair services platform.''
+\end{quote}
+
+\noindent\textbf{Instafix — rewrite to something like:}
+\begin{quote}
+\color{success}\small ``Architected and shipped N mobile features across React Native and Expo for a live repair-services platform, including [specific feature] that reduced [specific friction] for production users.''
+\end{quote}
+
+\vspace{6pt}
+
+\noindent\textbf{Stremly — current (weak):}
+\begin{quote}
+\color{danger}\small ``Architected the NoX AI Desktop Automation Assistant, enabling 50+ prompt-to-action workflows...''
+\end{quote}
+
+\noindent\textbf{Stremly — rewrite to:}
+\begin{quote}
+\color{success}\small ``Built and deployed the NoX agentic RAG pipeline (FastAPI + WebSockets + Qdrant) that reduced task-execution latency to under 2 seconds across 50+ automation workflows; implemented multi-agent orchestration with context-aware tool selection.''
+\end{quote}
+
+\vspace{6pt}
+\noindent Fill in the blanks from memory for Instafix and Foodoscope — quantify anything you can (N users, X\% faster, Y features shipped).
+
+% ── ──────────────────────────────────────────────────────────────────────────
+\subsection{1.2 \ GitHub Presence \hfill \high}
+
+Recruiters at remote startups look at your GitHub before they read your resume properly.
+
+\begin{checklist}
+  \item Add a \textbf{demo GIF} (screen-recorded, 30–60 seconds) to the Voicely and Wup READMEs. Tools: \texttt{Kap} (Mac) or \texttt{ShareX} (Windows).
+  \item Add an \textbf{architecture diagram} to Wup README — one image showing the BrainOrchestrator pipeline, RAG flow, and bridge connections. Use Excalidraw or draw.io.
+  \item Write a proper \textbf{one-paragraph project description} at the top of each README: what it does, who it's for, what makes it interesting technically.
+  \item Pin \textbf{Wup, Voicely, Vok.Chat} to your GitHub profile.
+  \item Add a \textbf{profile README} (\texttt{github.com/username/username}) — 5 lines: who you are, what you build, links to Wup and Voicely live.
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 2 — Ship Wup as a Real Product (Week 1–4)}
+\label{sec:wup}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{infobox}
+\textbf{Why Wup is your priority:} It is the most differentiated project on your profile. Multi-tenant + RAG + function calling + model routing is not a tutorial project — no student builds this. But right now the backend is local, there are no tests, and it is missing from your resume. Every hour you put into Wup has 3$\times$ the career ROI of any new project.
+\end{infobox}
+
+\subsection{2.1 \ Deploy the Backend \hfill \critical}
+
+\begin{checklist}
+  \item Deploy API (\texttt{apps/api}) to \textbf{Railway} or \textbf{Render} — Railway preferred for Node.js monorepos.
+  \item Set up a \textbf{custom domain} — something like \texttt{wup.abhigyan.dev} or \texttt{trywup.com} if available. NameCheap domains cost \$10/year.
+  \item Configure \textbf{environment variables} in Railway dashboard: MongoDB URI, Gemini keys, JWT secret.
+  \item Verify \textbf{HTTPS / SSL} is working — Railway handles this automatically.
+  \item Set up \textbf{health check endpoint} \texttt{GET /health} that returns \texttt{\{status: "ok", uptime: N\}}.
+\end{checklist}
+
+\subsection{2.2 \ Add Postgres + Prisma \hfill \critical}
+
+MongoDB is correct for documents and vectors. Postgres is for structured relational data. Running both is a sign of engineering maturity, not over-engineering.
+
+\subsubsection{What goes in Postgres}
+\begin{checklist}
+  \item \texttt{users} — id, email, name, google\_id, created\_at
+  \item \texttt{workspaces} — id, user\_id, name, created\_at
+  \item \texttt{api\_keys} — id, workspace\_id, key\_hash, name, created\_at, last\_used\_at
+  \item \texttt{usage\_logs} — id, workspace\_id, query, input\_tokens, output\_tokens, model, cost\_usd, created\_at
+  \item \texttt{bridges} — id, workspace\_id, type (mongo/sheets/postgres), connection\_string\_encrypted, created\_at
+\end{checklist}
+
+\subsubsection{Setup steps}
+\begin{checklist}
+  \item Add \textbf{Postgres} database on Railway (one click, free tier).
+  \item Install \textbf{Prisma ORM}: \texttt{npm install prisma @prisma/client}.
+  \item Write schema in \texttt{prisma/schema.prisma} based on the tables above.
+  \item Run \texttt{npx prisma migrate dev} to create tables.
+  \item Replace any raw Mongo user/session queries with Prisma calls.
+\end{checklist}
+
+\subsection{2.3 \ Upgrade Auth \hfill \critical}
+
+\begin{checklist}
+  \item Add \textbf{Google OAuth} via \texttt{passport-google-oauth20} or \texttt{better-auth}. One-click signup removes friction — more real users.
+  \item Implement proper \textbf{refresh token rotation} — access token expires in 15 min, refresh in 7 days, stored in httpOnly cookie.
+  \item Enforce \textbf{workspace-scoped data isolation} at the ORM layer: every Prisma query must include \texttt{where: \{ workspaceId: req.user.workspaceId \}}. Never trust client-supplied workspace IDs.
+  \item Add \textbf{middleware} that injects \texttt{workspaceId} from the verified JWT on every protected route.
+\end{checklist}
+
+\subsection{2.4 \ SSE Token Streaming \hfill \critical}
+
+This is already in your Wup roadmap. Prioritise it — it transforms the demo experience.
+
+\begin{checklist}
+  \item Replace the current single-response endpoint with a \textbf{Server-Sent Events} stream.
+  \item Pipe Gemini's streaming response directly to the SSE connection.
+  \item Handle \textbf{connection drops} gracefully — store partial responses, allow resume.
+  \item Update the frontend to consume the SSE stream and render tokens as they arrive.
+\end{checklist}
+
+\subsection{2.5 \ Context Window Engineering \hfill \high}
+
+\begin{infobox}
+This is what separates a student RAG project from a production AI system. Being able to explain these decisions in an interview is as valuable as the code itself.
+\end{infobox}
+
+\begin{checklist}
+  \item \textbf{Priority-based context eviction:} Score each message (recency weight) and each RAG chunk (cosine similarity to current query). When total tokens exceed 80\% of model context window, evict lowest-scoring items first. Target: reduce average token count by 35--40\%.
+
+  \item \textbf{Conversation summarisation at threshold:} When chat history exceeds 15 messages, trigger a background job that compresses older turns into a structured summary using \texttt{gemini-flash-lite} (cheapest model). Store summary in Postgres. Swap into context in place of raw history on subsequent queries.
+
+  \item \textbf{Adaptive chunk sizing:} Classify query as simple (lookup, factual) or complex (multi-step, cross-source). Simple queries retrieve chunks of 128 tokens. Complex queries retrieve 512-token chunks. Detect with a single cheap classification call.
+\end{checklist}
+
+\begin{successbox}
+\textbf{Interview answer ready:} ``I implemented priority-based context eviction — messages score by recency, RAG chunks score by cosine similarity to the current query. When total tokens exceed 80\% of the context window, I evict lowest-scoring items first. Combined with conversation summarisation at 15 messages, this cut average token usage by around 40\%.''
+\end{successbox}
+
+\subsection{2.6 \ LLM Cost Optimisation \hfill \high}
+
+\begin{checklist}
+  \item \textbf{Query routing:} Add a classification step before the main LLM call. Simple queries (lookup, factual, short answer) route to \texttt{gemini-flash-lite}. Complex queries (multi-step reasoning, cross-source synthesis) route to \texttt{gemini-2.5-flash}. Classification costs $\sim$50 input tokens, saves 10$\times$ on 60\% of queries.
+
+  \item \textbf{Semantic response caching:} Embed incoming queries and store responses in Redis with a 1-hour TTL (24 hours for document queries). On new query, check cosine similarity against cached query embeddings. Similarity $>$ 0.92 $\Rightarrow$ return cached response. Use your existing MongoDB Atlas Vector Search for the similarity lookup.
+
+  \item \textbf{RAG pre-filter:} Before running vector search, apply a fast keyword + metadata filter. Only send chunks that pass the pre-filter to the embedding comparison step. Reduces embedding API calls significantly.
+
+  \item \textbf{Token usage tracking:} Log \texttt{input\_tokens}, \texttt{output\_tokens}, \texttt{model}, and \texttt{cost\_usd} for every query in the \texttt{usage\_logs} Postgres table. Add a \texttt{GET /admin/usage} endpoint. Show users their monthly usage in the UI.
+\end{checklist}
+
+\begin{successbox}
+\textbf{Interview answer ready:} ``I handle LLM cost at three layers: semantic caching for repeated queries, query routing to cheap models for simple lookups, and context window eviction to keep token counts low. I track per-workspace cost in Postgres so I can enforce limits and show users their usage.''
+\end{successbox}
+
+\subsection{2.7 \ RAG Quality Upgrades \hfill \high}
+
+\begin{checklist}
+  \item \textbf{Hybrid search (vector + BM25):} Pure vector search misses exact keyword matches. Add Atlas Search (BM25) to your existing MongoDB cluster — it is available on the free tier. Combine vector rank and BM25 rank using Reciprocal Rank Fusion: $\text{score} = \sum \frac{1}{k + \text{rank}}$ where $k=60$. This consistently outperforms either method alone.
+
+  \item \textbf{Re-ranking:} After retrieval, pass top-20 chunks + query to Cohere Rerank API (free tier: 1000 calls/month) to re-score and select top-5. Cross-encoders are significantly more accurate than bi-encoders for relevance scoring.
+
+  \item \textbf{HyDE (Hypothetical Document Embedding):} For vague or short queries, generate a hypothetical answer first using a cheap model, then embed \textit{that} instead of the raw query. The hypothetical answer embeds closer to relevant document chunks than a short query does. This is a 2022 research technique — mentioning it by name in an interview is a strong signal.
+\end{checklist}
+
+\begin{purplebox}
+\textbf{Why HyDE matters for interviews:} Almost no student project implements this. It is from a published paper (Gao et al., 2022). Saying ``I use HyDE for short queries — I generate a hypothetical answer and embed that instead of the raw query, because it sits closer to relevant chunks in the embedding space'' signals that you read beyond tutorials.
+\end{purplebox}
+
+\subsection{2.8 \ Reliability Engineering \hfill \high}
+
+\begin{checklist}
+  \item \textbf{Circuit breaker on bridges:} When a MongoDB or Sheets bridge fails 3 times in 60 seconds, open the circuit — return a graceful ``bridge temporarily unavailable'' message instead of cascading timeouts. Auto-reset after 30 seconds (half-open state). Use \texttt{cockatiel} library for Node.js or implement manually in $\sim$50 lines. States: Closed $\rightarrow$ Open $\rightarrow$ Half-open.
+
+  \item \textbf{Request timeouts + graceful degradation:} If LLM call exceeds 8 seconds, return a partial response. If RAG retrieval times out, proceed with just chat history. Never return a 500 error when a fallback is possible.
+
+  \item \textbf{Async ingestion queue:} Move PDF parsing + chunking + embedding to a background job queue using \textbf{BullMQ + Redis}. User uploads document $\rightarrow$ receives job ID $\rightarrow$ polls \texttt{GET /jobs/:id/status}. This is how every production file-processing system works.
+
+  \item \textbf{Structured logging:} Add \textbf{Pino} for JSON-structured logs. Add \textbf{Sentry} for error tracking (free tier). Two hours of work. Shows you think about running systems, not just building them.
+\end{checklist}
+
+\begin{successbox}
+\textbf{Interview answer ready:} ``I implemented the circuit breaker pattern on my database bridges. After 3 consecutive failures, the circuit opens and I fail fast with a graceful error rather than queuing requests that will all timeout. It auto-resets after 30 seconds via a half-open probe.''
+\end{successbox}
+
+\subsection{2.9 \ Public API Access \hfill \high}
+
+\begin{checklist}
+  \item Add \texttt{POST /v1/keys} — generates a new API key for the authenticated workspace. Hash the key with bcrypt, store the hash in Postgres, return the raw key once (never again).
+  \item Add \texttt{POST /v1/query} — accepts \texttt{\{apiKey, query, context?\}} and runs the full Wup pipeline. Returns a grounded response with citations.
+  \item Add \textbf{rate limiting per API key} using Redis: 100 queries/day on free tier, configurable for paid.
+  \item Add \textbf{usage tracking per key} — log every call to \texttt{usage\_logs}.
+  \item Write a \textbf{one-page API reference} in the README with a curl example.
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 3 — Tests, CI, and Polish (Week 5–6)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{3.1 \ Write Tests \hfill \medium}
+
+You do not need full coverage. You need enough tests to demonstrate you \textit{think} about correctness.
+
+\begin{checklist}
+  \item \textbf{BrainOrchestrator pipeline} — test that a query with mock RAG chunks produces a response with citations.
+  \item \textbf{Context eviction logic} — test that eviction removes the correct chunks when token budget is exceeded.
+  \item \textbf{API key generation} — test that keys are hashed correctly and raw key is not stored.
+  \item \textbf{Workspace isolation} — test that a query with workspace A's token cannot retrieve workspace B's data.
+  \item \textbf{Circuit breaker} — test that the breaker opens after N failures and rejects fast.
+  \item Tools: \textbf{Vitest} for unit tests, \textbf{supertest} for API integration tests.
+\end{checklist}
+
+\subsection{3.2 \ GitHub Actions CI \hfill \medium}
+
+\begin{checklist}
+  \item Create \texttt{.github/workflows/ci.yml} — runs on every push and PR.
+  \item Steps: install dependencies $\rightarrow$ lint (\texttt{eslint}) $\rightarrow$ typecheck (\texttt{tsc --noEmit}) $\rightarrow$ run tests.
+  \item Add a \textbf{passing CI badge} to the README: \texttt{![CI](https://github.com/...)}
+  \item Total setup time: 30 minutes. Signal value: very high.
+\end{checklist}
+
+\subsection{3.3 \ Wup Landing Page \hfill \medium}
+
+\begin{checklist}
+  \item Build a simple \textbf{public landing page} — what Wup does, who it's for, a 30-second demo video, and a sign-up button.
+  \item This page is what you link in cold emails, job applications, and your resume.
+  \item Keep it minimal: headline, 3 feature bullets, demo, CTA. Next.js with Tailwind, 2 hours of work.
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 4 — Voicely Improvements (Week 5–6, parallel)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{4.1 \ Replace Twilio to Cut Costs \hfill \high}
+
+\begin{tabularx}{\linewidth}{lXX}
+\toprule
+\textbf{Option} & \textbf{Pros} & \textbf{Cons} \\
+\midrule
+\textbf{Livekit} & Open source, self-hostable on Railway, zero per-minute cost & More setup than Twilio \\
+\textbf{Telnyx} & Same API as Twilio, 40--60\% cheaper per minute & Still per-minute cost \\
+\textbf{Plivo} & Cheapest international rates & Smaller ecosystem \\
+\bottomrule
+\end{tabularx}
+
+\vspace{6pt}
+\textbf{Recommendation:} Use \textbf{Livekit} for demos and portfolio (zero cost), keep Twilio config for production. Document the switch in your README — showing you made a cost-driven infrastructure decision is a positive signal.
+
+\subsection{4.2 \ Voicely API Access Feature \hfill \high}
+
+This is a genuinely good product idea. The technical plan:
+
+\begin{checklist}
+  \item User generates an API key from the Voicely dashboard (same pattern as Wup).
+  \item \texttt{POST /v1/call} accepts \texttt{\{apiKey, phoneNumber, systemPrompt, voice, language\}} and initiates a Voicely pipeline call.
+  \item Webhook callbacks: \texttt{onCallStart}, \texttt{onCallEnd}, \texttt{onTranscript} — user registers their endpoint, Voicely posts events.
+  \item Rate limiting and usage metering per key (Redis + Postgres — same stack as Wup).
+  \item This turns Voicely into a ``voice AI as a service'' platform. On your resume, you can write: ``Exposed Voicely pipeline as a public API with key auth, rate limiting, and webhook callbacks.''
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 5 — Applying (Month 2–3)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{5.1 \ Where to Apply}
+
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+\textbf{Platform} & \textbf{What to look for} & \textbf{Priority} \\
+\midrule
+\textbf{Wellfound} (AngelList) & Early-stage AI startups, Remote, Seed/Series A & \badge{danger}{First} \\
+\textbf{Contra} & Remote-only, project-based, no middleman & \badge{danger}{First} \\
+\textbf{LinkedIn} & Filter: Remote, Startup, 1--50 employees, AI/ML & \badge{warning}{Second} \\
+\textbf{YC Job Board} & \texttt{workatastartup.com} — YC companies, high quality & \badge{warning}{Second} \\
+\textbf{Remotive.io} & Curated remote engineering roles & \badge{primary}{Third} \\
+\bottomrule
+\end{tabularx}
+
+\subsection{5.2 \ Cold Email Template}
+
+\begin{infobox}
+\textbf{Structure:} 1 sentence what you do $\rightarrow$ 1 sentence why this company specifically $\rightarrow$ 1 specific link $\rightarrow$ direct ask.
+
+\vspace{6pt}
+\small\color{muted}
+Subject: \texttt{Applied AI engineer — built Wup (RAG + multi-tenant DB querying)}\\[4pt]
+Hi [name],\\[4pt]
+I'm a third-year ECE student at IIIT Delhi who's been building production AI infrastructure — most recently Wup, a multi-tenant platform that lets non-technical users query live databases using natural language (RAG + function calling + model routing): [link].\\[4pt]
+I noticed [company] is building [specific thing] — I think my work on [relevant part of Wup/Voicely] maps directly to that problem.\\[4pt]
+Would you be open to a 20-minute call? Happy to share more context on the architecture.
+\end{infobox}
+
+\subsection{5.3 \ Application Volume Target}
+
+\begin{checklist}
+  \item Apply to \textbf{5--8 roles per week} starting Month 2. Not more — quality over volume at this stage.
+  \item \textbf{Personalise each application} with one sentence about why that company specifically.
+  \item \textbf{Track everything} in a simple Notion table: company, role, date applied, status, contact name.
+  \item Follow up after \textbf{7 days} if no response — one polite email, no more.
+\end{checklist}
+
+\subsection{5.4 \ Open Source (Start Month 2)}
+
+One PR to a real OSS project is worth more than another personal project.
+
+\begin{checklist}
+  \item Find a \textbf{mid-size AI or backend OSS project} on GitHub — look for issues labelled \texttt{good first issue} or \texttt{help wanted}.
+  \item Good targets: LlamaIndex, LangChain ecosystem packages, FastAPI plugins, any RAG tooling.
+  \item Goal: \textbf{2--3 merged PRs} by end of Month 3.
+  \item Even a documentation PR to a well-known project is positive — it shows you can navigate a real codebase.
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Phase 6 — System Design Depth (Month 3)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{warningbox}
+This is a 2--3 month gap, not an immediate one. Do the project work first. Start system design study in Month 3 when you're actively interviewing.
+\end{warningbox}
+
+\subsection{6.1 \ Systems to be able to design cold}
+
+\begin{checklist}
+  \item Rate limiter (token bucket, sliding window, fixed window — know the tradeoffs)
+  \item URL shortener (hash collisions, database choice, caching layer)
+  \item Notification system (fan-out vs fan-in, push vs pull, message queue design)
+  \item Job queue / task scheduler (at-least-once vs exactly-once delivery, dead letter queues)
+  \item Multi-tenant SaaS backend (data isolation strategies, connection pooling, per-tenant rate limits)
+\end{checklist}
+
+\subsection{6.2 \ Study resources (selective)}
+
+\begin{checklist}
+  \item \textbf{Designing Data-Intensive Applications} by Martin Kleppmann — read chapters 1, 2, 5, 7. Do not read cover to cover.
+  \item \textbf{ByteByteGo newsletter} — free, one system per week, very visual.
+  \item \textbf{system-design-primer} on GitHub — use for reference, not sequential reading.
+\end{checklist}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Master Checklist — 90-Day View}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\linewidth}{clXl}
+\toprule
+\textbf{Week} & \textbf{Priority} & \textbf{Task} & \textbf{Status} \\
+\midrule
+1 & \critical & Fix resume: add Wup, drop YOLO, rewrite bullets & $\square$ \\
+1 & \critical & Deploy Wup backend to Railway + custom domain & $\square$ \\
+1 & \high & Add demo GIFs to Wup and Voicely READMEs & $\square$ \\
+1 & \high & Add GitHub profile README + pin top 3 repos & $\square$ \\
+\midrule
+2 & \critical & Add Postgres + Prisma to Wup & $\square$ \\
+2 & \critical & Upgrade auth: Google OAuth + workspace isolation & $\square$ \\
+2 & \critical & Implement SSE token streaming & $\square$ \\
+2 & \high & Add structured logging (Pino) + Sentry & $\square$ \\
+\midrule
+3 & \high & Implement context window eviction + summarisation & $\square$ \\
+3 & \high & Implement query routing (cheap vs expensive model) & $\square$ \\
+3 & \high & Implement semantic response caching (Redis) & $\square$ \\
+3 & \high & Implement circuit breaker on bridges & $\square$ \\
+\midrule
+4 & \high & Hybrid search: vector + BM25 (Atlas Search) & $\square$ \\
+4 & \high & Add Cohere Rerank for RAG re-ranking & $\square$ \\
+4 & \high & Implement HyDE for vague queries & $\square$ \\
+4 & \high & Add BullMQ async document ingestion queue & $\square$ \\
+\midrule
+5 & \high & Public API: key generation + \texttt{/v1/query} endpoint & $\square$ \\
+5 & \medium & Voicely: evaluate Livekit as Twilio replacement & $\square$ \\
+5 & \medium & Write 10--15 integration tests (Vitest + supertest) & $\square$ \\
+\midrule
+6 & \medium & GitHub Actions CI pipeline (lint + test) & $\square$ \\
+6 & \medium & Wup public landing page & $\square$ \\
+6 & \medium & Voicely API access feature (keys + webhooks) & $\square$ \\
+\midrule
+7+ & \medium & Start applying: Wellfound + Contra (5--8/week) & $\square$ \\
+7+ & \medium & Find OSS project, open first PR & $\square$ \\
+12+ & \medium & Begin system design study (DDIA chapters) & $\square$ \\
+\bottomrule
+\end{tabularx}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Interview Answers — Memorise These}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{purplebox}
+These are the 5 questions you will get in every applied AI / backend interview. Have a 3-sentence answer ready for each. The answers below are based on what Wup will look like after Phase 2--4.
+\end{purplebox}
+
+\vspace{8pt}
+
+\noindent\textbf{Q: How do you handle LLM costs at scale?}\\
+``Three layers: semantic caching for repeated queries (Redis + vector similarity $>$ 0.92 threshold), query routing so simple lookups hit \texttt{flash-lite} instead of \texttt{flash-2.5}, and context window eviction to keep token counts below 80\% of the limit. I track per-workspace cost in Postgres so I can enforce usage limits and show users their spend.''
+
+\vspace{8pt}
+
+\noindent\textbf{Q: What happens when Gemini rate limits you?}\\
+``Model rotation with exponential backoff across 4 models — flash-2.5, flash-2.0, flash-lite, flash-1.5. I also have a circuit breaker: after 3 consecutive failures the circuit opens, I fail fast and return a graceful error rather than queuing 30 requests that will all timeout. The circuit half-opens after 30 seconds to probe for recovery.''
+
+\vspace{8pt}
+
+\noindent\textbf{Q: How do you ensure User A cannot see User B's data?}\\
+``Workspace ID is injected server-side from the verified JWT on every request — never from the client. Every Prisma query includes \texttt{where: \{workspaceId\}} at the ORM layer. Vector search includes a metadata filter on workspace ID. Even a forged token returns nothing outside the attacker's workspace because the filter is applied before any data is returned.''
+
+\vspace{8pt}
+
+\noindent\textbf{Q: Why hybrid search over pure vector search?}\\
+``Vector search misses exact keyword matches — if a user queries a specific column name or ID, BM25 finds it where embeddings might not. Pure BM25 misses semantic similarity. Reciprocal Rank Fusion of both consistently outperforms either alone. I combine vector rank and BM25 rank with $k=60$, which is the standard constant from the RRF literature.''
+
+\vspace{8pt}
+
+\noindent\textbf{Q: What is HyDE and why did you use it?}\\
+``HyDE is Hypothetical Document Embedding from a 2022 paper. For short or vague queries, the embedding of the query itself sits far from relevant document chunks in the embedding space. Instead I generate a hypothetical answer using a cheap model, then embed that — it sits much closer to actual relevant chunks. It meaningfully improves retrieval accuracy for the kind of exploratory queries that are common in a data tool.''
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Target Companies — Profile}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\noindent The companies most likely to hire you in the next 3--6 months share these characteristics:
+
+\begin{checklist}
+  \item \textbf{5--30 people} — small enough that one engineer makes a real difference.
+  \item \textbf{AI-native or AI-augmented product} — using LLMs in their core product, not just exploring.
+  \item \textbf{YC-backed or bootstrapped} — these founders value builders over credentials.
+  \item \textbf{Async / remote-first culture} — they write decisions down, care about output not hours.
+  \item \textbf{Node.js or Python backend} — matches your stack.
+\end{checklist}
+
+\vspace{6pt}
+
+\noindent\textbf{Realistic compensation trajectory:}
+
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+\textbf{Timeline} & \textbf{What you need} & \textbf{Target} \\
+\midrule
+Now & Fix resume + add Wup & \$800--1000/month \\
+Month 2 & Wup deployed + context/cost engineering done & \$1000--1200/month \\
+Month 3 & Full Phase 2--4 complete, system design basics & \$1200--1500/month \\
+Month 6 & OSS PRs + 3 months applied AI experience & \$1500--2000/month \\
+\bottomrule
+\end{tabularx}
+
+% ── Footer note ───────────────────────────────────────────────────────────────
+\vspace{24pt}
+\textcolor{border}{\rule{\linewidth}{0.4pt}}
+\vspace{6pt}
+
+\begin{center}
+\small\color{muted}
+This document was generated based on a detailed profile review conducted May 2026.\\
+Update the master checklist as you complete items. Revisit the compensation section monthly.\\
+\vspace{4pt}
+\textit{The goal is not to look like an impressive student. It is to think like an engineer who has run things in production.}
+\end{center}
+
+\end{document}
