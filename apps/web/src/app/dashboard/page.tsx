@@ -60,7 +60,7 @@ export default function DashboardPage() {
   // Model selection
   const [currentModel, setCurrentModel] = useState("Auto-Rotate");
   const [exhaustedModels, setExhaustedModels] = useState<string[]>([]);
-  const [usage, setUsage] = useState<{ freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean } | null>(null);
+  const [usage, setUsage] = useState<{ freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean; availableModels?: string[] } | null>(null);
 
   // ── Initial load ────────────────────────────────────────────────────────────
 
