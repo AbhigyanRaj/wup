@@ -160,7 +160,7 @@ export class BrainOrchestrator {
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-flash-lite-latest",
-    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
   ];
 
   /** Models that hit daily limits in this server process lifetime */
