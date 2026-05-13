@@ -114,7 +114,7 @@ export function MessageItem({ role, content, ragSources, followUps, onFollowUpSe
         {/* Content */}
         <div className={`flex flex-col gap-3 ${isAssistant ? "flex-1" : "max-w-[85%] sm:max-w-[70%]"}`}>
           {isAssistant ? (
-            <div className="wup-prose selectable tracking-wide leading-relaxed">
+            <div className="wuup-prose selectable tracking-wide leading-relaxed">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{ code: CodeBlock }}

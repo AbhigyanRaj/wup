@@ -64,7 +64,7 @@ export default function LoginPage() {
             </h1>
             <p className="text-white/50 text-[13px] leading-relaxed">
               {isSignUp 
-                ? "Start your journey with Wup." 
+                ? "Start your journey with Wuup." 
                 : "Enter your credentials to access the Brain."}
             </p>
           </div>

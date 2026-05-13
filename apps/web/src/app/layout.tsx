@@ -29,7 +29,7 @@ const fontDisplay2 = localFont({
 import { AuthProvider } from "@/components/auth-context";
 
 export const metadata: Metadata = {
-  title: "Wup | AI Data Intelligence",
+  title: "Wuup | AI Data Intelligence",
   description: "AI-powered data intelligence platform",
 };
 

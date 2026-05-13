@@ -17,7 +17,7 @@ interface ConnectDbModalProps {
 type Step = "choice" | "method" | "automated" | "manual" | "assistant" | "loading" | "success";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const WUP_ASSISTANT_EMAIL = "bridge@wup-ai.iam.gserviceaccount.com";
+const WUUP_ASSISTANT_EMAIL = "bridge@wup-ai.iam.gserviceaccount.com";
 
 export function ConnectDbModal({ isOpen, onClose }: ConnectDbModalProps) {
   const [step, setStep] = useState<Step>("choice");
@@ -42,14 +42,14 @@ export function ConnectDbModal({ isOpen, onClose }: ConnectDbModalProps) {
   ];
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText(WUP_ASSISTANT_EMAIL);
+    navigator.clipboard.writeText(WUUP_ASSISTANT_EMAIL);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleManualConnect = async () => {
     setStep("loading");
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     try {
       const res = await fetch(`${API_URL}/connections`, {
         method: "POST",

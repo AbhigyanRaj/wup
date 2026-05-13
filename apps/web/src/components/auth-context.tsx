@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Verify session with backend on load
     const verifySession = async () => {
-      const token = localStorage.getItem("wup_token");
+      const token = localStorage.getItem("wuup_token");
       if (!token) {
         setIsLoading(false);
         return;
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const data = await res.json();
           setUser(data.user);
         } else {
-          localStorage.removeItem("wup_token");
+          localStorage.removeItem("wuup_token");
         }
       } catch (err) {
         console.error("Session verification failed", err);
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { token, user } = data;
         
         setUser(user);
-        localStorage.setItem("wup_token", token);
+        localStorage.setItem("wuup_token", token);
         router.push("/dashboard");
       } else {
         throw new Error("Login failed");
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("wup_token");
+    localStorage.removeItem("wuup_token");
     router.push("/");
   };
 

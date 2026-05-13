@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import {
-  Plus, Search, Database, Upload,
+  Plus, Search, Database, Upload, Key,
   LogOut, Trash2, X, MessageSquare,
   ChevronRight, ChevronLeft, Loader2,
 } from "lucide-react";
@@ -21,6 +21,7 @@ interface SidebarProps {
   onDeleteConnection: (id: string) => void;
   onOpenAddDb: () => void;
   onOpenUpload: () => void;
+  onOpenApiKey: () => void;
   knowledgeSources: KnowledgeSource[];
   onDeleteSource: (id: string) => void;
   isMobileOpen?: boolean;
@@ -45,7 +46,7 @@ function SectionLabel({ label }: { label: string }) {
 
 export function DashboardSidebar({
   chats, activeChatId, onNewChat, onSelectChat, onDeleteChat,
-  connections, onDeleteConnection, onOpenAddDb, onOpenUpload,
+  connections, onDeleteConnection, onOpenAddDb, onOpenUpload, onOpenApiKey,
   knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -67,7 +68,7 @@ export function DashboardSidebar({
               className="w-2 h-2 rounded-full shadow-[0_0_10px_rgba(255,95,31,0.3)]"
               style={{ background: "var(--orange)" }}
             />
-            <span className="text-[14px] tracking-[0.2em] font-bold uppercase text-white/90" style={{ fontFamily: "var(--font-display)" }}>WUP</span>
+            <span className="text-[14px] tracking-[0.2em] font-bold uppercase text-white/90" style={{ fontFamily: "var(--font-display)" }}>WUUP</span>
           </div>
         )}
 
@@ -117,6 +118,7 @@ export function DashboardSidebar({
             { icon: <Search size={15} />, label: "Search", onClick: undefined },
             { icon: <Database size={15} />, label: "Add Bridge", onClick: () => { onOpenAddDb(); onCloseMobile?.(); } },
             { icon: <Upload size={15} />, label: "Import", onClick: () => { onOpenUpload(); onCloseMobile?.(); } },
+            { icon: <Key size={15} />, label: "API Key", onClick: () => { onOpenApiKey(); onCloseMobile?.(); } },
           ].map((item) => (
             <button
               key={item.label}

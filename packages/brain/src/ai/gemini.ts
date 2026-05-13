@@ -3,17 +3,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 /**
  * Lazy-initialized Gemini API client.
  */
-let _genAI: GoogleGenerativeAI | null = null;
-
-const getGenAI = () => {
-  if (!_genAI) {
-    const key = process.env.GEMINI_API_KEY || "";
-    if (!key) {
-      console.warn("[WUP Brain] WARNING: GEMINI_API_KEY is missing from environment.");
-    }
-    _genAI = new GoogleGenerativeAI(key);
+const getGenAI = (customKey?: string) => {
+  const key = customKey || process.env.GEMINI_API_KEY || "";
+  if (!key) {
+    console.warn("[WUP Brain] WARNING: GEMINI_API_KEY is missing from environment.");
   }
-  return _genAI;
+  return new GoogleGenerativeAI(key);
 };
 
 /**
@@ -25,7 +20,7 @@ const getGenAI = () => {
  */
 export const GEMINI_MODEL = "gemini-3-flash-preview"; 
 
-export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string) => {
+export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string, customKey?: string) => {
   const modelParams: any = {
     model: modelOverride || GEMINI_MODEL,
   };
@@ -39,7 +34,7 @@ export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelO
   }
 
   // Use 'v1beta' for systemInstruction and Function Calling support
-  return getGenAI().getGenerativeModel(modelParams, { apiVersion: 'v1beta' });
+  return getGenAI(customKey).getGenerativeModel(modelParams, { apiVersion: 'v1beta' });
 };
 
 /**

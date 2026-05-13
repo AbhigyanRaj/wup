@@ -100,7 +100,7 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
   useEffect(() => { if (!isOpen) setTimeout(() => setUploads([]), 400); }, [isOpen]);
 
   const processFiles = useCallback(async (files: File[]) => {
-    const token = localStorage.getItem("wup_token") || "";
+    const token = localStorage.getItem("wuup_token") || "";
     const valid = files.filter((f) => f.type === "application/pdf" || f.type === "text/plain");
     if (!valid.length) return;
 

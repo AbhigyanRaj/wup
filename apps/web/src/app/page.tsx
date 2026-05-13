@@ -69,7 +69,7 @@ export default function Home() {
         <nav className="relative z-20 w-full max-w-5xl mx-auto pt-7 pb-4 flex justify-between items-center">
           {/* Logo using Monument Extended Regular */}
           <Link href="/" className="text-[15px] tracking-widest text-white/85 uppercase" style={{ fontFamily: "var(--font-display-2)" }}>
-            WUP
+            WUUP
           </Link>
           <div className="flex items-center gap-6">
             <Link href="#features" className="text-[12px] text-white/38 hover:text-white/70 transition-colors tracking-wide">
@@ -140,7 +140,7 @@ export default function Home() {
               <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <Link 
-              href="https://www.notion.so/Wup-350d9fc386ee80fa8d2dea6736f86625?source=copy_link"
+              href="https://www.notion.so/Wuup-350d9fc386ee80fa8d2dea6736f86625?source=copy_link"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-3xl border border-white/10 bg-white/[0.04] text-[12px] text-white/45 hover:text-white/70 hover:bg-white/[0.07] transition-all tracking-wide"
@@ -256,7 +256,7 @@ export default function Home() {
               className="text-[13px] tracking-widest text-white/75 mb-1.5 uppercase"
               style={{ fontFamily: "var(--font-display-2)" }}
             >
-              WUP
+              WUUP
             </div>
             <p className="text-[11.5px] text-white/22 font-light max-w-[200px] leading-relaxed">
               AI intelligence layer for your databases.
@@ -268,7 +268,7 @@ export default function Home() {
               <Link href="#" className="text-[12px] text-white/35 hover:text-white/65 transition-colors font-light">Dashboard</Link>
               <Link href="#" className="text-[12px] text-white/35 hover:text-white/65 transition-colors font-light">Connectors</Link>
               <Link 
-                href="https://www.notion.so/Wup-350d9fc386ee80fa8d2dea6736f86625?source=copy_link" 
+                href="https://www.notion.so/Wuup-350d9fc386ee80fa8d2dea6736f86625?source=copy_link" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[12px] text-white/35 hover:text-white/65 transition-colors font-light"
@@ -285,7 +285,7 @@ export default function Home() {
           </div>
         </div>
         <div className="mt-10 pt-6 border-t border-white/[0.04] flex justify-between items-center text-[9.5px] text-white/15 tracking-widest uppercase">
-          <span>© 2026 Wup</span>
+          <span>© 2026 Wuup</span>
           <span>Built by Abhigyan Raj</span>
         </div>
       </footer>

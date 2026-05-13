@@ -16,16 +16,18 @@ interface AskBarProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   exhaustedModels?: string[];
+  usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean } | null;
 }
 
-export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels = [] }: AskBarProps) {
+export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels = [], usage }: AskBarProps) {
   const [input, setInput]         = useState("");
   const [focused, setFocused]     = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const activeModel = MODELS.find(m => m.id === selectedModel) ?? MODELS[0];
-  const canSend     = input.trim().length > 0;
+  const isLimitReached = !!(usage && !usage.hasCustomKey && usage.freeTierUsage >= usage.freeTierLimit);
+  const canSend     = input.trim().length > 0 && !isLimitReached;
 
   const submit = () => {
     if (!canSend) return;
@@ -132,8 +134,9 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
           onKeyDown={onKeyDown}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Message WUP..."
-          className="w-full bg-transparent resize-none text-[15px] leading-relaxed placeholder:text-white/20"
+          placeholder={isLimitReached ? "Free tier limit reached. Add your API key to continue." : "Message WUUP..."}
+          disabled={isLimitReached}
+          className={`w-full bg-transparent resize-none text-[15px] leading-relaxed placeholder:text-white/20 ${isLimitReached ? "cursor-not-allowed opacity-50" : ""}`}
           style={{
             padding: "18px 20px 56px",
             color: "var(--text-primary)",
@@ -176,6 +179,27 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
                 className={`transition-transform duration-300 ${modelOpen ? "rotate-180" : ""}`}
               />
             </button>
+
+            {usage && !usage.hasCustomKey && (
+              <div className="flex items-center gap-2 ml-3">
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest select-none">
+                  Usage
+                </span>
+                <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-300" 
+                    style={{ 
+                      width: `${Math.min((usage.freeTierUsage / usage.freeTierLimit) * 100, 100)}%`,
+                      background: usage.freeTierUsage >= usage.freeTierLimit ? "var(--red)" : "var(--orange)",
+                      boxShadow: usage.freeTierUsage >= usage.freeTierLimit ? "none" : "0 0 5px rgba(255,95,31,0.5)"
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-white/30 select-none">
+                  {usage.freeTierUsage}/{usage.freeTierLimit}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right — send */}

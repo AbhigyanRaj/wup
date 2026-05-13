@@ -55,7 +55,7 @@ function postProcessSvg(svgHtml: string): string {
   // Inject a premium drop-shadow filter definition after <defs> or at start of <svg>
   const filterDef = `
     <defs>
-      <filter id="wup-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <filter id="wuup-shadow" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.35)" flood-opacity="1"/>
       </filter>
     </defs>`;
@@ -72,7 +72,7 @@ function postProcessSvg(svgHtml: string): string {
 
   // Add drop-shadow filter to node rects (those with fill colors, not transparent background)
   result = result.replace(/<rect rx="10" ry="10"([^>]*?)fill="(?!none|transparent|rgba\(0,0,0,0\))([^"]+)"([^>]*?)(\/>|>)/g,
-    '<rect rx="10" ry="10"$1fill="$2"$3 filter="url(#wup-shadow)"$4>');
+    '<rect rx="10" ry="10"$1fill="$2"$3 filter="url(#wuup-shadow)"$4>');
 
   // Set overall SVG display style
   result = result.replace('<svg ', '<svg style="max-width:100%;display:block;overflow:visible;" ');
@@ -141,7 +141,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "wup-diagram.svg";
+    a.download = "wuup-diagram.svg";
     a.click();
     URL.revokeObjectURL(url);
   };

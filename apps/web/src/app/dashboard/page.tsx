@@ -13,6 +13,7 @@ import { ConnectDbModal } from "@/components/dashboard/connect-db-modal";
 import { UploadModal, KnowledgeSource } from "@/components/dashboard/upload-modal";
 import { MessageProps } from "@/components/dashboard/message-item";
 import { ClarificationModal } from "@/components/dashboard/clarification-modal";
+import { ApiKeyModal } from "@/components/dashboard/api-key-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export default function DashboardPage() {
 
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Chat state
@@ -58,24 +60,27 @@ export default function DashboardPage() {
   // Model selection
   const [currentModel, setCurrentModel] = useState("Auto-Rotate");
   const [exhaustedModels, setExhaustedModels] = useState<string[]>([]);
+  const [usage, setUsage] = useState<{ freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean } | null>(null);
 
   // ── Initial load ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem("wup_token");
+      const token = localStorage.getItem("wuup_token");
       if (!token) return;
 
       try {
-        const [chatRes, connRes, kbRes] = await Promise.all([
+        const [chatRes, connRes, kbRes, usageRes] = await Promise.all([
           fetch(`${API_URL}/chats`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_URL}/connections`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_URL}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
         if (chatRes.ok) setChats(await chatRes.json());
         if (connRes.ok) setConnections(await connRes.json());
         if (kbRes.ok) setKnowledgeSources(await kbRes.json());
+        if (usageRes.ok) setUsage(await usageRes.json());
       } catch (err) {
         console.error("Dashboard mount fetch failed:", err);
         setError("Connection failed. Is the backend running?");
@@ -86,7 +91,7 @@ export default function DashboardPage() {
 
   // F-2: Resume polling for any sources still in "indexing" state on mount
   useEffect(() => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     if (!token) return;
     knowledgeSources
       .filter((s) => s.status === "indexing" || s.status === "pending")
@@ -116,7 +121,7 @@ export default function DashboardPage() {
   // ── Knowledge source helpers ─────────────────────────────────────────────────
 
   const refreshKnowledgeSources = useCallback(async () => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     if (!token) return;
     try {
       const res = await fetch(`${API_URL}/knowledge`, {
@@ -127,7 +132,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleDeleteSource = async (id: string) => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     try {
       await fetch(`${API_URL}/knowledge/${id}`, {
         method: "DELETE",
@@ -147,7 +152,7 @@ export default function DashboardPage() {
       return;
     }
     const fetchMessages = async () => {
-      const token = localStorage.getItem("wup_token");
+      const token = localStorage.getItem("wuup_token");
       try {
         const res = await fetch(`${API_URL}/chats/${activeChatId}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -171,7 +176,7 @@ export default function DashboardPage() {
   }, [activeChatId]);
 
   const handleSendMessage = async (content: string, model: string = "Auto-Rotate") => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     let currentChatId = activeChatId;
     setError(null);
 
@@ -213,6 +218,10 @@ export default function DashboardPage() {
 
       if (data.exhausted) setExhaustedModels(data.exhausted);
 
+      // Refetch usage stats
+      const usageRes = await fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } });
+      if (usageRes.ok) setUsage(await usageRes.json());
+
       // Handle clarification response
       if (data.clarification) {
         setClarification({
@@ -246,7 +255,7 @@ export default function DashboardPage() {
   // ── Connection / Chat handlers ────────────────────────────────────────────────
 
   const handleDeleteChat = async (id: string) => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     try {
       await fetch(`${API_URL}/chats/${id}`, {
         method: "DELETE",
@@ -263,7 +272,7 @@ export default function DashboardPage() {
   };
 
   const handleDeleteConnection = async (id: string) => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     try {
       await fetch(`${API_URL}/connections/${id}`, {
         method: "DELETE",
@@ -276,7 +285,7 @@ export default function DashboardPage() {
   };
 
   const handleConnectionAdded = async () => {
-    const token = localStorage.getItem("wup_token");
+    const token = localStorage.getItem("wuup_token");
     const connRes = await fetch(`${API_URL}/connections`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -297,6 +306,7 @@ export default function DashboardPage() {
         onDeleteConnection={handleDeleteConnection}
         onOpenAddDb={() => setIsDbModalOpen(true)}
         onOpenUpload={() => setIsUploadModalOpen(true)}
+        onOpenApiKey={() => setIsApiKeyModalOpen(true)}
         knowledgeSources={knowledgeSources}
         onDeleteSource={handleDeleteSource}
         isMobileOpen={isMobileSidebarOpen}
@@ -317,7 +327,7 @@ export default function DashboardPage() {
           </button>
           <div className="flex items-center gap-2 select-none">
             <span className="text-[10px] font-bold tracking-[0.3em] uppercase opacity-20" style={{ fontFamily: "var(--font-display)" }}>
-              WUP Intelligence
+              WUUP Intelligence
             </span>
           </div>
           <div className="w-10" /> {/* Spacer */}
@@ -353,6 +363,7 @@ export default function DashboardPage() {
                     selectedModel={currentModel}
                     onModelChange={setCurrentModel}
                     exhaustedModels={exhaustedModels}
+                    usage={usage}
                   />
                   <div className="mt-8">
                     <CategoryPills />
@@ -400,6 +411,7 @@ export default function DashboardPage() {
                 selectedModel={currentModel}
                 onModelChange={setCurrentModel}
                 exhaustedModels={exhaustedModels}
+                usage={usage}
               />
               <p className="text-[10px] text-center opacity-20 font-bold uppercase tracking-widest select-none">
                 AI may display inaccurate info.
@@ -419,6 +431,17 @@ export default function DashboardPage() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSourcesChanged={refreshKnowledgeSources}
+      />
+
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSaved={async () => {
+          // Refetch usage to update UI
+          const token = localStorage.getItem("wuup_token");
+          const usageRes = await fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } });
+          if (usageRes.ok) setUsage(await usageRes.json());
+        }}
       />
     </div>
   );

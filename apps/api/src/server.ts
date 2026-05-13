@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth";
 import connectionRoutes from "./routes/connection";
 import chatRoutes from "./routes/chat";
 import knowledgeRoutes from "./routes/knowledge";
+import userRoutes from "./routes/user";
 
 // Register models so Mongoose knows them before any package references them by name
 import "./models/KnowledgeSource";
@@ -26,6 +27,21 @@ app.use(express.json({ limit: "2mb" }));
 mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log("[WUP API] Connected to MongoDB");
+    
+    // Migration: update all users to have freeTierLimit: 50 if they have less
+    try {
+      const collection = mongoose.connection.db!.collection("users");
+      const result = await collection.updateMany(
+        { $or: [{ freeTierLimit: { $lt: 50 } }, { freeTierLimit: { $exists: false } }] },
+        { $set: { freeTierLimit: 50 } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`[WUP API] Migrated ${result.modifiedCount} users to 50 free limit.`);
+      }
+    } catch (err) {
+      console.error("[WUP API] Migration failed:", err);
+    }
+
     // Maintenance: ensure indexes are clean
     try {
       const collection = mongoose.connection.db!.collection("users");
@@ -45,6 +61,7 @@ app.use("/auth", authRoutes);
 app.use("/connections", connectionRoutes);
 app.use("/chats", chatRoutes);
 app.use("/knowledge", knowledgeRoutes);
+app.use("/user", userRoutes);
 
 // Health Check
 app.get("/health", (req, res) => {

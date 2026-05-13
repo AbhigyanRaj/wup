@@ -1,5 +1,6 @@
 import type { Content } from "@google/generative-ai";
 import { Connection } from "../../../apps/api/src/models/Connection";
+import { User } from "../../../apps/api/src/models/User";
 import { getGeminiModel, WUP_SYSTEM_PROMPT } from "./ai/gemini";
 import { WUP_AI_TOOLS, WUP_TOOLS_REGISTRY } from "./tools/registry";
 import { ragService, safeRetrieve, buildRagContext } from "./rag/retriever";
@@ -200,6 +201,32 @@ export class BrainOrchestrator {
       `[WUP Brain] Query from userId=${userId} | model=${requestedModel || "Auto-Rotate"} | prompt="${prompt.slice(0, 80)}..."`
     );
 
+    // ── Step 0: Check Hybrid Model Limits ───────────────────────────────────
+    const user = await User.findById(userId);
+    let customKey: string | undefined = undefined;
+
+    if (user) {
+      const u = user as any;
+      if (u.customApiKey) {
+        customKey = u.customApiKey;
+        console.log(`[WUP Brain] Using custom API key for user ${userId}`);
+      } else {
+        if (u.freeTierUsage >= u.freeTierLimit) {
+          console.log(`[WUP Brain] User ${userId} hit free tier limit`);
+          return {
+            content: "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.",
+            source: "system",
+            followUps: [
+              { label: "Add API Key", suggestedPrompt: "How do I add my API key?" }
+            ]
+          };
+        }
+        u.freeTierUsage += 1;
+        await user.save();
+        console.log(`[WUP Brain] User ${userId} free tier usage: ${u.freeTierUsage}/${u.freeTierLimit}`);
+      }
+    }
+
     // ── Step 1: Fetch active DB bridges ──────────────────────────────────────
     const connections = await Connection.find({ userId });
     const bridgeInfo = connections
@@ -237,7 +264,7 @@ export class BrainOrchestrator {
       try {
         console.log(`[WUP Brain] Attempting model: ${modelName}`);
 
-        const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName);
+        const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName, customKey);
         const chat = model.startChat({ history: geminiHistory });
         let result = await this.callWithRetry(() => chat.sendMessage(prompt));
         let response = result.response;
