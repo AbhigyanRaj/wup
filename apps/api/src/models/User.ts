@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: "Founder" },
   customApiKey: { type: String, default: "" },
   customApiProvider: { type: String, default: "gemini" },
+  availableModels: { type: [String], default: [] },
   freeTierUsage: { type: Number, default: 0 },
   freeTierLimit: { type: Number, default: 50 },
   createdAt: { type: Date, default: Date.now }

@@ -15,13 +15,45 @@ export const updateApiKey = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    let availableModels: string[] = [];
+
+    // Validate the API key and fetch models
+    if (provider === "gemini" || !provider) {
+      const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!modelsRes.ok) {
+        return res.status(400).json({ error: "Invalid API key or unable to reach provider" });
+      }
+      const modelsData = await modelsRes.json();
+      
+      availableModels = modelsData.models
+        ?.filter((m: any) => m.supportedGenerationMethods?.includes("generateContent") || m.supportedGenerationMethods?.includes("bidiGenerateContent"))
+        ?.map((m: any) => m.name.replace("models/", ""))
+        || [];
+
+      // Optional: Check if server location is blocked by doing a dummy query
+      const testReq = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] })
+      });
+      const testRes = await testReq.json();
+      if (testRes.error && testRes.error.message.includes("User location")) {
+        return res.status(400).json({ 
+          error: "API key is valid, but Google restricts API access from this server's region (Singapore). Please deploy to a US region." 
+        });
+      }
+    }
+
     (user as any).customApiKey = apiKey;
     if (provider) {
       (user as any).customApiProvider = provider;
     }
+    if (availableModels.length > 0) {
+      (user as any).availableModels = availableModels;
+    }
     await user.save();
 
-    res.json({ success: true, message: "API key updated successfully" });
+    res.json({ success: true, message: "API key updated successfully", availableModels });
   } catch (err) {
     console.error("[WUP API] Update API key error:", err);
     res.status(500).json({ error: "Failed to update API key" });
@@ -42,7 +74,8 @@ export const getUsage = async (req: Request, res: Response) => {
       freeTierUsage: u.freeTierUsage,
       freeTierLimit: u.freeTierLimit,
       hasCustomKey: !!u.customApiKey,
-      provider: u.customApiProvider
+      provider: u.customApiProvider,
+      availableModels: u.availableModels || []
     });
   } catch (err) {
     console.error("[WUP API] Get usage error:", err);

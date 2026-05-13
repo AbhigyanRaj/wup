@@ -16,7 +16,7 @@ interface AskBarProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   exhaustedModels?: string[];
-  usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean } | null;
+  usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean; availableModels?: string[] } | null;
 }
 
 export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels = [], usage }: AskBarProps) {
@@ -25,9 +25,22 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
   const [modelOpen, setModelOpen] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  const activeModel = MODELS.find(m => m.id === selectedModel) ?? MODELS[0];
   const isLimitReached = !!(usage && !usage.hasCustomKey && usage.freeTierUsage >= usage.freeTierLimit);
   const canSend     = input.trim().length > 0 && !isLimitReached;
+
+  // Dynamic models
+  const dynamicModels = usage?.hasCustomKey && usage.availableModels && usage.availableModels.length > 0
+    ? [
+        { id: "Auto-Rotate", name: "Auto", desc: "Best available" },
+        ...usage.availableModels.slice(0, 15).map((m) => ({
+          id: m,
+          name: m.replace("gemini-", "").replace("-latest", " L").replace("-preview", " P").replace("-flash", " Flash").replace("-pro", " Pro"),
+          desc: "API Key Model"
+        }))
+      ]
+    : MODELS;
+
+  const activeModel = dynamicModels.find(m => m.id === selectedModel) ?? dynamicModels[0];
 
   const submit = () => {
     if (!canSend) return;
@@ -69,44 +82,46 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
                style={{ color: "var(--text-muted)" }}>
               Model
             </p>
-            {MODELS.map(m => {
-              const exhausted = exhaustedModels.includes(m.id);
-              const isActive  = m.id === selectedModel;
-              return (
-                <button
-                  key={m.id}
-                  disabled={exhausted}
-                  onClick={() => { onModelChange(m.id); setModelOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors"
-                  style={{
-                    background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                    opacity: exhausted ? 0.4 : 1,
-                    cursor: exhausted ? "not-allowed" : "pointer",
-                  }}
-                  onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
-                >
-                  {/* Active indicator */}
-                  <div
-                    className="w-1 h-4 rounded-full shrink-0 shadow-[0_0_8px_rgba(255,95,31,0.4)]"
-                    style={{ background: isActive ? "var(--orange)" : "transparent" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12.5px] font-medium leading-tight"
-                       style={{ color: isActive ? "var(--text-primary)" : "var(--text-secondary)" }}>
-                      {m.name}
-                    </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{m.desc}</p>
-                  </div>
-                  {exhausted && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(248,113,113,0.15)", color: "var(--red)" }}>
-                      MAX
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            <div className="max-h-[300px] overflow-y-auto">
+              {dynamicModels.map(m => {
+                const exhausted = exhaustedModels.includes(m.id);
+                const isActive  = m.id === selectedModel;
+                return (
+                  <button
+                    key={m.id}
+                    disabled={exhausted}
+                    onClick={() => { onModelChange(m.id); setModelOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors"
+                    style={{
+                      background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                      opacity: exhausted ? 0.4 : 1,
+                      cursor: exhausted ? "not-allowed" : "pointer",
+                    }}
+                    onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                  >
+                    {/* Active indicator */}
+                    <div
+                      className="w-1 h-4 rounded-full shrink-0 shadow-[0_0_8px_rgba(255,95,31,0.4)]"
+                      style={{ background: isActive ? "var(--orange)" : "transparent" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-medium leading-tight truncate"
+                         style={{ color: isActive ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                        {m.name}
+                      </p>
+                      <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{m.desc}</p>
+                    </div>
+                    {exhausted && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                            style={{ background: "rgba(248,113,113,0.15)", color: "var(--red)" }}>
+                        MAX
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <div className="h-1.5" />
           </motion.div>
         )}
