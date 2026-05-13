@@ -18,9 +18,10 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/wup";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
+const allowedOrigins = CORS_ORIGIN.includes(",") ? CORS_ORIGIN.split(",").map(o => o.trim()) : CORS_ORIGIN;
 
 // Middleware
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 
 // MongoDB Connection
