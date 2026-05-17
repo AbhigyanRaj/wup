@@ -33,11 +33,33 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
   const dynamicModels = usage?.hasCustomKey && usage.availableModels && usage.availableModels.length > 0
     ? [
         { id: "Auto-Rotate", name: "Auto", desc: "Best available" },
-        ...usage.availableModels.slice(0, 15).map((m) => ({
-          id: m,
-          name: m.replace("gemini-", "").replace("-latest", " L").replace("-preview", " P").replace("-flash", " Flash").replace("-pro", " Pro"),
-          desc: "API Key Model"
-        }))
+        ...usage.availableModels.slice(0, 30).map((m) => {
+          let displayName = m;
+          if (m.includes("/")) {
+            displayName = m.split("/")[1];
+          }
+          displayName = displayName
+            .replace("gemini-", "Gemini ")
+            .replace("claude-", "Claude ")
+            .replace("gpt-", "GPT-")
+            .replace("llama-", "Llama ")
+            .replace("-latest", " L")
+            .replace("-preview", " P")
+            .replace("-flash", " Flash")
+            .replace("-pro", " Pro");
+          let providerLabel = "API KEY";
+          if (m.startsWith("google/") || m.includes("gemini")) providerLabel = "Google";
+          else if (m.startsWith("anthropic/") || m.includes("claude")) providerLabel = "Anthropic";
+          else if (m.startsWith("openai/") || m.includes("gpt")) providerLabel = "OpenAI";
+          else if (m.startsWith("meta-llama/") || m.includes("llama")) providerLabel = "Meta";
+          else if (m.includes("/")) providerLabel = m.split("/")[0].toUpperCase();
+
+          return {
+            id: m,
+            name: displayName,
+            desc: providerLabel
+          };
+        })
       ]
     : MODELS;
 
@@ -92,33 +114,37 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
                     key={m.id}
                     disabled={exhausted}
                     onClick={() => { onModelChange(m.id); setModelOpen(false); }}
-                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-2 text-left transition-colors"
                     style={{
-                      background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                      background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
                       opacity: exhausted ? 0.4 : 1,
                       cursor: exhausted ? "not-allowed" : "pointer",
                     }}
-                    onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                    onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.04)" : "transparent"; }}
                   >
-                    {/* Active indicator */}
-                    <div
-                      className="w-1 h-4 rounded-full shrink-0 shadow-[0_0_8px_rgba(255,95,31,0.4)]"
-                      style={{ background: isActive ? "var(--orange)" : "transparent" }}
-                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-[12.5px] font-medium leading-tight truncate"
-                         style={{ color: isActive ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                         style={{ color: isActive ? "var(--orange)" : "var(--text-secondary)" }}>
                         {m.name}
                       </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{m.desc}</p>
+                      {m.desc && (
+                        <p className="text-[9.5px] mt-0.5 tracking-wider uppercase opacity-45 font-bold" style={{ color: "var(--text-muted)" }}>
+                          {m.desc}
+                        </p>
+                      )}
                     </div>
-                    {exhausted && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                            style={{ background: "rgba(248,113,113,0.15)", color: "var(--red)" }}>
-                        MAX
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {exhausted && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: "rgba(248,113,113,0.15)", color: "var(--red)" }}>
+                          MAX
+                        </span>
+                      )}
+                      {isActive && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_8px_rgba(255,95,31,0.8)]" />
+                      )}
+                    </div>
                   </button>
                 );
               })}

@@ -180,6 +180,138 @@ function parseStructuredResponse(raw: string): {
   }
 }
 
+async function* streamOpenAICompatible(
+  url: string,
+  apiKey: string,
+  modelName: string,
+  systemInstruction: string,
+  prompt: string,
+  chatHistory: ChatTurn[],
+  provider: string
+): AsyncGenerator<string, void, unknown> {
+  const messages = [
+    { role: "system", content: systemInstruction },
+    ...chatHistory.map(turn => ({
+      role: turn.role === "assistant" ? "assistant" : "user",
+      content: turn.content
+    })),
+    { role: "user", content: prompt }
+  ];
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (provider === "anthropic") {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  if (provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://wuup.ai";
+    headers["X-Title"] = "Wuup";
+  }
+
+  let resolvedModel = modelName;
+  if (modelName === "Auto-Rotate") {
+    if (provider === "openrouter") {
+      resolvedModel = "google/gemini-2.5-flash";
+    } else if (provider === "openai") {
+      resolvedModel = "gpt-4o-mini";
+    } else {
+      resolvedModel = "claude-3-5-sonnet-20241022";
+    }
+  }
+
+  const payload: any = {
+    model: resolvedModel,
+    stream: true,
+  };
+
+  if (provider === "anthropic") {
+    payload.messages = messages.filter(m => m.role !== "system");
+    const sysMsg = messages.find(m => m.role === "system");
+    if (sysMsg) {
+      payload.system = sysMsg.content;
+    }
+    payload.max_tokens = 4096;
+  } else {
+    payload.messages = messages;
+    payload.temperature = 0.2;
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let parsedErr = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      parsedErr = parsed.error?.message || parsed.message || errorText;
+    } catch (e) {}
+    throw new Error(`API error: ${response.status} - ${parsedErr}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Response body is not readable");
+  }
+
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const cleanLine = line.trim();
+        if (!cleanLine) continue;
+        if (cleanLine.startsWith("data: ")) {
+          const dataStr = cleanLine.slice(6);
+          if (dataStr === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.error?.message) {
+              throw new Error(parsed.error.message);
+            }
+            if (provider === "anthropic") {
+              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+                yield parsed.delta.text;
+              }
+            } else {
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                yield content;
+              }
+            }
+          } catch (e: any) {
+            if (e instanceof SyntaxError) {
+              // Ignore partial chunk syntax parse errors
+            } else {
+              throw e;
+            }
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export class BrainOrchestrator {
@@ -253,6 +385,23 @@ export class BrainOrchestrator {
         await user.save();
         console.log(`[WUP Brain] User ${userId} free tier usage: ${u.freeTierUsage}/${u.freeTierLimit}`);
       }
+    }
+
+    if (user && (user as any).customApiKey && (user as any).customApiProvider && (user as any).customApiProvider !== "gemini") {
+      let fullText = "";
+      const stream = this.askStream(userId, prompt, options);
+      for await (const chunk of stream) {
+        if (typeof chunk === "string") {
+          fullText += chunk;
+        }
+      }
+      const structured = parseStructuredResponse(fullText);
+      return {
+        ...structured,
+        visualType: structured.visualType as any,
+        source: (user as any).customApiProvider,
+        usedModel: requestedModel || "Auto-Rotate"
+      };
     }
 
     // ── Step 1: Fetch active DB bridges ──────────────────────────────────────
@@ -418,6 +567,91 @@ export class BrainOrchestrator {
         }
         u.freeTierUsage += 1;
         await user.save();
+      }
+    }
+
+    if (user && (user as any).customApiKey && (user as any).customApiProvider && (user as any).customApiProvider !== "gemini") {
+      const u = user as any;
+      const customProvider = u.customApiProvider;
+      options?.onStatus?.("Searching Knowledge Base for context...");
+      const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
+      const ragContext = buildRagContext(retrievedChunks);
+
+      const connections = await Connection.find({ userId });
+      const bridgeInfo = connections
+        .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
+        .join("\n");
+      const bridgeSection = connections.length > 0 ? bridgeInfo : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
+
+      const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
+
+      options?.onStatus?.(`Routing to ${customProvider} model...`);
+      
+      let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+      if (customProvider === "openai") {
+        apiUrl = "https://api.openai.com/v1/chat/completions";
+      } else if (customProvider === "anthropic") {
+        apiUrl = "https://api.anthropic.com/v1/messages";
+      }
+
+      let fullText = "";
+      try {
+        const stream = streamOpenAICompatible(
+          apiUrl,
+          u.customApiKey,
+          requestedModel || "Auto-Rotate",
+          dynamicInstruction,
+          prompt,
+          historyTurns,
+          customProvider
+        );
+
+        for await (const chunk of stream) {
+          fullText += chunk;
+          yield chunk;
+        }
+
+        const structured = parseStructuredResponse(fullText);
+        const finalResult = {
+          type: "done" as const,
+          data: {
+            content: structured.content,
+            followUps: structured.followUps,
+            clarification: structured.clarification,
+            source: connections.length > 0 ? connections[0].name : undefined,
+            ragSources: retrievedChunks.map((c) => ({
+              sourceFile: c.metadata.sourceFile,
+              pageNumber: c.metadata.pageNumber,
+              score: c.score,
+              text: c.text,
+            })),
+            webSources: [],
+            visualType: structured.visualType as any,
+            chartData: structured.chartData,
+            tableData: structured.tableData,
+            diagramData: structured.diagramData,
+            usedModel: requestedModel || "Auto-Rotate",
+            exhausted: []
+          }
+        };
+        yield finalResult;
+        return finalResult.data;
+      } catch (err: any) {
+        console.error(`[WUP Brain] ${customProvider} streaming error:`, err);
+        const errorMsg = `Error communicating with ${customProvider}: ${err.message || "Please verify your API key."}`;
+        yield errorMsg;
+        const fallbackResult = {
+          type: "done" as const,
+          data: {
+            content: errorMsg,
+            followUps: [{ label: "Verify API Key", suggestedPrompt: "How do I check my API key?" }],
+            visualType: "none" as const,
+            usedModel: requestedModel || "Auto-Rotate",
+            exhausted: []
+          }
+        };
+        yield fallbackResult;
+        return fallbackResult.data;
       }
     }
 

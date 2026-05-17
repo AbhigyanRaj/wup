@@ -17,12 +17,14 @@ const PROVIDER_NAMES: Record<string, string> = {
   gemini: "Gemini (Google)",
   openai: "OpenAI (ChatGPT)",
   anthropic: "Anthropic (Claude)",
+  openrouter: "OpenRouter (All Models)",
 };
 
 const PROVIDER_LINKS: Record<string, { label: string, url: string }> = {
   gemini: { label: "Google AI Studio", url: "https://aistudio.google.com/" },
   openai: { label: "OpenAI Platform", url: "https://platform.openai.com/api-keys" },
   anthropic: { label: "Anthropic Console", url: "https://console.anthropic.com/" },
+  openrouter: { label: "OpenRouter Console", url: "https://openrouter.ai/keys" },
 };
 
 export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProps) {
@@ -225,6 +227,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                           style={{ color: "var(--text-primary)", background: "#111" }}
                         >
                           <option value="gemini">Gemini (Google)</option>
+                          <option value="openrouter">OpenRouter (All Models)</option>
                           <option value="openai">OpenAI (ChatGPT)</option>
                           <option value="anthropic">Anthropic (Claude)</option>
                         </select>

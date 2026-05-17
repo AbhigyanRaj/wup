@@ -60,7 +60,7 @@ export const saveMessage = async (req: Request, res: Response) => {
       chatId,
       userId,
       role: "user",
-      content
+      content: content || "Empty message"
     });
 
     // Setup SSE Headers
@@ -109,7 +109,7 @@ export const saveMessage = async (req: Request, res: Response) => {
       chatId,
       userId,
       role: "assistant",
-      content: finalMetadata?.content ?? fullContent,
+      content: ((finalMetadata?.content ?? fullContent) || "No response received from model.").trim(),
       ragSources: finalMetadata?.ragSources ?? [],
       webSources: finalMetadata?.webSources ?? [],
       visualType: finalMetadata?.visualType ?? "none",
