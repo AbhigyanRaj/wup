@@ -1,51 +1,24 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Circle } from "lucide-react";
 
-/**
- * Agentic "thinking" phases — simulates a step-by-step check.
- */
-const THINKING_STEPS = [
-  "Retrieving context",
-  "Searching knowledge base",
-  "Analyzing your query",
-  "Calling data bridges",
-  "Synthesizing answer",
-  "Generating response",
-];
+interface TypingIndicatorProps {
+  statuses: string[];
+}
 
-const STEP_INTERVAL_MS = 1500; // Move to next step every 1.5s for a snappier feel
-
-export function TypingIndicator() {
+export function TypingIndicator({ statuses }: TypingIndicatorProps) {
   const [elapsed, setElapsed] = useState(0);
-  const [stepIdx, setStepIdx] = useState(0);
-
   const elapsedRef = useRef<NodeJS.Timeout | null>(null);
-  const stepRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Elapsed second counter
+  // Still keep a simple timer just to show "how long it took" 
   useEffect(() => {
     setElapsed(0);
     elapsedRef.current = setInterval(() => {
       setElapsed(s => s + 1);
     }, 1000);
     return () => { if (elapsedRef.current) clearInterval(elapsedRef.current); };
-  }, []);
-
-  // Step progression
-  useEffect(() => {
-    setStepIdx(0);
-    stepRef.current = setInterval(() => {
-      setStepIdx(i => {
-        if (i < THINKING_STEPS.length - 1) {
-          return i + 1;
-        }
-        return i; // Stop at the last step instead of looping
-      });
-    }, STEP_INTERVAL_MS);
-    return () => { if (stepRef.current) clearInterval(stepRef.current); };
   }, []);
 
   return (
@@ -94,45 +67,50 @@ export function TypingIndicator() {
 
             {/* Vertical Steps */}
             <div className="flex flex-col gap-2.5">
-              {THINKING_STEPS.map((step, index) => {
-                const isCompleted = index < stepIdx;
-                const isActive = index === stepIdx;
-                const isPending = index > stepIdx;
+              <AnimatePresence>
+                {statuses.map((step, index) => {
+                  const isCompleted = index < statuses.length - 1;
+                  const isActive = index === statuses.length - 1;
 
-                return (
-                  <div key={step} className="flex items-center gap-3">
-                    {/* Status Icon */}
-                    <div className="w-5 h-5 flex items-center justify-center">
-                      {isCompleted ? (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                        >
-                          <Check className="w-4 h-4 text-emerald-500" />
-                        </motion.div>
-                      ) : isActive ? (
-                        <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-zinc-700" />
-                      )}
-                    </div>
-
-                    {/* Step Text */}
-                    <span
-                      className={`text-[13px] font-medium transition-colors duration-300 ${
-                        isActive 
-                          ? "text-white" 
-                          : isCompleted 
-                          ? "text-zinc-500" 
-                          : "text-zinc-700"
-                      }`}
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, height: "auto", scale: 1 }} 
+                      exit={{ opacity: 0, height: 0 }}
+                      key={`${step}-${index}`} 
+                      className="flex items-center gap-3"
                     >
-                      {step}
-                    </span>
-                  </div>
-                );
-              })}
+                      {/* Status Icon */}
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        {isCompleted ? (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          >
+                            <Check className="w-4 h-4 text-emerald-500" />
+                          </motion.div>
+                        ) : isActive ? (
+                          <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-zinc-700" />
+                        )}
+                      </div>
+
+                      {/* Step Text */}
+                      <span
+                        className={`text-[13px] font-medium transition-colors duration-300 ${
+                          isActive 
+                            ? "text-white" 
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        {step}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
 
           </div>

@@ -1,0 +1,6 @@
+to do:
+
+1. personalise response of llm
+2. how to improve respeonses, like exactly what user want.. 
+    maybe something like we ask some set of question before alway not hard coded but 
+    for better context. 

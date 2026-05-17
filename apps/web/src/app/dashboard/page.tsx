@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [activeMessages, setActiveMessages] = useState<MessageProps[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [typingStatuses, setTypingStatuses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Connections (DB bridges)
@@ -165,6 +166,11 @@ export default function DashboardPage() {
               role: m.role,
               content: m.content,
               ragSources: m.ragSources ?? [],
+              webSources: m.webSources ?? [],
+              visualType: m.visualType ?? "none",
+              chartData: m.chartData ?? null,
+              tableData: m.tableData ?? null,
+              diagramData: m.diagramData ?? null,
             }))
           );
         }
@@ -175,7 +181,7 @@ export default function DashboardPage() {
     fetchMessages();
   }, [activeChatId]);
 
-  const handleSendMessage = async (content: string, model: string = "Auto-Rotate") => {
+  const handleSendMessage = async (content: string, model: string = "Auto-Rotate", searchWeb: boolean = false) => {
     const token = localStorage.getItem("wuup_token");
     let currentChatId = activeChatId;
     setError(null);
@@ -184,6 +190,9 @@ export default function DashboardPage() {
     const userMsg: MessageProps = { role: "user", content };
     setActiveMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
+    setTypingStatuses([]);
+
+    let flushInterval: ReturnType<typeof setInterval> | null = null;
 
     try {
       // Create chat session if starting fresh
@@ -206,7 +215,7 @@ export default function DashboardPage() {
       const msgRes = await fetch(`${API_URL}/chats/${currentChatId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ role: "user", content, model }),
+        body: JSON.stringify({ role: "user", content, model, searchWeb }),
       });
 
       if (!msgRes.ok) {
@@ -214,41 +223,158 @@ export default function DashboardPage() {
         throw new Error((errData as any).error || "The Brain is currently unresponsive.");
       }
 
-      const data = await msgRes.json();
+      const reader = msgRes.body?.getReader();
+      if (!reader) throw new Error("No readable stream available.");
+      
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let buffer = "";
 
-      if (data.exhausted) setExhaustedModels(data.exhausted);
+      let targetContent = "";
+      let displayContent = "";
+      let streamingStarted = false;
+      let finalData: any = null;
+      let msgIndex = -1;
 
-      // Refetch usage stats
-      const usageRes = await fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } });
-      if (usageRes.ok) setUsage(await usageRes.json());
+      // Smooth typing animator: drains targetContent at 40fps for a silky smooth feel
+      flushInterval = setInterval(() => {
+        if (streamingStarted && displayContent.length < targetContent.length && msgIndex !== -1) {
+          const distance = targetContent.length - displayContent.length;
+          // Spring-like easing: distance / 3 means it covers large gaps fast, but slows down near the end
+          const charsToAdd = Math.max(1, Math.floor(distance / 3));
+          displayContent += targetContent.substring(displayContent.length, displayContent.length + charsToAdd);
 
-      // Handle clarification response
-      if (data.clarification) {
-        setClarification({
-          question: data.clarification.question,
-          options: data.clarification.options,
-          originalPrompt: content,
-        });
-      } else {
-        setClarification(null);
+          setActiveMessages((prev) => {
+            const newMsgs = [...prev];
+            if (newMsgs[msgIndex]) {
+              newMsgs[msgIndex] = {
+                ...newMsgs[msgIndex],
+                content: displayContent
+              };
+            }
+            return newMsgs;
+          });
+        }
+      }, 25);
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || ""; // last part is incomplete, put it back in buffer
+          
+          for (const line of parts) {
+            if (line.startsWith("data: ")) {
+              const dataStr = line.slice(6);
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.type === "status") {
+                  setTypingStatuses(prev => [...prev, data.message]);
+                } else if (data.type === "token") {
+                  targetContent += data.text;
+                  
+                  if (!streamingStarted) {
+                    streamingStarted = true;
+                    setIsTyping(false); // remove the thinking indicator once text starts
+                    
+                    displayContent = targetContent.substring(0, 1);
+                    // Add the assistant message and capture its stable index
+                    setActiveMessages((prev) => {
+                      msgIndex = prev.length;
+                      return [
+                        ...prev,
+                        { role: "assistant", content: displayContent, ragSources: [] }
+                      ];
+                    });
+                  }
+                } else if (data.type === "done") {
+                  finalData = data.message;
+                } else if (data.type === "error") {
+                  throw new Error(data.message);
+                }
+              } catch (e) {
+                // Ignore parse errors on individual lines
+              }
+            }
+          }
+        }
       }
 
-      // Append assistant message WITH ragSources and followUps
-      setActiveMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.assistantMessage.content,
-          ragSources: data.assistantMessage.ragSources ?? [],
-          followUps: data.clarification ? [] : (data.followUps ?? []),
-        },
-      ]);
+      if (finalData) {
+        if (finalData.exhausted) setExhaustedModels(finalData.exhausted);
+
+        // Refetch usage stats
+        fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(res => res.ok && res.json())
+          .then(data => data && setUsage(data))
+          .catch(() => {});
+
+        if (finalData.clarification) {
+          setClarification({
+            question: finalData.clarification.question,
+            options: finalData.clarification.options,
+            originalPrompt: content,
+          });
+        } else {
+          setClarification(null);
+        }
+
+        clearInterval(flushInterval);
+
+        // Update the final message with ragSources and followUps
+        setActiveMessages((prev) => {
+          if (msgIndex !== -1) {
+            const newMsgs = [...prev];
+            if (newMsgs[msgIndex]) {
+              newMsgs[msgIndex] = {
+                ...newMsgs[msgIndex],
+                content: finalData.assistantMessage.content,
+                ragSources: finalData.assistantMessage.ragSources ?? [],
+                webSources: finalData.assistantMessage.webSources ?? [],
+                visualType: finalData.assistantMessage.visualType ?? "none",
+                chartData: finalData.assistantMessage.chartData ?? null,
+                tableData: finalData.assistantMessage.tableData ?? null,
+                diagramData: finalData.assistantMessage.diagramData ?? null,
+                followUps: finalData.clarification ? [] : (finalData.followUps ?? []),
+              };
+            }
+            return newMsgs;
+          } else {
+             // If we never started streaming (e.g. instant response without tokens), just push it
+             return [
+               ...prev,
+               {
+                 role: "assistant",
+                 content: finalData.assistantMessage.content,
+                 ragSources: finalData.assistantMessage.ragSources ?? [],
+                 webSources: finalData.assistantMessage.webSources ?? [],
+                 visualType: finalData.assistantMessage.visualType ?? "none",
+                 chartData: finalData.assistantMessage.chartData ?? null,
+                 tableData: finalData.assistantMessage.tableData ?? null,
+                 diagramData: finalData.assistantMessage.diagramData ?? null,
+                 followUps: finalData.clarification ? [] : (finalData.followUps ?? []),
+               }
+             ];
+          }
+        });
+      }
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
       console.error("Chat Error:", err);
       setError(msg);
+      // Remove the empty assistant message if we crashed before getting text
+      setActiveMessages((prev) => {
+        if (prev[prev.length - 1].role === "assistant" && prev[prev.length - 1].content === "") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
     } finally {
       setIsTyping(false);
+      if (flushInterval !== null) clearInterval(flushInterval);
     }
   };
 
@@ -311,6 +437,7 @@ export default function DashboardPage() {
         onDeleteSource={handleDeleteSource}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        usage={usage}
       />
 
       <main className="flex-1 flex flex-col relative h-full overflow-hidden">
@@ -375,6 +502,7 @@ export default function DashboardPage() {
                 <MessageList
                   messages={activeMessages}
                   isTyping={isTyping}
+                  typingStatuses={typingStatuses}
                   onFollowUpSelect={(prompt) => handleSendMessage(prompt, currentModel)}
                 />
               </div>

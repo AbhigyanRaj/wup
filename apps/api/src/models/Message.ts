@@ -31,7 +31,42 @@ const messageSchema = new mongoose.Schema({
     sourceFile: { type: String },
     pageNumber: { type: Number },
     score: { type: Number },
+    text: { type: String },
   }],
+  // Web search grounding citations (optional)
+  webSources: [{
+    title: { type: String },
+    url: { type: String },
+  }],
+  visualType: { 
+    type: String, 
+    enum: ["none", "mermaid", "chart", "table", "diagram"], 
+    default: "none" 
+  },
+  chartData: {
+    type: { type: String },
+    xAxisKey: { type: String },
+    yAxisKey: { type: String },
+    title: { type: String },
+    series: [mongoose.Schema.Types.Mixed],
+  },
+  tableData: {
+    columns: [String],
+    rows: [mongoose.Schema.Types.Mixed],
+  },
+  diagramData: {
+    nodes: [{
+      id: { type: String },
+      label: { type: String },
+      sublabel: { type: String },
+      type: { type: String }, // "start" | "action" | "decision" | "success" | "error"
+    }],
+    edges: [{
+      from: { type: String },
+      to: { type: String },
+      label: { type: String },
+    }],
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 

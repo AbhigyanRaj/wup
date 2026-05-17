@@ -21,7 +21,20 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 const allowedOrigins = CORS_ORIGIN.includes(",") ? CORS_ORIGIN.split(",").map(o => o.trim()) : CORS_ORIGIN;
 
 // Middleware
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (Array.isArray(allowedOrigins) ? allowedOrigins.includes(origin) : allowedOrigins === origin) {
+      return callback(null, true);
+    }
+    // Allow any localhost origin for development convenience
+    if (origin.startsWith("http://localhost:")) {
+      return callback(null, true);
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true 
+}));
 app.use(express.json({ limit: "2mb" }));
 
 // MongoDB Connection

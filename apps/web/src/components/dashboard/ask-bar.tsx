@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { ArrowUp, ChevronDown, Paperclip } from "lucide-react";
+import { ArrowUp, ChevronDown, Paperclip, Globe } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const MODELS = [
@@ -12,7 +12,7 @@ const MODELS = [
 ];
 
 interface AskBarProps {
-  onSubmit: (message: string, model: string) => void;
+  onSubmit: (message: string, model: string, searchWeb: boolean) => void;
   selectedModel: string;
   onModelChange: (model: string) => void;
   exhaustedModels?: string[];
@@ -23,6 +23,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
   const [input, setInput]         = useState("");
   const [focused, setFocused]     = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [searchWeb, setSearchWeb] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const isLimitReached = !!(usage && !usage.hasCustomKey && usage.freeTierUsage >= usage.freeTierLimit);
@@ -44,7 +45,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
 
   const submit = () => {
     if (!canSend) return;
-    onSubmit(input.trim(), selectedModel);
+    onSubmit(input.trim(), selectedModel, searchWeb);
     setInput("");
     setModelOpen(false);
     if (ref.current) ref.current.style.height = "auto";
@@ -176,6 +177,18 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
               title="Attach context"
             >
               <Paperclip size={16} />
+            </button>
+
+            <div className="w-[1px] h-4 bg-white/[0.06] mx-1" />
+
+            {/* Search Web Toggle */}
+            <button
+              onClick={() => setSearchWeb(s => !s)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all ${searchWeb ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-white/[0.05] text-[var(--text-secondary)]"}`}
+              title="Search Web Grounding"
+            >
+              <Globe size={13} />
+              <span className="opacity-90">Web</span>
             </button>
 
             <div className="w-[1px] h-4 bg-white/[0.06] mx-1" />

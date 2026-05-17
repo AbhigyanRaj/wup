@@ -42,7 +42,29 @@ export interface BrainResponse {
     sourceFile: string;
     pageNumber: number;
     score: number;
+    text?: string;
   }>;
+  /** Web sources retrieved by Google Search grounding */
+  webSources?: Array<{
+    title: string;
+    url: string;
+  }>;
+  visualType?: "none" | "mermaid" | "chart" | "table" | "diagram";
+  chartData?: {
+    type: "bar" | "line" | "pie";
+    xAxisKey: string;
+    yAxisKey: string;
+    title?: string;
+    series: Array<Record<string, string | number>>;
+  };
+  tableData?: {
+    columns: string[];
+    rows: Array<Record<string, string | number>>;
+  };
+  diagramData?: {
+    nodes: Array<{ id: string; label: string; sublabel?: string; type?: string }>;
+    edges: Array<{ from: string; to: string; label?: string }>;
+  };
 }
 
 /** One stored message role + text (from DB or tests). */
@@ -116,6 +138,9 @@ function parseStructuredResponse(raw: string): {
   followUps: FollowUpSuggestion[];
   clarification?: ClarificationData;
   visualType: string;
+  chartData?: any;
+  tableData?: any;
+  diagramData?: any;
 } {
   const metaStart = raw.indexOf(META_START);
   const metaEnd = raw.indexOf(META_END);
@@ -146,6 +171,9 @@ function parseStructuredResponse(raw: string): {
       content,
       followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
       visualType: parsed.visualType ?? "none",
+      chartData: parsed.chartData ?? undefined,
+      tableData: parsed.tableData ?? undefined,
+      diagramData: parsed.diagramData ?? undefined,
     };
   } catch {
     return { content, followUps: [], visualType: "none" };
@@ -347,6 +375,236 @@ export class BrainOrchestrator {
         : "I'm currently unable to process your request. Please try a different model or try again in a moment.",
       exhausted: Array.from(BrainOrchestrator.exhaustedModels),
     };
+  }
+
+  /**
+   * SSE Streaming variant of ask(). 
+   * Yields text tokens as they stream, handles tool calls silently, and returns the final metadata object.
+   */
+  async *askStream(
+    userId: string,
+    prompt: string,
+    options?: { chatHistory?: ChatTurn[]; model?: string; searchWeb?: boolean; onStatus?: (message: string) => void }
+  ): AsyncGenerator<
+    string | { type: "done"; data: BrainResponse & { usedModel?: string; exhausted?: string[] } },
+    BrainResponse & { usedModel?: string; exhausted?: string[] }
+  > {
+    options?.onStatus?.("Connecting to WUP Engine...");
+    
+    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
+    const geminiHistory = buildGeminiHistory(historyTurns);
+
+    const requestedModel = options?.model;
+    const modelsToTry = requestedModel && requestedModel !== "Auto-Rotate"
+        ? [requestedModel]
+        : BrainOrchestrator.MODEL_ROTATION.filter(m => !BrainOrchestrator.exhaustedModels.has(m));
+
+    if (modelsToTry.length === 0) {
+      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[BrainOrchestrator.MODEL_ROTATION.length - 1]);
+    }
+
+    const user = await User.findById(userId);
+    let customKey: string | undefined = undefined;
+
+    if (user) {
+      const u = user as any;
+      if (u.customApiKey) {
+        customKey = u.customApiKey;
+      } else {
+        if (u.freeTierUsage >= u.freeTierLimit) {
+          const limitMsg = "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.";
+          yield limitMsg;
+          return { content: limitMsg, source: "system", followUps: [{ label: "Add API Key", suggestedPrompt: "How do I add my API key?" }] };
+        }
+        u.freeTierUsage += 1;
+        await user.save();
+      }
+    }
+
+    options?.onStatus?.("Searching Knowledge Base for context...");
+
+    const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
+    const ragContext = buildRagContext(retrievedChunks);
+
+    if (retrievedChunks.length > 0) {
+      options?.onStatus?.(`Found ${retrievedChunks.length} relevant document chunks.`);
+    } else {
+      options?.onStatus?.(`No relevant documents found. Relying on general knowledge.`);
+    }
+
+    const connections = await Connection.find({ userId });
+    
+    if (connections.length > 0) {
+      options?.onStatus?.(`Checking ${connections.length} active database bridges...`);
+    }
+
+    const bridgeInfo = connections
+      .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
+      .join("\n");
+    const bridgeSection = connections.length > 0 ? bridgeInfo : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
+
+    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
+
+    let lastErr: GeminiError | null = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        options?.onStatus?.(`Routing to ${modelName}...`);
+        const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName, customKey, options?.searchWeb);
+        const chat = model.startChat({ history: geminiHistory });
+        
+        if (options?.searchWeb) {
+           options?.onStatus?.(`Searching the web for current information...`);
+        } else {
+           options?.onStatus?.(`Generating Response...`);
+        }
+
+        let currentPrompt: any = prompt;
+        let turns = 0;
+        const MAX_TURNS = 5;
+
+        while (turns < MAX_TURNS) {
+          turns++;
+          // Instead of sendMessage, we use sendMessageStream to stream tokens
+          const result = await this.callWithRetry(() => chat.sendMessageStream(currentPrompt));
+          
+          let hasToolCall = false;
+          let toolResponses: any[] = [];
+          
+          let fullText = "";
+          let buffer = "";
+          let metaStarted = false;
+
+          for await (const chunk of result.stream) {
+            const calls = chunk.functionCalls();
+            if (calls && calls.length > 0) {
+              hasToolCall = true;
+              for (const call of calls) {
+                const toolFn = WUP_TOOLS_REGISTRY[call.name];
+                if (toolFn) {
+                  const toolResult = await toolFn(call.args);
+                  toolResponses.push({
+                    functionResponse: { name: call.name, response: toolResult },
+                  });
+                }
+              }
+              break; // exit stream chunk loop to handle tool responses
+            } else if (chunk.text) {
+              const textChunk = chunk.text();
+              buffer += textChunk;
+              
+              if (!metaStarted) {
+                const matchIdx = buffer.indexOf(META_START);
+                if (matchIdx !== -1) {
+                  metaStarted = true;
+                  const cleanNew = buffer.slice(0, matchIdx);
+                  if (cleanNew.length > 0) {
+                    fullText += cleanNew;
+                    yield cleanNew;
+                  }
+                  buffer = buffer.slice(matchIdx + META_START.length);
+                } else {
+                  // Not found yet. To prevent chunk boundaries from splitting META_START,
+                  // we yield everything EXCEPT the last (META_START.length - 1) characters.
+                  const safeLength = buffer.length - (META_START.length - 1);
+                  if (safeLength > 0) {
+                    const toYield = buffer.slice(0, safeLength);
+                    fullText += toYield;
+                    yield toYield;
+                    buffer = buffer.slice(safeLength);
+                  }
+                }
+              }
+              // If metaStarted is true, buffer just accumulates textChunk seamlessly
+            }
+          }
+
+          if (hasToolCall && toolResponses.length > 0) {
+            currentPrompt = toolResponses;
+            continue; // Go back to top of while loop with the tool response
+          }
+
+          // Complete response successfully generated
+          if (!metaStarted && buffer.length > 0) {
+             // Flush remaining buffer if we never hit META_START
+             fullText += buffer;
+             yield buffer;
+             buffer = "";
+          }
+
+          if (metaStarted) {
+             fullText += META_START + buffer; // reconstruct full string for the parser
+          }
+
+          // Extract web sources from Gemini Grounding metadata
+          const finalResponse = await result.response;
+          const gm: any = finalResponse.candidates?.[0]?.groundingMetadata;
+          const webSources: Array<{title: string, url: string}> = [];
+          
+          if (gm) {
+             if (gm.groundingChunks) {
+                gm.groundingChunks.forEach((c: any) => {
+                   if (c.web?.uri) webSources.push({ url: c.web.uri, title: c.web.title || c.web.uri });
+                });
+             } else if (gm.web?.webUris) {
+                gm.web.webUris.forEach((u: any) => {
+                   webSources.push({ url: u.uri, title: u.title || u.uri });
+                });
+             }
+          }
+
+          const structured = parseStructuredResponse(fullText);
+          const finalResult = {
+            type: "done" as const,
+            data: {
+              content: structured.content,
+              followUps: structured.followUps,
+              clarification: structured.clarification,
+              source: connections.length > 0 ? connections[0].name : undefined,
+              ragSources: retrievedChunks.map((c) => ({
+                sourceFile: c.metadata.sourceFile,
+                pageNumber: c.metadata.pageNumber,
+                score: c.score,
+                text: c.text,
+              })),
+              webSources,
+              visualType: structured.visualType as any,
+              chartData: structured.chartData,
+              tableData: structured.tableData,
+              diagramData: structured.diagramData,
+              usedModel: modelName,
+              exhausted: Array.from(BrainOrchestrator.exhaustedModels),
+            }
+          };
+          yield finalResult;
+          return finalResult.data;
+        }
+      } catch (err: unknown) {
+        const error = err as GeminiError;
+        lastErr = error;
+        const isDailyQuota = JSON.stringify(error.errorDetails)?.includes("PerDay") || error.message?.includes("RESOURCE_EXHAUSTED");
+        if (isDailyQuota || error.status === 429) {
+          BrainOrchestrator.exhaustedModels.add(modelName);
+          continue;
+        }
+        continue;
+      }
+    }
+
+    const isQuotaError = lastErr?.message?.includes("quota") || JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
+    const fallbackMsg = isQuotaError
+        ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
+        : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
+    yield fallbackMsg;
+    const fallbackResult = {
+      type: "done" as const,
+      data: {
+        content: fallbackMsg,
+        exhausted: Array.from(BrainOrchestrator.exhaustedModels),
+      }
+    };
+    yield fallbackResult;
+    return fallbackResult.data;
   }
 
   /**

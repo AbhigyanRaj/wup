@@ -26,6 +26,7 @@ interface SidebarProps {
   onDeleteSource: (id: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean } | null;
 }
 
 function StatusDot({ status }: { status: KnowledgeSource["status"] }) {
@@ -47,7 +48,7 @@ function SectionLabel({ label }: { label: string }) {
 export function DashboardSidebar({
   chats, activeChatId, onNewChat, onSelectChat, onDeleteChat,
   connections, onDeleteConnection, onOpenAddDb, onOpenUpload, onOpenApiKey,
-  knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile,
+  knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile, usage,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
@@ -115,7 +116,7 @@ export function DashboardSidebar({
 
         <div className="pt-2 space-y-0.5">
           {[
-            { icon: <Search size={15} />, label: "Search", onClick: undefined },
+            { icon: <Search size={15} />, label: "Search", onClick: undefined, disabled: true },
             { icon: <Database size={15} />, label: "Add Bridge", onClick: () => { onOpenAddDb(); onCloseMobile?.(); } },
             { icon: <Upload size={15} />, label: "Import", onClick: () => { onOpenUpload(); onCloseMobile?.(); } },
             { icon: <Key size={15} />, label: "API Key", onClick: () => { onOpenApiKey(); onCloseMobile?.(); } },
@@ -123,10 +124,13 @@ export function DashboardSidebar({
             <button
               key={item.label}
               onClick={item.onClick}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all hover:bg-white/[0.04] ${!expanded ? "justify-center" : ""}`}
+              disabled={(item as any).disabled}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all ${
+                (item as any).disabled ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.04]"
+              } ${!expanded ? "justify-center" : ""}`}
               style={{ color: "var(--text-secondary)" }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+                if (!(item as any).disabled) (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
@@ -288,8 +292,12 @@ export function DashboardSidebar({
                 {user?.email?.split("@")[0] ?? "User"}
               </p>
               <div className="flex items-center gap-1.5">
-                <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">Pro Plan</p>
+                <div className="w-1 h-1 rounded-full" style={{
+                  background: usage?.hasCustomKey ? "var(--blue)" : (usage?.freeTierUsage !== undefined && usage.freeTierUsage >= usage.freeTierLimit) ? "var(--red)" : "var(--green)"
+                }} />
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">
+                  {usage?.hasCustomKey ? "Custom API" : "Free Tier"}
+                </p>
               </div>
             </div>
             <button

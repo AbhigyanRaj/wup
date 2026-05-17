@@ -46,9 +46,9 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 };
 
-    export const saveMessage = async (req: Request, res: Response) => {
+export const saveMessage = async (req: Request, res: Response) => {
   const { chatId } = req.params;
-  const { role, content, model } = req.body;
+  const { role, content, model, searchWeb } = req.body;
   const userId = (req as any).user.id;
 
   try {
@@ -63,6 +63,12 @@ export const getMessages = async (req: Request, res: Response) => {
       content
     });
 
+    // Setup SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); // Send headers immediately
+
     // Prior messages in this thread (exclude the message we just saved — it is sent as `prompt`)
     const priorDocs = await Message.find({
       chatId,
@@ -76,33 +82,66 @@ export const getMessages = async (req: Request, res: Response) => {
       content: m.content,
     }));
 
-    // 2. Trigger Brain Intelligence (with conversational context and model selection)
-    const brainResponse = await brain.ask(userId, content, { chatHistory, model });
+    // 2. Trigger Brain Intelligence (with streaming)
+    const stream = brain.askStream(userId, content, {
+      chatHistory,
+      model,
+      searchWeb,
+      onStatus: (message: string) => {
+        res.write(`data: ${JSON.stringify({ type: "status", message })}\n\n`);
+      }
+    });
 
-    // 3. Save Assistant Message (with RAG citations if available)
+    let fullContent = "";
+    let finalMetadata: any = null;
+
+    for await (const chunk of stream) {
+      if (typeof chunk === "string") {
+        fullContent += chunk;
+        res.write(`data: ${JSON.stringify({ type: "token", text: chunk })}\n\n`);
+      } else if (typeof chunk === "object" && chunk !== null && 'type' in chunk && chunk.type === "done") {
+        finalMetadata = (chunk as any).data;
+      }
+    }
+
+    // 3. Save Assistant Message (with citations if available)
     const assistantMessage = await Message.create({
       chatId,
       userId,
       role: "assistant",
-      content: brainResponse.content,
-      ragSources: brainResponse.ragSources ?? [],
+      content: finalMetadata?.content ?? fullContent,
+      ragSources: finalMetadata?.ragSources ?? [],
+      webSources: finalMetadata?.webSources ?? [],
+      visualType: finalMetadata?.visualType ?? "none",
+      chartData: finalMetadata?.chartData ?? null,
+      tableData: finalMetadata?.tableData ?? null,
+      diagramData: finalMetadata?.diagramData ?? null,
     });
 
     // 4. Update chat timestamp
     chat.lastMessageAt = new Date();
     await chat.save();
 
-    res.status(201).json({ 
-      userMessage, 
-      assistantMessage,
-      followUps: brainResponse.followUps ?? [],
-      clarification: brainResponse.clarification ?? null,
-      usedModel: brainResponse.usedModel,
-      exhausted: brainResponse.exhausted
-    });
+    res.write(`data: ${JSON.stringify({ 
+      type: "done", 
+      message: {
+        userMessage, 
+        assistantMessage,
+        followUps: finalMetadata?.followUps ?? [],
+        clarification: finalMetadata?.clarification ?? null,
+        usedModel: finalMetadata?.usedModel,
+        exhausted: finalMetadata?.exhausted
+      }
+    })}\n\n`);
+    res.end();
   } catch (err) {
     console.error("[WUP API] Chat Processing Error:", err);
-    res.status(500).json({ error: "Failed to process chat" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to process chat" });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: "error", message: "Failed to process chat" })}\n\n`);
+      res.end();
+    }
   }
 };
 

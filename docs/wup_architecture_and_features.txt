@@ -1,0 +1,146 @@
+================================================================================
+WUP: PROJECT ARCHITECTURE, FEATURES, AND TECHNICAL DEEP-DIVE
+Single Source of Truth (100/100 Depth)
+================================================================================
+
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+Wup is an intelligent, highly scalable AI-powered workspace assistant designed 
+to orchestrate context-aware workflows. It serves as a centralized "brain" for 
+users, allowing them to connect external databases, upload unstructured documents, 
+and interact with their data through a real-time, dynamic chat interface.
+
+The platform is designed to be highly extensible, operating on a hybrid 
+monetization tier where users can either utilize a free tier or provide their 
+own API keys (Bring Your Own Key - BYOK) for unlimited access to cutting-edge 
+generative models.
+
+2. SYSTEM ARCHITECTURE
+--------------------------------------------------------------------------------
+Wup is built using a modern, scalable Turborepo monorepo architecture, 
+separating concerns into distinct applications and shared packages.
+
+[Monorepo Structure]
+- apps/web: The frontend application (Next.js)
+- apps/api: The backend application (Node.js/Express)
+- packages/brain: Shared AI orchestration logic and LLM interaction handlers
+
+[Frontend (apps/web)]
+- Framework: Next.js (React)
+- Styling: Tailwind CSS for utility-first styling.
+- Animations: Framer Motion for complex micro-interactions, glassmorphism 
+  effects, and smooth UI transitions.
+- Deployment: Vercel
+
+[Backend (apps/api)]
+- Framework: Node.js with Express.js.
+- Database: MongoDB (via Mongoose ORM).
+- Deployment: Render (Hosted in US-regions to bypass Gemini API regional limits).
+- Cross-Origin: Configured CORS to accept requests from the frontend domain 
+  (https://wuup.in).
+
+[AI/Brain (packages/brain)]
+- LLM Provider: Google Gemini API (v1beta).
+- Core Engine: 'BrainOrchestrator' class responsible for model fallback, 
+  prompt construction, RAG injection, and token management.
+
+3. CORE FEATURES & TECHNICAL DEEP-DIVE
+--------------------------------------------------------------------------------
+
+A. Hybrid "Bring Your Own Key" (BYOK) Tier & Dynamic Routing
+------------------------------------------------------------
+Problem: API costs scale linearly with user growth, and hardcoded models become 
+deprecated or suffer outages.
+Solution: Wup implements a hybrid model.
+- Free Tier: Users get a default limit (e.g., 50 requests) tracked in the UI 
+  via a dynamic progress bar in the AskBar.
+- BYOK Tier: Users can input their own Google Gemini API key to unlock 
+  unlimited usage.
+- Smart Validation: When a user inputs a key, the backend instantly hits the 
+  `generativelanguage.googleapis.com/v1beta/models` endpoint to validate the key.
+- Geo-Blocking Check: The system performs a dummy `generateContent` request to 
+  ensure the backend's server region is not blocked by Google.
+- Dynamic Model Mapping: Instead of hardcoding models (Gemini 1.5, 2.0, etc.), 
+  the backend parses the available models attached to the user's specific API 
+  key (filtering for `generateContent` capabilities), saves them to the User 
+  document, and passes them to the frontend. The chat UI dropdown dynamically 
+  populates based on what the user's key has access to.
+
+B. Retrieval-Augmented Generation (RAG) Pipeline
+------------------------------------------------------------
+Problem: LLMs hallucinate and lack access to specific, private user documents.
+Solution: Wup includes a full RAG pipeline for semantic search.
+- Ingestion: Users upload documents via the UI.
+- Processing: The backend extracts text, splits it into semantic chunks, and 
+  generates high-dimensional vector embeddings using Google's 
+  `gemini-embedding-2` model.
+- Storage: Embeddings are stored alongside their source metadata in MongoDB 
+  (KnowledgeChunk models).
+- Retrieval: When a user asks a question, the query is vectorized. The system 
+  performs a vector similarity search (often cosine similarity) to find the most 
+  relevant chunks.
+- Injection: The retrieved chunks are injected into the LLM prompt as context, 
+  grounding the model's answer in the user's actual data.
+- Latency: Achieves sub-second semantic search latency.
+
+C. Intelligent Model Orchestrator & Fallback System
+------------------------------------------------------------
+- File: packages/brain/src/orchestrator.ts
+- Logic: The `BrainOrchestrator` handles the actual requests to the AI.
+- "Auto-Rotate" Mode: If a specific model experiences an outage or throws a 
+  404/400 error, the orchestrator automatically catches the error and retries 
+  the prompt on a fallback list of models until it succeeds.
+- Context Window Management: The orchestrator dynamically builds the conversation 
+  history, ensuring the prompt does not exceed token limits while maintaining 
+  context across long chat sessions.
+
+D. Database Connections (Bridges)
+------------------------------------------------------------
+- Users can connect external databases (like PostgreSQL, MySQL, or other MongoDB 
+  instances) directly to Wup.
+- This allows the AI to act as a data analyst, querying the user's active databases 
+  to answer questions about their live application data.
+
+E. Modern, Premium UI/UX
+------------------------------------------------------------
+- Wup prioritizes a "wow-factor" design. 
+- AskBar Component: A highly interactive input bar featuring real-time visual 
+  usage tracking, dynamic model dropdowns that adapt to available AI capabilities, 
+  and smooth Framer Motion layout transitions.
+- Modals: Animated pop-ups for API key injection, knowledge source uploads, and 
+  database connections, all utilizing premium dark-mode aesthetics with subtle 
+  glows and blurred backdrops.
+
+4. DATABASE SCHEMA (MONGODB)
+--------------------------------------------------------------------------------
+- User:
+  - email (String)
+  - role (String)
+  - customApiKey (String)
+  - customApiProvider (String, default: gemini)
+  - availableModels ([String]) - Dynamically fetched list.
+  - freeTierUsage (Number)
+  - freeTierLimit (Number)
+
+- Chat:
+  - Stores chat session metadata and history.
+
+- KnowledgeSource / KnowledgeChunk:
+  - Tracks document uploads, their processing status (indexing, indexed, error), 
+    and the actual vector embeddings for RAG retrieval.
+
+5. INFRASTRUCTURE & DEPLOYMENT
+--------------------------------------------------------------------------------
+- Frontend (Vercel): Hosted at https://wuup.in. Connects to the backend via 
+  `NEXT_PUBLIC_API_URL`.
+- Backend (Render): Hosted at api.wuup.in. 
+  *CRITICAL INFRASTRUCTURE NOTE*: The backend must be hosted in a US region 
+  (e.g., Oregon or Ohio) to prevent Google Gemini API from blocking requests 
+  with a `400 User location is not supported` error.
+- Node Version: Enforced >= 18.0.0 for native fetch capabilities.
+- Build Process: Handled via Turborepo (`npm run build` at the root builds 
+  packages, then apps concurrently).
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

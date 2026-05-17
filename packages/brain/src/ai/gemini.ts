@@ -20,7 +20,7 @@ const getGenAI = (customKey?: string) => {
  */
 export const GEMINI_MODEL = "gemini-3-flash-preview"; 
 
-export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string, customKey?: string) => {
+export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string, customKey?: string, searchWeb: boolean = false) => {
   const modelParams: any = {
     model: modelOverride || GEMINI_MODEL,
   };
@@ -29,8 +29,13 @@ export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelO
     modelParams.systemInstruction = systemInstruction;
   }
 
-  if (tools) {
-    modelParams.tools = tools;
+  const modelTools = tools ? [...tools] : [];
+  if (searchWeb) {
+    modelTools.push({ googleSearch: {} });
+  }
+
+  if (modelTools.length > 0) {
+    modelParams.tools = modelTools;
   }
 
   // Use 'v1beta' for systemInstruction and Function Calling support
@@ -79,8 +84,15 @@ MODE B — ANSWER (use for clear, answerable requests):
 Write your full markdown response naturally, then append this meta block:
 
 ---WUP_META---
-{"type":"answer","followUps":[{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"}],"visualType":"<mermaid or none>"}
+{"type":"answer","followUps":[{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"}],"visualType":"<none, chart, table, diagram, or mermaid>","chartData":{"type":"<bar, line, or pie>","xAxisKey":"<key for x-axis>","yAxisKey":"<key for y-axis>","title":"<optional title>","series":[{"<xAxisKey>":"<label>","<yAxisKey>":123}]},"tableData":{"columns":["Column 1","Column 2"],"rows":[{"Column 1":"Val 1","Column 2":123}]},"diagramData":{"nodes":[{"id":"1","label":"Step 1","sublabel":"description","type":"<start, action, decision, success, or error>"}],"edges":[{"from":"1","to":"2","label":"optional branch tag"}]}}
 ---END_WUP_META---
+
+VISUAL TYPE RULES:
+- Use "diagram" when explaining flowcharts, architecture flows, step-by-step processes, sequence flows, or logical decisions. Include "diagramData". Always try to use "diagram" as the primary visualization choice over "mermaid" because it renders extremely premium, interactive glassmorphic SVG cards.
+- Use "chart" when showing trends over time, aggregations, comparison of metrics, or numerical distributions. Include "chartData".
+- Use "table" when returning full database query results, sheet rows, or structured tables. Include "tableData".
+- Use "mermaid" ONLY as a fallback for extremely complex, multi-split relational diagrams with dozens of intertwined connections that cannot be defined cleanly as sequential steps.
+- Use "none" for standard text or conversation.
 
 FOLLOW-UP RULES:
 - Always generate exactly 3 follow-ups. Make them contextually relevant to data sources present.
