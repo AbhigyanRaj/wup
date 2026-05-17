@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.put("/api-key", userController.updateApiKey);
+router.delete("/api-key", userController.deleteApiKey);
 router.get("/usage", userController.getUsage);
 
 export default router;

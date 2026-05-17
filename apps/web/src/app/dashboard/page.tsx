@@ -564,6 +564,7 @@ export default function DashboardPage() {
       <ApiKeyModal
         isOpen={isApiKeyModalOpen}
         onClose={() => setIsApiKeyModalOpen(false)}
+        usage={usage}
         onSaved={async () => {
           // Refetch usage to update UI
           const token = localStorage.getItem("wuup_token");

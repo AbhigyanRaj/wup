@@ -60,6 +60,33 @@ export const updateApiKey = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteApiKey = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    (user as any).customApiKey = undefined;
+    (user as any).customApiProvider = undefined;
+    (user as any).availableModels = [];
+    await user.save();
+
+    res.json({ success: true, message: "API key deleted successfully" });
+  } catch (err) {
+    console.error("[WUP API] Delete API key error:", err);
+    res.status(500).json({ error: "Failed to delete API key" });
+  }
+};
+
+const getMaskedKey = (key?: string) => {
+  if (!key) return undefined;
+  if (key.length <= 8) return "••••••••";
+  return key.slice(0, 6) + "••••" + key.slice(-4);
+};
+
 export const getUsage = async (req: Request, res: Response) => {
   const userId = (req as any).user?.id;
 
@@ -74,6 +101,7 @@ export const getUsage = async (req: Request, res: Response) => {
       freeTierUsage: u.freeTierUsage,
       freeTierLimit: u.freeTierLimit,
       hasCustomKey: !!u.customApiKey,
+      maskedKey: getMaskedKey(u.customApiKey),
       provider: u.customApiProvider,
       availableModels: u.availableModels || []
     });
