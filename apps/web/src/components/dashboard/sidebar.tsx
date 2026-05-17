@@ -59,7 +59,7 @@ export function DashboardSidebar({
       className={`h-full flex flex-col transition-all duration-300 shrink-0 ${
         isMobileOpen ? "w-[240px]" : collapsed ? "w-[64px]" : "w-[240px]"
       }`}
-      style={{ background: "var(--bg-sidebar)", borderRight: "1px solid var(--border)" }}
+      style={{ background: "var(--bg-sidebar)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
     >
       {/* Logo bar */}
       <div className="flex items-center justify-between px-5 h-14 shrink-0">
@@ -159,7 +159,7 @@ export function DashboardSidebar({
                     onClick={() => { onSelectChat(chat._id); onCloseMobile?.(); }}
                     className="group relative flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all"
                     style={{
-                      background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+                      background: isActive ? "rgba(255,95,31,0.05)" : "transparent",
                     }}
                     onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -167,9 +167,13 @@ export function DashboardSidebar({
                     {isActive && (
                       <motion.div
                         layoutId="active-chat"
-                        className="absolute left-0 w-0.5 h-4 bg-[var(--orange)] rounded-full shadow-[0_0_8px_rgba(255,95,31,0.4)]"
+                        className="absolute inset-0 rounded-xl"
+                        style={{ background: "rgba(255,95,31,0.05)", border: "1px solid rgba(255,95,31,0.12)" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
+                    )}
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--orange)] rounded-full shadow-[0_0_8px_rgba(255,95,31,0.5)]" />
                     )}
                     
                     {expanded ? (
@@ -280,25 +284,32 @@ export function DashboardSidebar({
       {/* Footer */}
       <div className="px-3 py-4 shrink-0 space-y-2">
         {expanded && (
-          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0 shadow-inner"
-              style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)" }}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0"
+              style={{ background: "rgba(255,255,255,0.07)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)" }}
             >
               {user?.email?.[0].toUpperCase() ?? "U"}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium truncate leading-none mb-1" style={{ color: "var(--text-primary)" }}>
+              <p className="text-[13px] font-medium truncate leading-none mb-1.5" style={{ color: "var(--text-primary)" }}>
                 {user?.email?.split("@")[0] ?? "User"}
               </p>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1 h-1 rounded-full" style={{
-                  background: usage?.hasCustomKey ? "var(--blue)" : (usage?.freeTierUsage !== undefined && usage.freeTierUsage >= usage.freeTierLimit) ? "var(--red)" : "var(--green)"
-                }} />
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">
-                  {usage?.hasCustomKey ? "Custom API" : "Free Tier"}
-                </p>
-              </div>
+              {usage?.hasCustomKey ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_4px_rgba(255,95,31,0.5)]" style={{ background: "var(--orange)" }} />
+                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--orange)", opacity: 0.7 }}>Custom API</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{
+                    background: (usage?.freeTierUsage !== undefined && usage.freeTierUsage >= usage.freeTierLimit) ? "var(--red)" : "var(--green)"
+                  }} />
+                  <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">
+                    {usage?.freeTierUsage ?? 0}/{usage?.freeTierLimit ?? 50} free
+                  </p>
+                </div>
+              )}
             </div>
             <button
               onClick={logout}

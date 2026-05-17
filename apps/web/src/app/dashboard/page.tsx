@@ -483,7 +483,7 @@ export default function DashboardPage() {
 
             {!activeChatId || activeMessages.length === 0 ? (
               <div className="flex-1 flex flex-col justify-center items-center py-12">
-                <DashboardHero userName={userName} />
+                <DashboardHero userName={userName} usage={usage} />
                 <div className="w-full max-w-2xl px-4">
                   <AskBar
                     onSubmit={handleSendMessage}
@@ -493,7 +493,7 @@ export default function DashboardPage() {
                     usage={usage}
                   />
                   <div className="mt-8">
-                    <CategoryPills />
+                    <CategoryPills onSelect={(prompt) => handleSendMessage(prompt, currentModel)} />
                   </div>
                 </div>
               </div>
