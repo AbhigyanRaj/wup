@@ -3,10 +3,9 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, FileText, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface KnowledgeSource {
   _id: string;
@@ -31,8 +30,6 @@ interface UploadModalProps {
   onClose: () => void;
   onSourcesChanged: () => void;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -90,9 +87,10 @@ async function pollStatus(
   onUpdate("error", "Indexing timed out. Please re-upload.");
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   const [dragging, setDragging] = useState(false);
   const [uploads, setUploads] = useState<UploadFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,7 +142,7 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 z-50"
-            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
+            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
@@ -154,21 +152,22 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
             className="fixed z-50 inset-0 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="w-full max-w-sm pointer-events-auto rounded-2xl overflow-hidden"
-              style={{ background: "var(--bg-raised)", border: "1px solid var(--border)" }}
+              className="w-full max-w-sm pointer-events-auto rounded-3xl overflow-hidden border"
+              style={{ 
+                background: "var(--bg-overlay)", 
+                borderColor: "var(--border)",
+                boxShadow: isLight ? "0 12px 30px rgba(0,0,0,0.06)" : "0 24px 50px -12px rgba(0,0,0,0.8)"
+              }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Upload documents</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>PDF · TXT · up to 20 MB</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Upload documents</p>
+                  <p className="text-[11px] mt-0.5 text-[var(--text-muted)]">PDF · TXT · up to 20 MB</p>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)"}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
+                  className="p-1.5 rounded-lg transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   <X size={15} />
                 </button>
@@ -184,17 +183,17 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
                   className="flex flex-col items-center justify-center gap-2.5 rounded-xl p-8 cursor-pointer transition-all duration-200"
                   style={{
                     border: `1.5px dashed ${dragging ? "var(--accent)" : "var(--border)"}`,
-                    background: dragging ? "var(--accent-dim)" : "rgba(255,255,255,0.02)",
+                    background: dragging ? "var(--accent-dim)" : "var(--bg-highlight)",
                   }}
                 >
-                  <div className="p-2.5 rounded-xl" style={{ background: dragging ? "var(--accent-dim)" : "rgba(255,255,255,0.05)" }}>
+                  <div className="p-2.5 rounded-xl" style={{ background: dragging ? "var(--accent-dim)" : "var(--bg-base)" }}>
                     <Upload size={18} style={{ color: dragging ? "var(--accent)" : "var(--text-muted)" }} />
                   </div>
                   <div className="text-center">
                     <p className="text-sm" style={{ color: dragging ? "var(--text-primary)" : "var(--text-secondary)" }}>
                       {dragging ? "Drop to upload" : "Drop files or click to browse"}
                     </p>
-                    <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>PDF and TXT supported</p>
+                    <p className="text-[11px] mt-0.5 text-[var(--text-muted)]">PDF and TXT supported</p>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -218,33 +217,33 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
                         key={`${u.file.name}-${i}`}
                         initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.04 }}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 border"
+                        style={{ background: "var(--bg-highlight)", borderColor: "var(--border)" }}
                       >
                         <FileText size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12.5px] font-medium truncate" style={{ color: "var(--text-secondary)" }}>
+                          <p className="text-[12.5px] font-medium truncate text-[var(--text-secondary)]">
                             {u.file.name}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{formatBytes(u.file.size)}</p>
+                            <p className="text-[10px] text-[var(--text-muted)]">{formatBytes(u.file.size)}</p>
                             {u.status === "uploading" && (
-                              <p className="text-[10px]" style={{ color: "var(--blue)" }}>Uploading {u.progress}%</p>
+                              <p className="text-[10px] text-[var(--blue)]">Uploading {u.progress}%</p>
                             )}
                             {u.status === "indexing" && (
-                              <p className="text-[10px]" style={{ color: "var(--amber)" }}>Indexing…</p>
+                              <p className="text-[10px] text-[var(--amber)]">Indexing…</p>
                             )}
                             {u.status === "indexed" && (
-                              <p className="text-[10px]" style={{ color: "var(--green)" }}>Ready</p>
+                              <p className="text-[10px] text-[var(--green)]">Ready</p>
                             )}
                             {u.status === "error" && (
-                              <p className="text-[10px] truncate" style={{ color: "var(--red)" }}>
+                              <p className="text-[10px] truncate text-[var(--red)]">
                                 {u.errorMessage || "Failed"}
                               </p>
                             )}
                           </div>
                           {u.status === "uploading" && (
-                            <div className="mt-1.5 h-0.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                            <div className="mt-1.5 h-0.5 rounded-full overflow-hidden bg-[var(--border)]">
                               <motion.div
                                 className="h-full rounded-full"
                                 style={{ background: "var(--blue)" }}
@@ -254,10 +253,10 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
                             </div>
                           )}
                         </div>
-                        {u.status === "uploading" && <Loader2 size={13} className="animate-spin shrink-0" style={{ color: "var(--blue)" }} />}
-                        {u.status === "indexing" && <Loader2 size={13} className="animate-spin shrink-0" style={{ color: "var(--amber)" }} />}
-                        {u.status === "indexed" && <CheckCircle size={13} className="shrink-0" style={{ color: "var(--green)" }} />}
-                        {u.status === "error" && <AlertCircle size={13} className="shrink-0" style={{ color: "var(--red)" }} />}
+                        {u.status === "uploading" && <Loader2 size={13} className="animate-spin shrink-0 text-[var(--blue)]" />}
+                        {u.status === "indexing" && <Loader2 size={13} className="animate-spin shrink-0 text-[var(--amber)]" />}
+                        {u.status === "indexed" && <CheckCircle size={13} className="shrink-0 text-[var(--green)]" />}
+                        {u.status === "error" && <AlertCircle size={13} className="shrink-0 text-[var(--red)]" />}
                       </motion.div>
                     ))}
                   </motion.div>
@@ -265,16 +264,16 @@ export function UploadModal({ isOpen, onClose, onSourcesChanged }: UploadModalPr
               </AnimatePresence>
 
               {/* Footer */}
-              <div className="flex items-center justify-between px-5 py-3.5" style={{ borderTop: "1px solid var(--border)" }}>
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <div className="flex items-center justify-between px-5 py-3.5 border-t border-[var(--border)]">
+                <p className="text-[11px] text-[var(--text-muted)]">
                   {allDone ? "All done" : uploads.length > 0 ? "Processing…" : ""}
                 </p>
                 <button
                   onClick={onClose}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border cursor-pointer"
+                  style={{ background: "var(--bg-highlight)", color: "var(--text-secondary)", borderColor: "var(--border)" }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--border)"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-highlight)"}
                 >
                   {allDone ? "Done" : "Close"}
                 </button>

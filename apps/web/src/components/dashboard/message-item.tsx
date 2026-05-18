@@ -11,6 +11,7 @@ import { CodeBlock } from "./code-block";
 import { BespokeChart } from "./bespoke-chart";
 import { DataTable } from "./data-table";
 import { BespokeDiagram } from "./bespoke-diagram";
+import { useTheme } from "@/components/theme-provider";
 
 interface RagSource { sourceFile: string; pageNumber: number; score: number; text?: string; }
 
@@ -25,22 +26,25 @@ export interface FollowUpSuggestion {
 }
 
 function CitationPill({ source }: { source: RagSource }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  
   return (
     <span
       title={`Relevance: ${Math.round(source.score * 100)}%`}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium cursor-default transition-all hover:bg-white/[0.08]"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium cursor-default transition-all border"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--bg-raised)",
+        borderColor: "var(--border)",
         color: "var(--text-secondary)",
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.3)";
-        (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.04)";
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(37, 99, 235, 0.3)";
+        (e.currentTarget as HTMLElement).style.background = isLight ? "rgba(37, 99, 235, 0.04)" : "rgba(37, 99, 235, 0.06)";
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)";
       }}
     >
       <FileText size={10} className="opacity-50" />
@@ -53,24 +57,27 @@ function CitationPill({ source }: { source: RagSource }) {
 }
 
 function WebCitationPill({ source }: { source: WebSource }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   return (
     <a
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium cursor-pointer transition-all hover:bg-white/[0.08]"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium cursor-pointer transition-all border"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--bg-raised)",
+        borderColor: "var(--border)",
         color: "var(--text-secondary)",
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(45, 122, 238, 0.4)";
-        (e.currentTarget as HTMLElement).style.background = "rgba(45, 122, 238, 0.08)";
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(37, 99, 235, 0.3)";
+        (e.currentTarget as HTMLElement).style.background = isLight ? "rgba(37, 99, 235, 0.04)" : "rgba(37, 99, 235, 0.06)";
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)";
       }}
     >
       <Globe size={10} className="opacity-50" />
@@ -104,11 +111,11 @@ function CitationCard({ index, text, ragSources }: { index: number; text: string
 
   return (
     <span
-      className="relative inline-block"
+      className="relative inline-block text-left"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold cursor-help transition-all hover:bg-blue-500/20 select-none">
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 dark:text-blue-400 text-[10px] font-bold cursor-help transition-all hover:bg-blue-500/20 select-none">
         {text}
       </span>
 
@@ -119,28 +126,26 @@ function CitationCard({ index, text, ragSources }: { index: number; text: string
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-4 rounded-xl shadow-2xl z-50 text-left cursor-default leading-relaxed"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-4 rounded-xl shadow-2xl z-50 text-left cursor-default leading-relaxed border"
             style={{
-              background: "rgba(15, 23, 42, 0.98)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-              boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.7)",
+              background: "var(--bg-overlay)",
+              borderColor: "var(--border)",
             }}
           >
-            <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2 mb-2 select-none">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-400">
+            <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-2 mb-2 select-none">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--orange)]">
                 Source Document
               </span>
-              <span className="text-[9px] font-mono opacity-40">
+              <span className="text-[9px] font-mono text-[var(--text-muted)]">
                 Match: {Math.round(source.score * 100)}%
               </span>
             </div>
             
-            <p className="text-[11px] font-medium text-white/80 max-h-24 overflow-y-auto custom-scrollbar select-text italic mb-2">
+            <p className="text-[11px] font-medium text-[var(--text-primary)] max-h-24 overflow-y-auto custom-scrollbar select-text italic mb-2">
               "{source.text || "No preview text available for this source."}"
             </p>
             
-            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider opacity-30 select-none pt-1">
+            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] select-none pt-1">
               <FileText size={9} />
               <span className="truncate max-w-[150px]">{source.sourceFile}</span>
               {source.pageNumber > 0 && <span>p.{source.pageNumber}</span>}
@@ -153,13 +158,8 @@ function CitationCard({ index, text, ragSources }: { index: number; text: string
 }
 
 function preprocessContent(text: string) {
-  // Replace [1]-[99] citation refs with hover links. Intentionally limited to 1-2 digits
-  // to avoid false positives on things like [200], [404], [1000], etc.
   return text.replace(/\[([1-9][0-9]?)\](?!\()/g, "[$1](#citation-$1)");
 }
-
-// ─── Custom Markdown Renderers ────────────────────────────────────────────────
-// Intercepts ```mermaid and code blocks, rendering them as rich components.
 
 function MarkdownCodeBlock({ node, className, children, ...props }: any) {
   const match = /language-(\w+)/.exec(className || "");
@@ -178,8 +178,8 @@ function MarkdownCodeBlock({ node, className, children, ...props }: any) {
     <code
       className={className}
       style={{
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--bg-raised)",
+        border: "1px solid var(--border)",
         borderRadius: "6px",
         padding: "2px 6px",
         fontSize: "12.5px",
@@ -213,17 +213,17 @@ export function MessageItem({ role, content, ragSources, webSources, visualType,
               className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg overflow-hidden relative group"
               style={{
                 background: "var(--bg-sidebar)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: "1px solid var(--border)",
               }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--orange)]/10 to-transparent opacity-40" />
-              <div className="w-2 h-2 rounded-full bg-[var(--orange)] relative z-10 shadow-[0_0_12px_rgba(255,95,31,0.6)]" />
+              <div className="w-2 h-2 rounded-full bg-[var(--orange)] relative z-10 shadow-[0_0_12px_rgba(37,99,235,0.45)]" />
             </div>
             {webSources && webSources.length > 0 && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-[8px] font-extrabold tracking-wider uppercase text-blue-400 bg-blue-500/5 border border-blue-500/15 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 select-none"
+                className="text-[8px] font-extrabold tracking-wider uppercase text-blue-500 dark:text-blue-400 bg-blue-500/5 border border-blue-500/15 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 select-none"
                 title="Grounded in real-time Web Search"
               >
                 <Globe size={8} />
@@ -270,10 +270,10 @@ export function MessageItem({ role, content, ragSources, webSources, visualType,
             </div>
           ) : (
             <div
-              className="selectable px-5 py-3.5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm tracking-wide"
+              className="selectable px-5 py-3.5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm tracking-wide border"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: "var(--bg-raised)",
+                borderColor: "var(--border)",
                 color: "var(--text-primary)",
               }}
             >
@@ -287,9 +287,9 @@ export function MessageItem({ role, content, ragSources, webSources, visualType,
               initial={{ opacity: 0, x: -5 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3, duration: 0.4 }}
-              className="flex flex-wrap gap-2 items-center pt-3 mt-2 border-t border-white/[0.04]"
+              className="flex flex-wrap gap-2 items-center pt-3 mt-2 border-t border-[var(--border)]"
             >
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] mr-2 opacity-20 select-none">
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] mr-2 text-[var(--text-muted)] select-none">
                 Sources
               </span>
               <div className="flex flex-wrap gap-2">

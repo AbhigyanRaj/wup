@@ -5,8 +5,10 @@ import {
   Plus, Search, Database, Upload, Key,
   LogOut, Trash2, X, MessageSquare,
   ChevronRight, ChevronLeft, Loader2,
+  Sun, Moon
 } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
+import { useTheme } from "@/components/theme-provider";
 import { Chat } from "@/app/dashboard/page";
 import { AnimatePresence, motion } from "framer-motion";
 import { KnowledgeSource } from "./upload-modal";
@@ -52,6 +54,8 @@ export function DashboardSidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const isLight = theme === "light";
   const expanded = !collapsed || !!isMobileOpen;
 
   const sidebarContent = (
@@ -59,24 +63,24 @@ export function DashboardSidebar({
       className={`h-full flex flex-col transition-all duration-300 shrink-0 ${
         isMobileOpen ? "w-[240px]" : collapsed ? "w-[64px]" : "w-[240px]"
       }`}
-      style={{ background: "var(--bg-sidebar)", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+      style={{ background: "var(--bg-sidebar)", borderRight: "1px solid var(--border)" }}
     >
       {/* Logo bar */}
       <div className="flex items-center justify-between px-5 h-14 shrink-0">
         {expanded && (
           <div className="flex items-center gap-2.5">
             <div
-              className="w-2 h-2 rounded-full shadow-[0_0_10px_rgba(255,95,31,0.3)]"
+              className="w-2 h-2 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.45)]"
               style={{ background: "var(--orange)" }}
             />
-            <span className="text-[14px] tracking-[0.2em] font-bold uppercase text-white/90" style={{ fontFamily: "var(--font-display)" }}>WUUP</span>
+            <span className="text-[14px] tracking-[0.2em] font-bold uppercase text-[var(--text-primary)]" style={{ fontFamily: "var(--font-display)" }}>WUUP</span>
           </div>
         )}
 
         {!isMobileOpen && (
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg hidden lg:flex items-center justify-center transition-all hover:bg-white/5"
+            className="p-1.5 rounded-lg hidden lg:flex items-center justify-center transition-all hover:bg-[var(--bg-highlight)]"
             style={{ color: "var(--text-muted)", marginLeft: expanded ? 0 : "auto", marginRight: expanded ? 0 : "auto" }}
           >
             {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -95,19 +99,19 @@ export function DashboardSidebar({
         {/* New Chat — accent colored */}
         <button
           onClick={() => { onNewChat(); onCloseMobile?.(); }}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group ${!expanded ? "justify-center" : ""}`}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group cursor-pointer ${!expanded ? "justify-center" : ""}`}
           style={{
-            background: "rgba(255, 95, 31, 0.04)",
-            border: "1px solid rgba(255, 95, 31, 0.15)",
+            background: isLight ? "rgba(37, 99, 235, 0.05)" : "rgba(37, 99, 235, 0.03)",
+            border: isLight ? "1px solid rgba(37, 99, 235, 0.12)" : "1px solid rgba(37, 99, 235, 0.08)",
             color: "var(--text-primary)",
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.08)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.3)";
+            (e.currentTarget as HTMLElement).style.background = isLight ? "rgba(37, 99, 235, 0.08)" : "rgba(37, 99, 235, 0.06)";
+            (e.currentTarget as HTMLElement).style.borderColor = isLight ? "rgba(37, 99, 235, 0.25)" : "rgba(37, 99, 235, 0.18)";
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(255, 95, 31, 0.04)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255, 95, 31, 0.15)";
+            (e.currentTarget as HTMLElement).style.background = isLight ? "rgba(37, 99, 235, 0.05)" : "rgba(37, 99, 235, 0.03)";
+            (e.currentTarget as HTMLElement).style.borderColor = isLight ? "rgba(37, 99, 235, 0.12)" : "rgba(37, 99, 235, 0.08)";
           }}
         >
           <Plus size={16} strokeWidth={2.5} className="transition-transform group-hover:scale-110" style={{ color: "var(--orange)" }} />
@@ -157,23 +161,26 @@ export function DashboardSidebar({
                   <div
                     key={`c-${chat._id}`}
                     onClick={() => { onSelectChat(chat._id); onCloseMobile?.(); }}
-                    className="group relative flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all"
+                    className="group relative flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all animate-none"
                     style={{
-                      background: isActive ? "rgba(255,95,31,0.05)" : "transparent",
+                      background: isActive ? (isLight ? "rgba(37,99,235,0.06)" : "rgba(37,99,235,0.04)") : "transparent",
                     }}
-                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; }}
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "var(--bg-highlight)"; }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="active-chat"
                         className="absolute inset-0 rounded-xl"
-                        style={{ background: "rgba(255,95,31,0.05)", border: "1px solid rgba(255,95,31,0.12)" }}
+                        style={{ 
+                          background: isLight ? "rgba(37,99,235,0.06)" : "rgba(37,99,235,0.04)", 
+                          border: isLight ? "1px solid rgba(37,99,235,0.15)" : "1px solid rgba(37,99,235,0.08)" 
+                        }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
                     )}
                     {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--orange)] rounded-full shadow-[0_0_8px_rgba(255,95,31,0.5)]" />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--orange)] rounded-full shadow-[0_0_8px_rgba(37,99,235,0.45)]" />
                     )}
                     
                     {expanded ? (
@@ -284,10 +291,10 @@ export function DashboardSidebar({
       {/* Footer */}
       <div className="px-3 py-4 shrink-0 space-y-2">
         {expanded && (
-          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0"
-              style={{ background: "rgba(255,255,255,0.07)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)" }}
+              style={{ background: "var(--bg-highlight)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
             >
               {user?.email?.[0].toUpperCase() ?? "U"}
             </div>
@@ -297,7 +304,7 @@ export function DashboardSidebar({
               </p>
               {usage?.hasCustomKey ? (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_4px_rgba(255,95,31,0.5)]" style={{ background: "var(--orange)" }} />
+                  <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_4px_rgba(37,99,235,0.45)]" style={{ background: "var(--orange)" }} />
                   <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--orange)", opacity: 0.7 }}>Custom API</p>
                 </div>
               ) : (
@@ -311,24 +318,43 @@ export function DashboardSidebar({
                 </div>
               )}
             </div>
+            
+            {/* Minimalist Theme Toggle in Footer profile capsule */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg transition-all hover:bg-white/[0.06] hover:text-white text-[var(--text-muted)] hover:opacity-100 cursor-pointer"
+              title="Toggle theme"
+            >
+              {isLight ? <Moon size={13} /> : <Sun size={13} />}
+            </button>
+
             <button
               onClick={logout}
-              className="p-1.5 rounded-lg transition-all hover:bg-red-500/10 hover:text-red-400 opacity-40 hover:opacity-100"
+              className="p-1.5 rounded-lg transition-all hover:bg-red-500/10 hover:text-red-400 opacity-40 hover:opacity-100 cursor-pointer"
               style={{ color: "var(--text-muted)" }}
             >
-              <LogOut size={14} />
+              <LogOut size={13} />
             </button>
           </div>
         )}
 
         {!expanded && (
-          <button
-            onClick={logout}
-            className="w-full flex justify-center p-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all opacity-40 hover:opacity-100"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <LogOut size={16} />
-          </button>
+          <div className="flex flex-col gap-2 items-center">
+            <button
+              onClick={toggleTheme}
+              className="w-full flex justify-center p-3 rounded-xl hover:bg-white/[0.04] transition-all text-[var(--text-muted)] opacity-40 hover:opacity-100 cursor-pointer"
+              title="Toggle theme"
+            >
+              {isLight ? <Moon size={16} /> : <Sun size={16} />}
+            </button>
+            <button
+              onClick={logout}
+              className="w-full flex justify-center p-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all opacity-40 hover:opacity-100 cursor-pointer"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         )}
       </div>
     </div>

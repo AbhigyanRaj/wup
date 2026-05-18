@@ -6,11 +6,11 @@
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
   /* ── Premium Midnight Navy/Slate Surfaces ── */
-  --bg-base:      #06080f;   /* Deep midnight canvas */
-  --bg-sidebar:   #04050a;   /* Sidebar — slightly darker */
-  --bg-raised:    #0c101b;   /* Cards, elevated elements */
-  --bg-overlay:   #111626;   /* Dropdowns, modals */
-  --bg-highlight: #171f35;   /* Hovered/active elements */
+  --bg-base:      #0e1118;   /* Luxurious soft graphite-charcoal canvas */
+  --bg-sidebar:   #090b10;   /* Matching slightly deeper sidebar */
+  --bg-raised:    #141924;   /* Cards, elevated elements */
+  --bg-overlay:   #19202f;   /* Dropdowns, modals */
+  --bg-highlight: #20293c;   /* Hovered/active elements */
 
   /* ── Accent — pure white, restrained ── */
   --accent:       rgba(255, 255, 255, 0.9);
@@ -30,9 +30,9 @@
   --border-muted: rgba(59, 130, 246, 0.04);
 
   /* ── Text ── */
-  --text-primary:   rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.45);
-  --text-muted:     rgba(255, 255, 255, 0.25);
+  --text-primary:   rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-muted:     rgba(255, 255, 255, 0.3);
 
   /* ── Semantic ── */
   --green:  #4ade80;
@@ -51,19 +51,19 @@
 }
 
 .light {
-  /* ── Breathtaking Warm-Ivory Luxury Light Mode ── */
-  --bg-base:      #faf9f6;   /* Luxurious warm milk-ivory canvas */
-  --bg-sidebar:   #f4f3f0;   /* Matching sidebar */
-  --bg-raised:    #ffffff;   /* Elevated white panels */
+  /* ── Soft Premium Zinc-Slate Light Mode ── */
+  --bg-base:      #f4f6f9;   /* Highly comfortable slate-mist canvas */
+  --bg-sidebar:   #e9ecef;   /* Slightly deeper sidebar */
+  --bg-raised:    #ffffff;   /* Pure white elevated cards for high readability */
   --bg-overlay:   #ffffff;   /* Modals */
-  --bg-highlight: #f2f1ed;   /* Hover highlight */
+  --bg-highlight: #e2e6ea;   /* Hover highlight */
 
   /* ── Accent — Royal Indigo ── */
-  --accent:       rgba(20, 24, 38, 0.9);
-  --accent-hi:    rgba(20, 24, 38, 0.85);
+  --accent:       rgba(15, 23, 42, 0.9);
+  --accent-hi:    rgba(15, 23, 42, 0.85);
   --accent-lo:    rgba(37, 99, 235, 0.03);
   --accent-glow:  rgba(37, 99, 235, 0.06);
-  --accent-grad:  linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  --accent-grad:  linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 
   /* ── Accent — Blue (retains variable name for dashboard compat) ── */
   --orange:       #2563eb;
@@ -71,14 +71,14 @@
   --orange-glow:  rgba(37, 99, 235, 0.1);
 
   /* ── Borders ── */
-  --border:       rgba(20, 24, 38, 0.04);   /* Softest blend border */
-  --border-hover: rgba(20, 24, 38, 0.08);
-  --border-muted: rgba(20, 24, 38, 0.02);
+  --border:       rgba(0, 0, 0, 0.06);   /* Defined yet elegant border */
+  --border-hover: rgba(0, 0, 0, 0.12);
+  --border-muted: rgba(0, 0, 0, 0.03);
 
   /* ── Text ── */
-  --text-primary:   #1a1f30;   /* Soft slate-blue deep heading color */
-  --text-secondary: #5e667d;   /* Warm slate body copy */
-  --text-muted:     #8f96a8;   /* Muted gray-slate */
+  --text-primary:   #0f172a;   /* Slate slate-blue deep heading color */
+  --text-secondary: #475569;   /* Balanced slate body copy */
+  --text-muted:     #64748b;   /* Muted gray-slate */
 }
 
 @theme inline {

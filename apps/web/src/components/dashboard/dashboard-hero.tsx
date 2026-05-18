@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Key, Zap, BarChart3, CheckCircle } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface DashboardHeroProps {
   userName: string;
@@ -10,6 +11,8 @@ interface DashboardHeroProps {
 }
 
 export function DashboardHero({ userName, usage }: DashboardHeroProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const [greeting, setGreeting] = useState("Good afternoon");
 
   useEffect(() => {
@@ -37,9 +40,13 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.05, duration: 0.4 }}
-        className="mb-4 px-3 py-1 rounded-full border border-white/[0.06] bg-white/[0.03] text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 flex items-center gap-2"
+        className={`mb-4 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 ${
+          isLight
+            ? "border-zinc-200 bg-zinc-100 text-zinc-500"
+            : "border-white/[0.06] bg-white/[0.03] text-white/30"
+        }`}
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_6px_rgba(255,95,31,0.5)]" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_6px_rgba(37,99,235,0.45)]" />
         Intelligence Engine
       </motion.div>
 
@@ -47,7 +54,9 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="text-[34px] sm:text-[40px] tracking-[-0.02em] font-medium text-white/90 leading-tight mb-2.5"
+        className={`text-[34px] sm:text-[40px] tracking-[-0.02em] font-medium leading-tight mb-2.5 transition-colors ${
+          isLight ? "text-zinc-900" : "text-white/90"
+        }`}
       >
         {greeting},{" "}
         <span className="gradient-text font-bold" style={{ fontFamily: "var(--font-display)" }}>
@@ -60,8 +69,9 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.4 }}
-        className="text-[14.5px] font-light tracking-wide max-w-[300px] leading-relaxed mb-8"
-        style={{ color: "rgba(255,255,255,0.35)" }}
+        className={`text-[14.5px] font-light tracking-wide max-w-[300px] leading-relaxed mb-8 transition-colors ${
+          isLight ? "text-zinc-500" : "text-zinc-400"
+        }`}
       >
         Ready to explore your data. What would you like to know?
       </motion.p>
@@ -72,14 +82,14 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.4 }}
-          className="flex items-center gap-3 mb-2"
+          className="flex flex-wrap items-center justify-center gap-3 mb-2"
         >
           {/* Key indicator */}
           <div
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium transition-colors"
             style={{
-              background: "rgba(255,95,31,0.07)",
-              border: "1px solid rgba(255,95,31,0.18)",
+              background: "rgba(37,99,235,0.07)",
+              border: "1px solid rgba(37,99,235,0.18)",
               color: "var(--orange)",
             }}
           >
@@ -89,7 +99,7 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
 
           {/* Unlimited badge */}
           <div
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium transition-colors"
             style={{
               background: "rgba(74,222,128,0.06)",
               border: "1px solid rgba(74,222,128,0.15)",
@@ -102,12 +112,11 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
 
           {/* Model access */}
           <div
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "rgba(255,255,255,0.45)",
-            }}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium border transition-colors ${
+              isLight
+                ? "bg-zinc-100 border-zinc-200 text-zinc-500"
+                : "bg-white/[0.04] border-white/[0.08] text-white/45"
+            }`}
           >
             <Zap size={12} />
             <span className="tracking-wide">All Gemini models</span>
@@ -121,26 +130,26 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.4 }}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-2xl mb-2"
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
-          }}
+          className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl mb-2 border transition-colors ${
+            isLight
+              ? "bg-white border-zinc-200/80 shadow-sm"
+              : "bg-white/[0.03] border-white/[0.07]"
+          }`}
         >
-          <BarChart3 size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-          <span className="text-[11px] text-white/30 tracking-wide font-medium">Free tier</span>
+          <BarChart3 size={12} className={isLight ? "text-zinc-400" : "text-white/30"} />
+          <span className={`text-[11px] tracking-wide font-medium ${isLight ? "text-zinc-500" : "text-white/30"}`}>Free tier</span>
           {/* Progress bar */}
-          <div className="w-24 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+          <div className={`w-24 h-1 rounded-full overflow-hidden ${isLight ? "bg-zinc-100" : "bg-white/[0.08]"}`}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${pct}%`,
                 background: pct >= 90 ? "var(--red)" : "var(--orange)",
-                boxShadow: pct < 90 ? "0 0 6px rgba(255,95,31,0.4)" : "none",
+                boxShadow: pct < 90 ? "0 0 6px rgba(37,99,235,0.4)" : "none",
               }}
             />
           </div>
-          <span className="text-[11px] font-mono tabular-nums" style={{ color: pct >= 90 ? "var(--red)" : "rgba(255,255,255,0.35)" }}>
+          <span className={`text-[11px] font-mono tabular-nums ${pct >= 90 ? "text-rose-500" : isLight ? "text-zinc-500" : "text-white/35"}`}>
             {usage.freeTierUsage}/{usage.freeTierLimit}
           </span>
         </motion.div>

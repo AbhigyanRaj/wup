@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Key, CheckCircle2, Loader2, Trash2, ShieldAlert, Sparkles } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -28,6 +29,9 @@ const PROVIDER_LINKS: Record<string, { label: string, url: string }> = {
 };
 
 export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   const [apiKey, setApiKey] = useState("");
   const [provider, setProvider] = useState("gemini");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "deleting">("idle");
@@ -112,7 +116,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 z-[100]"
-            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
+            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
@@ -122,22 +126,26 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
             className="fixed z-[101] inset-0 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="w-full max-w-sm pointer-events-auto rounded-3xl overflow-hidden"
-              style={{ background: "rgba(13,13,13,0.95)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 50px -12px rgba(0,0,0,0.9)" }}
+              className="w-full max-w-sm pointer-events-auto rounded-3xl overflow-hidden border"
+              style={{ 
+                background: "var(--bg-overlay)", 
+                borderColor: "var(--border)", 
+                boxShadow: isLight ? "0 12px 30px rgba(0,0,0,0.06)" : "0 24px 50px -12px rgba(0,0,0,0.8)" 
+              }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <div>
-                  <p className="text-sm font-semibold tracking-tight text-white/90">
+                  <p className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
                     {usage?.hasCustomKey && !showUpdateForm ? "Active API Key" : "Add AI API Key"}
                   </p>
-                  <p className="text-[11px] mt-0.5 text-white/40">
+                  <p className="text-[11px] mt-0.5 text-[var(--text-muted)]">
                     {usage?.hasCustomKey && !showUpdateForm ? "Manage your AI integration" : "Unlock unlimited queries"}
                   </p>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg transition-colors text-white/30 hover:text-white/70"
+                  className="p-1.5 rounded-lg transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   <X size={15} />
                 </button>
@@ -150,10 +158,10 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                       <CheckCircle2 size={28} />
                     </div>
                     <div className="text-center">
-                      <p className="text-[13.5px] font-semibold text-white/90">
+                      <p className="text-[13.5px] font-semibold text-[var(--text-primary)]">
                         {lastAction === "delete" ? "API Key Removed" : "API Key Saved"}
                       </p>
-                      <p className="text-[11px] text-white/30">
+                      <p className="text-[11px] text-[var(--text-muted)]">
                         {lastAction === "delete" ? "Switched back to Free Tier limits." : "You can now chat without limits!"}
                       </p>
                     </div>
@@ -161,28 +169,28 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                 ) : usage?.hasCustomKey && !showUpdateForm ? (
                   // Active key status card
                   <div className="space-y-5">
-                    <div className="p-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] space-y-4">
+                    <div className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-highlight)] space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--orange)]"
-                          style={{ background: "rgba(255,95,31,0.08)", border: "1px solid rgba(255,95,31,0.18)" }}>
+                          style={{ background: "var(--orange-dim)", border: "1px solid var(--border)" }}>
                           <Key size={16} />
                         </div>
                         <div>
-                          <p className="text-[12px] font-semibold text-white/80">
+                          <p className="text-[12px] font-semibold text-[var(--text-primary)]">
                             {PROVIDER_NAMES[usage.provider || "gemini"] || "Gemini (Google)"}
                           </p>
-                          <p className="text-[10px] font-mono text-white/30 mt-0.5 tracking-wider">
+                          <p className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5 tracking-wider">
                             {usage.maskedKey || "••••••••"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="h-px bg-white/[0.06]" />
+                      <div className="h-px bg-[var(--border)]" />
 
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-white/30 font-medium">Status</span>
+                        <span className="text-[var(--text-muted)] font-medium">Status</span>
                         <span className="flex items-center gap-1.5 font-semibold text-[var(--orange)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_6px_rgba(255,95,31,0.5)]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_6px_rgba(37,99,235,0.45)]" />
                           Active & Unlimited
                         </span>
                       </div>
@@ -192,8 +200,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                       <button
                         onClick={handleDelete}
                         disabled={status === "deleting"}
-                        className="flex-1 py-2.5 rounded-xl font-semibold text-[12px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] border border-red-500/20 hover:bg-red-500/10 text-red-400"
-                        style={{ background: "rgba(239,68,68,0.03)" }}
+                        className="flex-1 py-2.5 rounded-xl font-semibold text-[12px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] border border-red-500/20 hover:bg-red-500/10 text-red-500 bg-red-500/5 cursor-pointer"
                       >
                         {status === "deleting" ? (
                           <Loader2 size={13} className="animate-spin" />
@@ -205,7 +212,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
 
                       <button
                         onClick={() => setShowUpdateForm(true)}
-                        className="flex-1 py-2.5 rounded-xl font-semibold text-[12px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] border border-white/[0.08] hover:bg-white/[0.04] text-white/80"
+                        className="flex-1 py-2.5 rounded-xl font-semibold text-[12px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] border border-[var(--border)] hover:bg-[var(--bg-highlight)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                       >
                         <Sparkles size={13} style={{ color: "var(--orange)" }} />
                         Rotate Key
@@ -217,14 +224,13 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                   <div className="space-y-4">
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-1">
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest px-1">
                           Provider
                         </p>
                         <select
                           value={provider}
                           onChange={(e) => setProvider(e.target.value)}
-                          className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl py-2.5 px-4 text-[13px] text-white focus:border-white/20 transition-all outline-none"
-                          style={{ color: "var(--text-primary)", background: "#111" }}
+                          className="w-full bg-[var(--bg-highlight)] border border-[var(--border)] rounded-xl py-2.5 px-4 text-[13px] text-[var(--text-primary)] transition-all outline-none"
                         >
                           <option value="gemini">Gemini (Google)</option>
                           <option value="openrouter">OpenRouter (All Models)</option>
@@ -234,10 +240,10 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                       </div>
 
                       <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-1">
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest px-1">
                           API Key
                         </p>
-                        <p className="text-[11px] text-white/25 px-1 leading-relaxed">
+                        <p className="text-[11px] text-[var(--text-muted)] px-1 leading-relaxed">
                           Enter your key. It will be stored securely.
                         </p>
                         <input 
@@ -245,11 +251,11 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                           value={apiKey}
                           onChange={(e) => setApiKey(e.target.value)}
                           placeholder="AIzaSy... or sk-..."
-                          className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl py-2.5 px-4 text-[13px] text-white placeholder:text-white/10 focus:border-white/20 transition-all outline-none"
+                          className="w-full bg-[var(--bg-highlight)] border border-[var(--border)] rounded-xl py-2.5 px-4 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all outline-none"
                         />
                       </div>
                       {error && (
-                        <div className="flex items-center gap-1.5 text-red-400 px-1 pt-0.5">
+                        <div className="flex items-center gap-1.5 text-red-500 px-1 pt-0.5">
                           <ShieldAlert size={12} className="shrink-0" />
                           <p className="text-[11px] font-medium">{error}</p>
                         </div>
@@ -260,8 +266,8 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                       <button 
                         onClick={handleSave}
                         disabled={!apiKey.trim() || status === "loading"}
-                        className="w-full py-2.5 rounded-xl font-semibold text-[12px] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-black"
-                        style={{ background: "var(--orange)", boxShadow: "0 0 16px rgba(255,95,31,0.2)" }}
+                        className="w-full py-2.5 rounded-xl font-semibold text-[12px] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-white cursor-pointer"
+                        style={{ background: "var(--orange)", boxShadow: "0 0 16px rgba(37,99,235,0.2)" }}
                       >
                         {status === "loading" && <Loader2 size={13} className="animate-spin" />}
                         Save Key
@@ -270,7 +276,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                       {usage?.hasCustomKey && (
                         <button
                           onClick={() => { setShowUpdateForm(false); setError(""); }}
-                          className="w-full text-center text-[11px] text-white/30 hover:text-white/60 transition-all py-1.5"
+                          className="w-full text-center text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all py-1.5 cursor-pointer"
                         >
                           Cancel Update
                         </button>
@@ -281,7 +287,7 @@ export function ApiKeyModal({ isOpen, onClose, onSaved, usage }: ApiKeyModalProp
                           href={PROVIDER_LINKS[provider]?.url || "#"} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="w-full text-center text-[11px] text-white/25 hover:text-white/50 transition-all py-2 flex items-center justify-center gap-1"
+                          className="w-full text-center text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all py-2 flex items-center justify-center gap-1 cursor-pointer"
                         >
                           Get a key from {PROVIDER_LINKS[provider]?.label || "Provider"}
                         </a>

@@ -41,7 +41,7 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
               style={{ background: "var(--orange-glow)" }}
             />
             <div
-              className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(255,95,31,0.5)]"
+              className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(37,99,235,0.45)]"
               style={{ background: "var(--orange)" }}
             />
           </div>
@@ -91,7 +91,7 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
                             <Check className="w-4 h-4 text-emerald-500" />
                           </motion.div>
                         ) : isActive ? (
-                          <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+                          <Loader2 className="w-4 h-4 text-[var(--orange)] animate-spin" />
                         ) : (
                           <Circle className="w-4 h-4 text-zinc-700" />
                         )}
@@ -101,8 +101,8 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
                       <span
                         className={`text-[13px] font-medium transition-colors duration-300 ${
                           isActive 
-                            ? "text-white" 
-                            : "text-zinc-500"
+                            ? "text-[var(--text-primary)]" 
+                            : "text-[var(--text-muted)]"
                         }`}
                       >
                         {step}

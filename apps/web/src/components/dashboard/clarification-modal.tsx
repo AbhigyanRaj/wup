@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface ClarificationModalProps {
   question: string;
@@ -12,6 +13,9 @@ interface ClarificationModalProps {
 }
 
 export function ClarificationModal({ question, options, onSelect, onDismiss }: ClarificationModalProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   const [customText, setCustomText] = useState("");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,31 +44,31 @@ export function ClarificationModal({ question, options, onSelect, onDismiss }: C
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full"
+        className="w-full border"
         style={{
-          background: "rgba(18,18,18,0.98)",
-          border: "1px solid rgba(255,255,255,0.09)",
+          background: "var(--bg-overlay)",
+          borderColor: "var(--border)",
           borderRadius: "20px",
-          boxShadow: "0 -4px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+          boxShadow: isLight ? "0 -4px 30px rgba(0,0,0,0.03)" : "0 -4px 40px rgba(0,0,0,0.5)",
           backdropFilter: "blur(20px)",
           overflow: "hidden",
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 pt-4 pb-3"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+          className="flex items-center justify-between px-5 pt-4 pb-3 border-b"
+          style={{ borderColor: "var(--border)" }}
         >
           <p
             className="text-[13px] font-medium leading-relaxed tracking-wide flex-1 pr-4"
-            style={{ color: "rgba(255,255,255,0.75)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             {question}
           </p>
           <button
             onClick={onDismiss}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/5 shrink-0"
-            style={{ color: "rgba(255,255,255,0.2)" }}
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-highlight)] shrink-0 cursor-pointer"
+            style={{ color: "var(--text-muted)" }}
           >
             <X size={14} />
           </button>
@@ -81,31 +85,37 @@ export function ClarificationModal({ question, options, onSelect, onDismiss }: C
               onClick={() => onSelect(option)}
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors duration-150"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors duration-150 cursor-pointer border-b last:border-b-0"
               style={{
-                background: hoveredIndex === i ? "rgba(255,255,255,0.05)" : "transparent",
-                borderBottom: i < options.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none",
+                background: hoveredIndex === i ? "var(--bg-highlight)" : "transparent",
+                borderColor: "var(--border-muted)",
               }}
             >
               {/* Number badge */}
               <span
-                className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors"
+                className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors border"
                 style={{
-                  background: hoveredIndex === i ? "rgba(255,95,31,0.15)" : "rgba(255,255,255,0.06)",
-                  color: hoveredIndex === i ? "#ff5f1f" : "rgba(255,255,255,0.3)",
-                  border: hoveredIndex === i ? "1px solid rgba(255,95,31,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                  background: hoveredIndex === i 
+                    ? "rgba(37,99,235,0.1)" 
+                    : "var(--bg-highlight)",
+                  color: hoveredIndex === i 
+                    ? "var(--orange)" 
+                    : "var(--text-muted)",
+                  borderColor: hoveredIndex === i 
+                    ? "rgba(37,99,235,0.25)" 
+                    : "var(--border)",
                 }}
               >
                 {i + 1}
               </span>
               <span
                 className="text-[13px] font-medium flex-1"
-                style={{ color: hoveredIndex === i ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)" }}
+                style={{ color: hoveredIndex === i ? "var(--text-primary)" : "var(--text-secondary)" }}
               >
                 {option}
               </span>
               {hoveredIndex === i && (
-                <ArrowRight size={12} style={{ color: "rgba(255,95,31,0.6)" }} />
+                <ArrowRight size={12} style={{ color: "var(--orange)" }} />
               )}
             </motion.button>
           ))}
@@ -113,10 +123,10 @@ export function ClarificationModal({ question, options, onSelect, onDismiss }: C
 
         {/* Custom input */}
         <div
-          className="flex items-center gap-3 px-4 py-3"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+          className="flex items-center gap-3 px-4 py-3 border-t"
+          style={{ borderColor: "var(--border)" }}
         >
-          <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ color: "rgba(255,255,255,0.15)" }}>
+          <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ color: "var(--text-muted)" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
@@ -127,20 +137,20 @@ export function ClarificationModal({ question, options, onSelect, onDismiss }: C
             onChange={e => setCustomText(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && customText.trim()) onSelect(customText.trim()); }}
             placeholder="Something else..."
-            className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-[rgba(255,255,255,0.15)] tracking-wide"
-            style={{ color: "rgba(255,255,255,0.6)" }}
+            className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-[var(--text-muted)] tracking-wide"
+            style={{ color: "var(--text-primary)" }}
           />
           {customText.trim() && (
             <button
               onClick={() => onSelect(customText.trim())}
-              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-colors"
-              style={{ background: "#ff5f1f", color: "#000" }}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold transition-colors text-white cursor-pointer"
+              style={{ background: "var(--orange)" }}
             >
               Skip
             </button>
           )}
           {!customText.trim() && (
-            <span className="text-[10px] tracking-widest font-bold" style={{ color: "rgba(255,255,255,0.12)" }}>
+            <span className="text-[10px] tracking-widest font-bold" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
               Esc to skip
             </span>
           )}
@@ -148,10 +158,10 @@ export function ClarificationModal({ question, options, onSelect, onDismiss }: C
 
         {/* Keyboard hint */}
         <div
-          className="px-4 pb-3 flex items-center gap-4"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}
+          className="px-4 pb-3 flex items-center gap-4 border-t"
+          style={{ borderColor: "var(--border)", opacity: 0.6 }}
         >
-          <span className="text-[9px] tracking-[0.15em] uppercase" style={{ color: "rgba(255,255,255,0.1)" }}>
+          <span className="text-[9px] tracking-[0.15em] uppercase" style={{ color: "var(--text-muted)" }}>
             ↑↓ navigate · Enter to select · Esc to skip
           </span>
         </div>

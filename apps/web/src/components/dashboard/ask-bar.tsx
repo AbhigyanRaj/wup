@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { ArrowUp, ChevronDown, Paperclip, Globe } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTheme } from "@/components/theme-provider";
 
 const MODELS = [
   { id: "Auto-Rotate",              name: "Auto",        desc: "Best available" },
@@ -20,6 +21,9 @@ interface AskBarProps {
 }
 
 export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels = [], usage }: AskBarProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  
   const [input, setInput]         = useState("");
   const [focused, setFocused]     = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
@@ -94,11 +98,11 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.14, ease: "easeOut" }}
-            className="absolute bottom-full mb-2 left-0 z-50 w-48 rounded-xl overflow-hidden"
+            className="absolute bottom-full mb-2 left-0 z-50 w-48 rounded-xl overflow-hidden border"
             style={{
               background: "var(--bg-overlay)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+              borderColor: "var(--border)",
+              boxShadow: isLight ? "0 8px 30px rgba(0,0,0,0.06)" : "0 8px 40px rgba(0,0,0,0.6)",
             }}
           >
             <p className="px-3.5 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest"
@@ -116,12 +120,12 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
                     onClick={() => { onModelChange(m.id); setModelOpen(false); }}
                     className="w-full flex items-center justify-between px-4 py-2 text-left transition-colors"
                     style={{
-                      background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
+                      background: isActive ? "var(--bg-highlight)" : "transparent",
                       opacity: exhausted ? 0.4 : 1,
                       cursor: exhausted ? "not-allowed" : "pointer",
                     }}
-                    onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.04)" : "transparent"; }}
+                    onMouseEnter={e => { if (!exhausted) (e.currentTarget as HTMLElement).style.background = "var(--bg-highlight)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? "var(--bg-highlight)" : "transparent"; }}
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-[12.5px] font-medium leading-tight truncate"
@@ -142,7 +146,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
                         </span>
                       )}
                       {isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_8px_rgba(255,95,31,0.8)]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
                       )}
                     </div>
                   </button>
@@ -156,15 +160,20 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
 
       {/* ── Main input card ────────────────────────────────────────────────── */}
       <div
-        className="relative transition-all duration-300 ease-out group"
+        className="relative transition-all duration-300 ease-out group border"
         style={{
-          background: focused ? "rgba(255,255,255,0.03)" : "var(--bg-raised)",
+          background: focused ? "var(--bg-highlight)" : "var(--bg-raised)",
           borderRadius: "20px",
-          border: "1px solid",
-          borderColor: focused ? "rgba(255, 95, 31, 0.2)" : "rgba(255,255,255,0.06)",
+          borderColor: focused 
+            ? (isLight ? "rgba(37, 99, 235, 0.3)" : "rgba(37, 99, 235, 0.2)") 
+            : "var(--border)",
           boxShadow: focused
-            ? "0 0 0 1px rgba(255, 95, 31, 0.1), 0 20px 50px -12px rgba(0,0,0,0.5)"
-            : "0 10px 30px -15px rgba(0,0,0,0.3)",
+            ? (isLight 
+                ? "0 0 0 1px rgba(37, 99, 235, 0.08), 0 12px 30px -8px rgba(0,0,0,0.05)" 
+                : "0 0 0 1px rgba(37, 99, 235, 0.1), 0 20px 50px -12px rgba(0,0,0,0.5)")
+            : (isLight 
+                ? "0 4px 15px -5px rgba(0,0,0,0.02)" 
+                : "0 10px 30px -15px rgba(0,0,0,0.3)"),
         }}
       >
         {/* Textarea */}
@@ -178,7 +187,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           placeholder={isLimitReached ? "Free tier limit reached. Add your API key to continue." : "Message WUUP..."}
           disabled={isLimitReached}
-          className={`w-full bg-transparent resize-none text-[15px] leading-relaxed placeholder:text-white/20 ${isLimitReached ? "cursor-not-allowed opacity-50" : ""}`}
+          className={`w-full bg-transparent resize-none text-[15px] leading-relaxed placeholder:text-[var(--text-muted)] ${isLimitReached ? "cursor-not-allowed opacity-50" : ""}`}
           style={{
             padding: "18px 20px 56px",
             color: "var(--text-primary)",
@@ -198,7 +207,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
           {/* Left — attach + model */}
           <div className="flex items-center gap-1">
             <button
-              className="p-2.5 rounded-xl transition-all hover:bg-white/[0.05] hover:text-white/60 active:scale-95"
+              className="p-2.5 rounded-xl transition-all hover:bg-white/[0.05] hover:text-white/60 active:scale-95 cursor-pointer"
               style={{ color: "var(--text-muted)" }}
               title="Attach context"
             >
@@ -210,7 +219,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
             {/* Search Web Toggle */}
             <button
               onClick={() => setSearchWeb(s => !s)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all ${searchWeb ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-white/[0.05] text-[var(--text-secondary)]"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer ${searchWeb ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-white/[0.05] text-[var(--text-secondary)]"}`}
               title="Search Web Grounding"
             >
               <Globe size={13} />
@@ -222,7 +231,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
             {/* Model picker trigger */}
             <button
               onClick={() => setModelOpen(o => !o)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold tracking-wide uppercase transition-all hover:bg-white/[0.05]"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold tracking-wide uppercase transition-all hover:bg-white/[0.05] cursor-pointer"
               style={{
                 color: modelOpen ? "var(--text-primary)" : "var(--text-secondary)",
               }}
@@ -236,20 +245,20 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
 
             {usage && !usage.hasCustomKey && (
               <div className="flex items-center gap-2 ml-3">
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest select-none">
+                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest select-none">
                   Usage
                 </span>
-                <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                <div className="w-12 h-1 bg-[var(--border)] rounded-full overflow-hidden">
                   <div 
                     className="h-full rounded-full transition-all duration-300" 
                     style={{ 
                       width: `${Math.min((usage.freeTierUsage / usage.freeTierLimit) * 100, 100)}%`,
                       background: usage.freeTierUsage >= usage.freeTierLimit ? "var(--red)" : "var(--orange)",
-                      boxShadow: usage.freeTierUsage >= usage.freeTierLimit ? "none" : "0 0 5px rgba(255,95,31,0.5)"
+                      boxShadow: usage.freeTierUsage >= usage.freeTierLimit ? "none" : "0 0 5px rgba(37,99,235,0.4)"
                     }}
                   />
                 </div>
-                <span className="text-[10px] font-bold text-white/30 select-none">
+                <span className="text-[10px] font-bold text-[var(--text-muted)] select-none">
                   {usage.freeTierUsage}/{usage.freeTierLimit}
                 </span>
               </div>
@@ -264,10 +273,10 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
             whileTap={canSend ? { scale: 0.95 } : {}}
             className="w-10 h-10 flex items-center justify-center rounded-2xl transition-all shadow-lg"
             style={{
-              background: canSend ? "#ff5f1f" : "rgba(255,255,255,0.04)",
-              color: canSend ? "#000" : "rgba(255,255,255,0.1)",
+              background: canSend ? "var(--orange)" : "var(--bg-highlight)",
+              color: canSend ? "#ffffff" : "var(--text-muted)",
               cursor: canSend ? "pointer" : "not-allowed",
-              boxShadow: canSend ? "0 0 15px rgba(255, 95, 31, 0.3)" : "none"
+              boxShadow: canSend ? "0 0 15px rgba(37, 99, 235, 0.4)" : "none"
             }}
           >
             <ArrowUp size={18} strokeWidth={3} />

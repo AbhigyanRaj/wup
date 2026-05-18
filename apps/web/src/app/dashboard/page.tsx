@@ -14,6 +14,7 @@ import { UploadModal, KnowledgeSource } from "@/components/dashboard/upload-moda
 import { MessageProps } from "@/components/dashboard/message-item";
 import { ClarificationModal } from "@/components/dashboard/clarification-modal";
 import { ApiKeyModal } from "@/components/dashboard/api-key-modal";
+import { useTheme } from "@/components/theme-provider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 export default function DashboardPage() {
   const { user } = useAuth();
   const userName = user?.email?.split("@")[0] || "abhigyan";
+  const { theme } = useTheme();
+  const isLight = theme === "light";
 
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -514,7 +517,11 @@ export default function DashboardPage() {
         {activeChatId && activeMessages.length > 0 && (
           <div
             className="absolute bottom-0 left-0 right-0 z-20 px-4 lg:px-6 pb-8 pt-12 pointer-events-none"
-            style={{ background: "linear-gradient(to top, var(--bg-base) 40%, rgba(15,15,15,0.8) 70%, transparent)" }}
+            style={{ 
+              background: isLight 
+                ? "linear-gradient(to top, var(--bg-base) 40%, rgba(244,246,249,0.8) 70%, transparent)"
+                : "linear-gradient(to top, var(--bg-base) 40%, rgba(14,17,24,0.8) 70%, transparent)"
+            }}
           >
             <div className="max-w-2xl mx-auto pointer-events-auto flex flex-col gap-3">
               {/* Clarification Modal — appears above the AskBar */}
