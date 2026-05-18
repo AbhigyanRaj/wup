@@ -518,10 +518,18 @@ export class BrainOrchestrator {
       lastErr?.message?.includes("quota") ||
       JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
 
+    const isLocationError =
+      lastErr?.message?.toLowerCase().includes("location") ||
+      JSON.stringify(lastErr?.errorDetails)?.toLowerCase().includes("location");
+
+    const fallbackContent = isLocationError
+      ? "Google restricts direct Gemini API access from this server's region (Singapore). Please deploy your backend server in a supported region (like US-East or US-West), or add your own OpenAI, Anthropic, or OpenRouter API key in settings to continue chatting."
+      : isQuotaError
+      ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
+      : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
+
     return {
-      content: isQuotaError
-        ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
-        : "I'm currently unable to process your request. Please try a different model or try again in a moment.",
+      content: fallbackContent,
       exhausted: Array.from(BrainOrchestrator.exhaustedModels),
     };
   }
@@ -826,7 +834,11 @@ export class BrainOrchestrator {
     }
 
     const isQuotaError = lastErr?.message?.includes("quota") || JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
-    const fallbackMsg = isQuotaError
+    const isLocationError = lastErr?.message?.toLowerCase().includes("location") || JSON.stringify(lastErr?.errorDetails)?.toLowerCase().includes("location");
+    
+    const fallbackMsg = isLocationError
+        ? "Google restricts direct Gemini API access from this server's region (Singapore). Please deploy your backend server in a supported region (like US-East or US-West), or add your own OpenAI, Anthropic, or OpenRouter API key in settings to continue chatting."
+        : isQuotaError
         ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
         : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
     yield fallbackMsg;
