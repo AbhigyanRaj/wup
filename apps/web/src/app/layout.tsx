@@ -27,6 +27,7 @@ const fontDisplay2 = localFont({
 });
 
 import { AuthProvider } from "@/components/auth-context";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Wuup | AI Data Intelligence",
@@ -44,9 +45,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${fontDisplay.variable} ${fontDisplay2.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

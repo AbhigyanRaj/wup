@@ -5,12 +5,12 @@
    Inspired by ChatGPT / Claude: clean, monochromatic, readable.
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Surfaces ── */
-  --bg-base:      #0f0f0f;   /* Main content area */
-  --bg-sidebar:   #0a0a0a;   /* Sidebar — slightly darker */
-  --bg-raised:    #1a1a1a;   /* Cards, inputs — elevated */
-  --bg-overlay:   #202020;   /* Dropdowns, modals */
-  --bg-highlight: #272727;   /* Active state, hovered row */
+  /* ── Premium Midnight Navy/Slate Surfaces ── */
+  --bg-base:      #06080f;   /* Deep midnight canvas */
+  --bg-sidebar:   #04050a;   /* Sidebar — slightly darker */
+  --bg-raised:    #0c101b;   /* Cards, elevated elements */
+  --bg-overlay:   #111626;   /* Dropdowns, modals */
+  --bg-highlight: #171f35;   /* Hovered/active elements */
 
   /* ── Accent — pure white, restrained ── */
   --accent:       rgba(255, 255, 255, 0.9);
@@ -19,15 +19,15 @@
   --accent-glow:  rgba(255, 255, 255, 0.08);
   --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(200,200,200,0.8) 100%);
 
-  /* ── Punchy Accent — Orange ── */
-  --orange:       #ff5f1f;
-  --orange-dim:   rgba(255, 95, 31, 0.1);
-  --orange-glow:  rgba(255, 95, 31, 0.2);
+  /* ── High-End Accent — Royal Blue (retains variable name for full-app compatibility) ── */
+  --orange:       #2563eb;
+  --orange-dim:   rgba(37, 99, 235, 0.08);
+  --orange-glow:  rgba(37, 99, 235, 0.15);
 
-  /* ── Borders ── */
-  --border:       rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.16);
-  --border-muted: rgba(255, 255, 255, 0.04);
+  /* ── Borders (Subtle Blue-Tinted) ── */
+  --border:       rgba(59, 130, 246, 0.09);
+  --border-hover: rgba(59, 130, 246, 0.18);
+  --border-muted: rgba(59, 130, 246, 0.04);
 
   /* ── Text ── */
   --text-primary:   rgba(255, 255, 255, 0.92);
@@ -44,6 +44,41 @@
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --accent-dim: var(--accent-lo);
+
+  /* ── Simple Fonts override (api.wuup.in look) ── */
+  --font-display: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display-2: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.light {
+  /* ── Breathtaking Warm-Ivory Luxury Light Mode ── */
+  --bg-base:      #faf9f6;   /* Luxurious warm milk-ivory canvas */
+  --bg-sidebar:   #f4f3f0;   /* Matching sidebar */
+  --bg-raised:    #ffffff;   /* Elevated white panels */
+  --bg-overlay:   #ffffff;   /* Modals */
+  --bg-highlight: #f2f1ed;   /* Hover highlight */
+
+  /* ── Accent — Royal Indigo ── */
+  --accent:       rgba(20, 24, 38, 0.9);
+  --accent-hi:    rgba(20, 24, 38, 0.85);
+  --accent-lo:    rgba(37, 99, 235, 0.03);
+  --accent-glow:  rgba(37, 99, 235, 0.06);
+  --accent-grad:  linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+
+  /* ── Accent — Blue (retains variable name for dashboard compat) ── */
+  --orange:       #2563eb;
+  --orange-dim:   rgba(37, 99, 235, 0.05);
+  --orange-glow:  rgba(37, 99, 235, 0.1);
+
+  /* ── Borders ── */
+  --border:       rgba(20, 24, 38, 0.04);   /* Softest blend border */
+  --border-hover: rgba(20, 24, 38, 0.08);
+  --border-muted: rgba(20, 24, 38, 0.02);
+
+  /* ── Text ── */
+  --text-primary:   #1a1f30;   /* Soft slate-blue deep heading color */
+  --text-secondary: #5e667d;   /* Warm slate body copy */
+  --text-muted:     #8f96a8;   /* Muted gray-slate */
 }
 
 @theme inline {
@@ -190,4 +225,15 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ─── Dataflow glowing flow animation ───────────────────────────────────────── */
+@keyframes stroke-glow-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+.stroke-dash-glow {
+  animation: stroke-glow-flow 0.8s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(37, 99, 235, 0.5));
 }

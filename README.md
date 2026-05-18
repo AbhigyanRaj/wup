@@ -12,9 +12,9 @@ WUP is built as a robust monorepo, utilizing a modular service-oriented architec
 
 | Component | Responsibility | Technology |
 | :--- | :--- | :--- |
-| **Frontend** | High-fidelity user interface and visualization | Next.js 15, Framer Motion, Tailwind CSS |
+| **Frontend** | High-fidelity user interface and visualization | Next.js 16, Framer Motion, Tailwind CSS |
 | **API Service** | Session management, authentication, and routing | Node.js, Express, MongoDB |
-| **Brain Package** | Intelligence orchestration and tool registry | TypeScript, Google Gemini API |
+| **Brain Package** | Intelligence orchestration and multi-provider routing | TypeScript, Gemini · Claude · GPT · OpenRouter |
 | **Ingestor** | Multi-format data processing and vectorization | LangChain, PDF-Parse |
 
 ### System Workflow
@@ -23,20 +23,23 @@ WUP is built as a robust monorepo, utilizing a modular service-oriented architec
 graph TD
     User((User)) -->|Natural Language| Web[Web Interface]
     Web -->|Secure API Request| API[Orchestration Layer]
-    
+
     subgraph "Intelligence Engine"
     API -->|Contextual Analysis| Brain[Brain Package]
-    Brain -->|Model Rotation| LLM[Gemini Cluster]
+    Brain -->|Provider Router| LLM{Model Selector}
+    LLM -->|Free Tier| Gemini[Gemini Cluster]
+    LLM -->|User Key| Custom[Claude · GPT · OpenRouter]
     end
-    
+
     subgraph "Data Integration"
     Brain -->|Semantic Search| RAG[(Vector Store / RAG)]
     Brain -->|Live Query| DB[(MongoDB / Sheets)]
     end
-    
-    LLM -->|Synthesized Response| Brain
+
+    Gemini -->|Synthesized Response| Brain
+    Custom -->|Synthesized Response| Brain
     Brain -->|Grounded Answer| API
-    API -->|JSON Payload| Web
+    API -->|JSON + SSE Stream| Web
     Web -->|Premium UI Rendering| User
 ```
 
@@ -44,11 +47,18 @@ graph TD
 
 ## Key Capabilities
 
-### 1. Intelligent Model Rotation
-The platform ensures continuous availability by automatically rotating between multiple Gemini models (Flash 3.0, 2.5, and 2.0). If a primary model reaches its rate limit or quota, the system seamlessly transitions to the next available instance without disrupting the user session.
+### 1. Multi-Provider Intelligence Routing
+WUP supports four production AI providers with automatic fallback and quota management. The orchestrator tries providers in priority order — if one fails due to rate limits or regional blocks, it seamlessly rotates to the next without interrupting the user session.
+
+| Provider | Mode | Model Examples |
+| :--- | :--- | :--- |
+| **Google Gemini** | Global (free tier) | gemini-2.5-flash, gemini-2.0-flash |
+| **Anthropic Claude** | User API key | claude-3-5-sonnet, claude-3-opus |
+| **OpenAI GPT** | User API key | gpt-4o, gpt-4o-mini |
+| **OpenRouter** | User API key | deepseek/deepseek-r1, meta-llama/llama-3.1-70b, and 100+ models |
 
 ### 2. Live Data Bridges
-WUP maintains secure, read-only connections to structured data sources. 
+WUP maintains secure, read-only connections to structured data sources.
 - **MongoDB**: Full schema introspection and automated query generation.
 - **Google Sheets**: Real-time retrieval from cloud spreadsheets.
 - **Encrypted Vault**: Credentials are stored using industry-standard encryption protocols.
@@ -61,6 +71,24 @@ Users can upload unstructured documents (PDF, .txt) to create a private knowledg
 
 ---
 
+## Cost Benchmark — Research Tasks
+
+One of WUP's core design goals is **cost-efficient deep research**. The table below compares the approximate cost of running a typical research session (10 queries, ~2,000 tokens per turn, with document retrieval) across different provider configurations.
+
+> Estimates based on published API pricing as of May 2026. Costs shown per research session.
+
+| Configuration | Model | Input cost / 1M tokens | Output cost / 1M tokens | **Estimated session cost** |
+| :--- | :--- | :--- | :--- | :--- |
+| Claude Sonnet 3.5 (direct) | claude-3-5-sonnet-20241022 | $3.00 | $15.00 | **~$0.54** |
+| ChatGPT GPT-4o (direct) | gpt-4o | $2.50 | $10.00 | **~$0.38** |
+| WUP + Gemini (free tier) | gemini-2.5-flash | $0.00 | $0.00 | **$0.00** |
+| WUP + OpenRouter (DeepSeek R1) | deepseek/deepseek-r1 | $0.55 | $2.19 | **~$0.07** |
+| WUP + OpenRouter (Llama 3.1 70B) | meta-llama/llama-3.1-70b | $0.35 | $0.40 | **~$0.02** |
+
+**Key insight:** A team running 100 research sessions per month pays ~$54 on Claude direct or ~$38 on GPT-4o. With WUP routing the same workload through DeepSeek R1 via OpenRouter, that drops to **~$7/month** — an **85% cost reduction** with comparable reasoning quality. On the Gemini free tier, it's **$0**.
+
+---
+
 ## Technical Stack
 
 | Category | Technologies |
@@ -69,14 +97,13 @@ Users can upload unstructured documents (PDF, .txt) to create a private knowledg
 | **UI/UX** | React, Next.js (App Router), Framer Motion, CSS Variables |
 | **Backend** | Express, Node.js, JWT Authentication |
 | **Databases** | MongoDB (State), Vector Store (Knowledge) |
-| **Intelligence** | Google Gemini (1.5 Flash, 2.0 Flash) |
+| **Intelligence** | Gemini 2.5 Flash · Claude 3.5 · GPT-4o · OpenRouter (100+ models) |
+| **Streaming** | Server-Sent Events (SSE) — real-time token streaming |
 | **Orchestration** | Turborepo, MCP (Model Context Protocol) |
 
 ---
 
 ## Evaluation Metrics
-
-Success is measured through a rigorous framework focusing on performance and accuracy.
 
 | Metric | Measurement Goal | Target Benchmark |
 | :--- | :--- | :--- |
@@ -84,18 +111,38 @@ Success is measured through a rigorous framework focusing on performance and acc
 | **Retrieval Accuracy** | Relevance of document chunks retrieved via RAG | > 92% Accuracy |
 | **Model Reliability** | Success rate of rotation system during rate limits | 100% Uptime |
 | **Groundedness** | Percentage of responses with valid source citations | > 95% Verifiability |
+| **Cost Efficiency** | Session cost vs. direct Claude/GPT-4o | 85–100% reduction |
 
 ---
 
-## Roadmap and Future Direction
+## Next Steps — Agentic Research Agent
 
-WUP is evolving from a data analyzer into a proactive intelligence agent.
+WUP is actively evolving from a reactive Q&A interface into a **fully autonomous research agent**. The next phase focuses on giving the system the ability to plan, decompose, and execute multi-step research tasks without per-step human guidance.
 
-- **Server-Sent Events (SSE)**: Implementing real-time token streaming for a more responsive interaction.
-- **Advanced Visualization**: Integration of Recharts for dynamic graph generation within chat threads.
-- **Multi-Source Synthesis**: Enabling the AI to join data across MongoDB and Google Sheets in a single query.
-- **Verified Writes**: Future expansion into safe, human-in-the-loop data modifications.
-- **Workflow Automation**: Deep integration with Slack and Notion via MCP for cross-platform task execution.
+### Phase 1 — Structured Reasoning (In Progress)
+- **Plan-and-Execute loop**: Break a single user question into an ordered sequence of sub-tasks (search → retrieve → synthesize → cite).
+- **Tool use via MCP**: Each sub-task dispatches the correct tool — RAG retrieval, live DB query, or external web search — and feeds the result back into the chain.
+- **Intermediate state**: The agent maintains a scratchpad of discovered facts across turns, enabling it to cross-reference findings before producing a final answer.
+
+### Phase 2 — Cost-Aware Model Dispatch
+- **Task-to-model routing**: Simple lookups go to Gemini Flash (free). Complex multi-document synthesis is routed to DeepSeek R1 via OpenRouter at ~$0.07/session. Heavy reasoning chains only escalate to Claude or GPT-4o when strictly necessary.
+- **Token budget enforcement**: The orchestrator tracks cumulative token spend per session and automatically downgrades model tier if a user-defined budget is approaching.
+- **Result**: Research-grade output at a fraction of the direct API cost.
+
+### Phase 3 — Deep Research Mode
+- **Iterative web + document search**: The agent autonomously runs multiple retrieval rounds, evaluating source quality and filling knowledge gaps before writing a final report.
+- **Citation graph**: Every claim in the output is traced back to a specific document chunk or database row.
+- **Exportable report**: Structured Markdown / PDF output with inline citations, suitable for sharing or archiving.
+
+### Phase 4 — Collaborative Agents
+- **Sub-agent spawning**: A coordinator agent delegates parallel workstreams to specialized sub-agents (e.g. one for data analysis, one for literature review).
+- **Cross-agent memory**: Findings are shared via a shared context store so sub-agents don't duplicate work.
+- **Human-in-the-loop checkpoints**: The system surfaces key decision points for human approval before executing irreversible actions (e.g. writing to a database or sending a notification).
+
+### Phase 5 — Platform Integrations
+- **Slack + Notion via MCP**: Trigger research sessions from Slack, deliver results to Notion pages automatically.
+- **Scheduled agents**: Run recurring research jobs (e.g. nightly competitor analysis) and diff the results against previous runs.
+- **API-first**: Every agentic capability exposed as a REST endpoint so third-party tools can plug in.
 
 ---
 
