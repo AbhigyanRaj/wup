@@ -5,19 +5,19 @@
    Inspired by ChatGPT / Claude: clean, monochromatic, readable.
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Premium Monochromatic Graphite Surfaces ── */
-  --bg-base:      #0b0c0e;   /* Matte neutral charcoal canvas */
-  --bg-sidebar:   #070809;   /* Sidebar — slightly deeper */
-  --bg-raised:    #111215;   /* Cards, elevated elements */
-  --bg-overlay:   #17181b;   /* Dropdowns, modals */
-  --bg-highlight: #202125;   /* Hovered/active elements */
+  /* ── Premium Monochromatic Graphite Surfaces (Not too dark, very consistent) ── */
+  --bg-base:      #0f1012;   /* Soft warm graphite canvas */
+  --bg-sidebar:   #090a0b;   /* Deeper obsidian sidebar */
+  --bg-raised:    #151619;   /* Cards, elevated elements */
+  --bg-overlay:   #1b1c20;   /* Dropdowns, modals */
+  --bg-highlight: #24262a;   /* Hovered/active elements */
 
   /* ── Accent — pure white, restrained ── */
-  --accent:       rgba(255, 255, 255, 0.92);
-  --accent-hi:    rgba(255, 255, 255, 0.88);
+  --accent:       rgba(255, 255, 255, 0.94);
+  --accent-hi:    rgba(255, 255, 255, 0.90);
   --accent-lo:    rgba(255, 255, 255, 0.05);
-  --accent-glow:  rgba(255, 255, 255, 0.07);
-  --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(210,210,210,0.82) 100%);
+  --accent-glow:  rgba(255, 255, 255, 0.08);
+  --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(215,215,215,0.84) 100%);
 
   /* ── High-End Accent — Royal Blue (retains variable name for full-app compatibility) ── */
   --orange:       #2563eb;
@@ -25,14 +25,14 @@
   --orange-glow:  rgba(37, 99, 235, 0.12);
 
   /* ── Borders (Neutral Subtle Grey) ── */
-  --border:       rgba(255, 255, 255, 0.07);
-  --border-hover: rgba(255, 255, 255, 0.13);
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.14);
   --border-muted: rgba(255, 255, 255, 0.03);
 
   /* ── Text ── */
-  --text-primary:   rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.52);
-  --text-muted:     rgba(255, 255, 255, 0.32);
+  --text-primary:   rgba(244, 244, 245, 0.95); /* Soft white */
+  --text-secondary: rgba(161, 161, 170, 0.85); /* Zinc-400 */
+  --text-muted:     rgba(113, 113, 122, 0.65); /* Zinc-500 */
 
   /* ── Semantic ── */
   --green:  #4ade80;
@@ -51,16 +51,16 @@
 }
 
 .light {
-  /* ── Soft Premium Zinc-Slate Light Mode ── */
-  --bg-base:      #f4f6f9;   /* Highly comfortable slate-mist canvas */
-  --bg-sidebar:   #e9ecef;   /* Slightly deeper sidebar */
-  --bg-raised:    #ffffff;   /* Pure white elevated cards for high readability */
+  /* ── Soft Premium Zinc-Slate Light Mode (Not too bright, highly usable) ── */
+  --bg-base:      #f0f1f4;   /* Soft slate-mist canvas (completely glare-free) */
+  --bg-sidebar:   #e7e9ec;   /* Elegant deeper sidebar background */
+  --bg-raised:    #ffffff;   /* Pure white elevated cards for contrast and readability */
   --bg-overlay:   #ffffff;   /* Modals */
-  --bg-highlight: #e2e6ea;   /* Hover highlight */
+  --bg-highlight: #dce0e4;   /* Hover highlight */
 
   /* ── Accent — Royal Indigo ── */
-  --accent:       rgba(15, 23, 42, 0.9);
-  --accent-hi:    rgba(15, 23, 42, 0.85);
+  --accent:       rgba(15, 23, 42, 0.94);
+  --accent-hi:    rgba(15, 23, 42, 0.88);
   --accent-lo:    rgba(37, 99, 235, 0.03);
   --accent-glow:  rgba(37, 99, 235, 0.06);
   --accent-grad:  linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
@@ -70,15 +70,15 @@
   --orange-dim:   rgba(37, 99, 235, 0.05);
   --orange-glow:  rgba(37, 99, 235, 0.1);
 
-  /* ── Borders ── */
-  --border:       rgba(0, 0, 0, 0.06);   /* Defined yet elegant border */
-  --border-hover: rgba(0, 0, 0, 0.12);
-  --border-muted: rgba(0, 0, 0, 0.03);
+  /* ── Borders (Softer defined borders) ── */
+  --border:       rgba(9, 9, 11, 0.06);   /* Defined yet elegant border */
+  --border-hover: rgba(9, 9, 11, 0.12);
+  --border-muted: rgba(9, 9, 11, 0.02);
 
   /* ── Text ── */
-  --text-primary:   #0f172a;   /* Slate slate-blue deep heading color */
-  --text-secondary: #475569;   /* Balanced slate body copy */
-  --text-muted:     #64748b;   /* Muted gray-slate */
+  --text-primary:   #18181b;   /* Softer zinc-950 heading color */
+  --text-secondary: #52525b;   /* Balanced zinc-600 body copy */
+  --text-muted:     #71717a;   /* Muted zinc-500 */
 }
 
 @theme inline {
@@ -137,7 +137,7 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
 .wuup-prose p { margin-bottom: 0.85em; }
 .wuup-prose p:last-child { margin-bottom: 0; }
 .wuup-prose h1, .wuup-prose h2, .wuup-prose h3 {
-  color: #f0f1ff;
+  color: var(--text-primary);
   font-weight: 600;
   letter-spacing: -0.01em;
   margin-top: 1.4em;
@@ -146,20 +146,20 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
 .wuup-prose h1 { font-size: 1.25em; }
 .wuup-prose h2 { font-size: 1.1em; }
 .wuup-prose h3 { font-size: 1em; }
-.wuup-prose strong { color: rgba(255,255,255,0.92); font-weight: 600; }
+.wuup-prose strong { color: var(--text-primary); font-weight: 600; }
 .wuup-prose em { color: var(--text-secondary); font-style: italic; }
 
 .wuup-prose code {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--bg-highlight);
+  color: var(--text-primary);
   font-family: var(--font-mono), 'Fira Code', monospace;
   font-size: 0.875em;
   padding: 0.15em 0.45em;
   border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
 }
 .wuup-prose pre {
-  background: #111;
+  background: var(--bg-sidebar);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1rem 1.25rem;
@@ -177,13 +177,13 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
 .wuup-prose ol { padding-left: 1.25em; list-style: decimal; }
 .wuup-prose li { margin-bottom: 0.35em; }
 .wuup-prose a {
-  color: var(--accent-hi);
+  color: var(--orange);
   text-decoration: underline;
-  text-decoration-color: rgba(129, 140, 248, 0.4);
+  text-decoration-color: var(--orange-glow);
   text-underline-offset: 3px;
 }
 .wuup-prose blockquote {
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--orange);
   padding-left: 1rem;
   color: var(--text-secondary);
   margin: 1em 0;
@@ -200,14 +200,14 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
   border: 1px solid var(--border);
   font-size: 13.5px;
 }
-.wuup-prose thead tr { background: rgba(255, 255, 255, 0.04); }
+.wuup-prose thead tr { background: var(--bg-highlight); }
 .wuup-prose th {
   padding: 10px 14px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -217,7 +217,7 @@ input, textarea, p, span, h1, h2, h3, h4, pre, code, .selectable {
   border-bottom: 1px solid var(--border-muted);
 }
 .wuup-prose tr:last-child td { border-bottom: none; }
-.wuup-prose tr:hover td { background: rgba(255, 255, 255, 0.03); transition: background 0.15s; }
+.wuup-prose tr:hover td { background: var(--bg-highlight); transition: background 0.15s; }
 
 /* ─── Gradient text utility ─────────────────────────────────────────────────── */
 .gradient-text {

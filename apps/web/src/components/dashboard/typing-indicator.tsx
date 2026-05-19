@@ -49,9 +49,9 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
           {/* Thinking content */}
           <div className="flex flex-col gap-3 pt-0.5 flex-1">
             
-            {/* Header: Title + Timer */}
+             {/* Header: Title + Timer */}
             <div className="flex items-center justify-between max-w-sm">
-              <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold">
+              <span className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-bold">
                 Agentic Process
               </span>
               <motion.span
@@ -93,7 +93,7 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
                         ) : isActive ? (
                           <Loader2 className="w-4 h-4 text-[var(--orange)] animate-spin" />
                         ) : (
-                          <Circle className="w-4 h-4 text-zinc-700" />
+                          <Circle className="w-4 h-4 text-[var(--text-muted)] opacity-50" />
                         )}
                       </div>
 

@@ -14,6 +14,8 @@ import { UploadModal, KnowledgeSource } from "@/components/dashboard/upload-moda
 import { MessageProps } from "@/components/dashboard/message-item";
 import { ClarificationModal } from "@/components/dashboard/clarification-modal";
 import { ApiKeyModal } from "@/components/dashboard/api-key-modal";
+import { WelcomeModal } from "@/components/dashboard/welcome-modal";
+import { DeepResearchModal } from "@/components/dashboard/deep-research-modal";
 import { useTheme } from "@/components/theme-provider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,7 +36,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const userName = user?.email?.split("@")[0] || "abhigyan";
   const { theme } = useTheme();
   const isLight = theme === "light";
@@ -43,6 +45,20 @@ export default function DashboardPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+  const [isResearchModalOpen, setIsResearchModalOpen] = useState(false);
+
+  // Trigger welcome onboarding modal on first login mount
+  useEffect(() => {
+    if (isLoading) return;
+    const hasSeenWelcome = localStorage.getItem("wuup_has_seen_welcome");
+    const justLoggedIn = localStorage.getItem("wuup_just_logged_in") === "true";
+    
+    if (justLoggedIn || hasSeenWelcome !== "true") {
+      setIsWelcomeModalOpen(true);
+      localStorage.removeItem("wuup_just_logged_in");
+    }
+  }, [user, isLoading]);
 
   // Chat state
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -65,6 +81,7 @@ export default function DashboardPage() {
   const [currentModel, setCurrentModel] = useState("Auto-Rotate");
   const [exhaustedModels, setExhaustedModels] = useState<string[]>([]);
   const [usage, setUsage] = useState<{ freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean; availableModels?: string[] } | null>(null);
+  const [searchWeb, setSearchWeb] = useState(false);
 
   // ── Initial load ────────────────────────────────────────────────────────────
 
@@ -421,7 +438,20 @@ export default function DashboardPage() {
     if (connRes.ok) setConnections(await connRes.json());
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const mainStyle = {
+    backgroundImage: isLight
+      ? `
+        radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.025) 0%, rgba(99, 102, 241, 0.005) 45%, transparent 70%),
+        linear-gradient(rgba(9, 9, 11, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(9, 9, 11, 0.045) 1px, transparent 1px)
+      `
+      : `
+        radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.03) 0%, rgba(37, 99, 235, 0.005) 45%, transparent 70%),
+        linear-gradient(rgba(255, 255, 255, 0.008) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px)
+      `,
+    backgroundSize: "100% 100%, 56px 56px, 56px 56px"
+  };
 
   return (
     <div className="h-screen flex overflow-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
@@ -436,6 +466,7 @@ export default function DashboardPage() {
         onOpenAddDb={() => setIsDbModalOpen(true)}
         onOpenUpload={() => setIsUploadModalOpen(true)}
         onOpenApiKey={() => setIsApiKeyModalOpen(true)}
+        onOpenResearch={() => setIsResearchModalOpen(true)}
         knowledgeSources={knowledgeSources}
         onDeleteSource={handleDeleteSource}
         isMobileOpen={isMobileSidebarOpen}
@@ -443,7 +474,7 @@ export default function DashboardPage() {
         usage={usage}
       />
 
-      <main className="flex-1 flex flex-col relative h-full overflow-hidden">
+      <main className="flex-1 flex flex-col relative h-full overflow-hidden" style={mainStyle}>
         {/* Nav */}
         <header
           className="h-14 flex items-center justify-between px-6 z-10 shrink-0"
@@ -492,11 +523,13 @@ export default function DashboardPage() {
                     onSubmit={handleSendMessage}
                     selectedModel={currentModel}
                     onModelChange={setCurrentModel}
+                    searchWeb={searchWeb}
+                    onSearchWebChange={setSearchWeb}
                     exhaustedModels={exhaustedModels}
                     usage={usage}
                   />
                   <div className="mt-8">
-                    <CategoryPills onSelect={(prompt) => handleSendMessage(prompt, currentModel)} />
+                    <CategoryPills onSelect={(prompt) => handleSendMessage(prompt, currentModel, searchWeb)} />
                   </div>
                 </div>
               </div>
@@ -506,7 +539,7 @@ export default function DashboardPage() {
                   messages={activeMessages}
                   isTyping={isTyping}
                   typingStatuses={typingStatuses}
-                  onFollowUpSelect={(prompt) => handleSendMessage(prompt, currentModel)}
+                  onFollowUpSelect={(prompt) => handleSendMessage(prompt, currentModel, searchWeb)}
                 />
               </div>
             )}
@@ -519,8 +552,8 @@ export default function DashboardPage() {
             className="absolute bottom-0 left-0 right-0 z-20 px-4 lg:px-6 pb-8 pt-12 pointer-events-none"
             style={{ 
               background: isLight 
-                ? "linear-gradient(to top, var(--bg-base) 40%, rgba(244,246,249,0.8) 70%, transparent)"
-                : "linear-gradient(to top, var(--bg-base) 40%, rgba(14,17,24,0.8) 70%, transparent)"
+                ? "linear-gradient(to top, var(--bg-base) 35%, rgba(245,246,248,0.8) 70%, transparent)"
+                : "linear-gradient(to top, var(--bg-base) 35%, rgba(15,16,18,0.8) 70%, transparent)"
             }}
           >
             <div className="max-w-2xl mx-auto pointer-events-auto flex flex-col gap-3">
@@ -534,7 +567,8 @@ export default function DashboardPage() {
                       setClarification(null);
                       handleSendMessage(
                         `${clarification.originalPrompt} — specifically: ${answer}`,
-                        currentModel
+                        currentModel,
+                        searchWeb
                       );
                     }}
                     onDismiss={() => setClarification(null)}
@@ -545,6 +579,8 @@ export default function DashboardPage() {
                 onSubmit={handleSendMessage}
                 selectedModel={currentModel}
                 onModelChange={setCurrentModel}
+                searchWeb={searchWeb}
+                onSearchWebChange={setSearchWeb}
                 exhaustedModels={exhaustedModels}
                 usage={usage}
               />
@@ -578,6 +614,16 @@ export default function DashboardPage() {
           const usageRes = await fetch(`${API_URL}/user/usage`, { headers: { Authorization: `Bearer ${token}` } });
           if (usageRes.ok) setUsage(await usageRes.json());
         }}
+      />
+
+      <WelcomeModal
+        isOpen={isWelcomeModalOpen}
+        onClose={() => setIsWelcomeModalOpen(false)}
+      />
+
+      <DeepResearchModal
+        isOpen={isResearchModalOpen}
+        onClose={() => setIsResearchModalOpen(false)}
       />
     </div>
   );

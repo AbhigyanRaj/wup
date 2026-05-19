@@ -5,7 +5,7 @@ import {
   Plus, Search, Database, Upload, Key,
   LogOut, Trash2, X, MessageSquare,
   ChevronRight, ChevronLeft, Loader2,
-  Sun, Moon
+  Sun, Moon, BrainCircuit
 } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
 import { useTheme } from "@/components/theme-provider";
@@ -24,6 +24,7 @@ interface SidebarProps {
   onOpenAddDb: () => void;
   onOpenUpload: () => void;
   onOpenApiKey: () => void;
+  onOpenResearch?: () => void;
   knowledgeSources: KnowledgeSource[];
   onDeleteSource: (id: string) => void;
   isMobileOpen?: boolean;
@@ -49,7 +50,7 @@ function SectionLabel({ label }: { label: string }) {
 
 export function DashboardSidebar({
   chats, activeChatId, onNewChat, onSelectChat, onDeleteChat,
-  connections, onDeleteConnection, onOpenAddDb, onOpenUpload, onOpenApiKey,
+  connections, onDeleteConnection, onOpenAddDb, onOpenUpload, onOpenApiKey, onOpenResearch,
   knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile, usage,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -121,6 +122,7 @@ export function DashboardSidebar({
         <div className="pt-2 space-y-0.5">
           {[
             { icon: <Search size={15} />, label: "Search", onClick: undefined, disabled: true },
+            { icon: <BrainCircuit size={15} />, label: "Deep Research", onClick: () => { onOpenResearch?.(); onCloseMobile?.(); } },
             { icon: <Database size={15} />, label: "Add Bridge", onClick: () => { onOpenAddDb(); onCloseMobile?.(); } },
             { icon: <Upload size={15} />, label: "Import", onClick: () => { onOpenUpload(); onCloseMobile?.(); } },
             { icon: <Key size={15} />, label: "API Key", onClick: () => { onOpenApiKey(); onCloseMobile?.(); } },
@@ -130,7 +132,7 @@ export function DashboardSidebar({
               onClick={item.onClick}
               disabled={(item as any).disabled}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all ${
-                (item as any).disabled ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.04]"
+                (item as any).disabled ? "opacity-30 cursor-not-allowed" : "hover:bg-[var(--bg-highlight)]"
               } ${!expanded ? "justify-center" : ""}`}
               style={{ color: "var(--text-secondary)" }}
               onMouseEnter={e => {
@@ -198,7 +200,7 @@ export function DashboardSidebar({
                         </span>
                         <button
                           onClick={e => { e.stopPropagation(); onDeleteChat(chat._id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-white/10"
+                          className="opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-[var(--bg-highlight)] text-[var(--text-primary)]"
                           style={{ color: "var(--text-muted)" }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
@@ -227,15 +229,15 @@ export function DashboardSidebar({
               {connections.map((conn) => (
                 <div
                   key={`b-${conn._id}`}
-                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-white/[0.03]"
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-[var(--bg-highlight)]"
                 >
                   {expanded ? (
                     <>
-                      <div className="w-1 h-1 rounded-full shrink-0 opacity-40" style={{ background: "var(--text-primary)" }} />
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0 opacity-40" style={{ background: "var(--text-primary)" }} />
                       <span className="flex-1 text-[13px] font-light truncate tracking-wide" style={{ color: "var(--text-secondary)" }}>{conn.name}</span>
                       <button
                         onClick={() => onDeleteConnection(conn._id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-white/10"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-[var(--bg-overlay)]"
                         style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
@@ -260,7 +262,7 @@ export function DashboardSidebar({
               {knowledgeSources.map((src) => (
                 <div
                   key={`s-${src._id}`}
-                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-white/[0.03]"
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-[var(--bg-highlight)]"
                 >
                   {expanded ? (
                     <>
@@ -270,7 +272,7 @@ export function DashboardSidebar({
                       </span>
                       <button
                         onClick={() => onDeleteSource(src._id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-white/10"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-[var(--bg-overlay)]"
                         style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"}
@@ -289,52 +291,68 @@ export function DashboardSidebar({
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-4 shrink-0 space-y-2">
+      <div className="px-3 py-4 shrink-0 space-y-2.5">
         {expanded && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0"
-              style={{ background: "var(--bg-highlight)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-            >
-              {user?.email?.[0].toUpperCase() ?? "U"}
+          <div className="space-y-2">
+            {/* User Profile Card */}
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-bold shrink-0"
+                style={{ background: "var(--bg-highlight)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              >
+                {user?.email?.[0].toUpperCase() ?? "U"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium truncate leading-none mb-1.5" style={{ color: "var(--text-primary)" }}>
+                  {user?.email?.split("@")[0] === "google-demo" ? "Demo Guest" : (user?.email?.split("@")[0] ?? "User")}
+                </p>
+                {usage?.hasCustomKey ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--orange)" }} />
+                    <p className="text-[10px] font-bold uppercase tracking-wider shrink-0" style={{ color: "var(--orange)", opacity: 0.85 }}>Custom API</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{
+                      background: (usage?.freeTierUsage !== undefined && usage.freeTierUsage >= usage.freeTierLimit) ? "var(--red)" : "var(--green)"
+                    }} />
+                    <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                      {usage?.freeTierUsage ?? 0}/{usage?.freeTierLimit ?? 50} Free
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium truncate leading-none mb-1.5" style={{ color: "var(--text-primary)" }}>
-                {user?.email?.split("@")[0] ?? "User"}
-              </p>
-              {usage?.hasCustomKey ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_4px_rgba(37,99,235,0.45)]" style={{ background: "var(--orange)" }} />
-                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--orange)", opacity: 0.7 }}>Custom API</p>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{
-                    background: (usage?.freeTierUsage !== undefined && usage.freeTierUsage >= usage.freeTierLimit) ? "var(--red)" : "var(--green)"
-                  }} />
-                  <p className="text-[10px] font-bold uppercase tracking-wider opacity-40">
-                    {usage?.freeTierUsage ?? 0}/{usage?.freeTierLimit ?? 50} free
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Minimalist Theme Toggle in Footer profile capsule */}
-            <button
-              onClick={toggleTheme}
-              className="p-1.5 rounded-lg transition-all hover:bg-white/[0.06] hover:text-white text-[var(--text-muted)] hover:opacity-100 cursor-pointer"
-              title="Toggle theme"
-            >
-              {isLight ? <Moon size={13} /> : <Sun size={13} />}
-            </button>
 
-            <button
-              onClick={logout}
-              className="p-1.5 rounded-lg transition-all hover:bg-red-500/10 hover:text-red-400 opacity-40 hover:opacity-100 cursor-pointer"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <LogOut size={13} />
-            </button>
+            {/* Quick Actions Row */}
+            <div className="flex items-center justify-between px-1">
+              <button
+                onClick={toggleTheme}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all hover:bg-[var(--bg-highlight)] text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                title="Toggle theme"
+              >
+                {isLight ? (
+                  <>
+                    <Moon size={12} />
+                    <span>Dark Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun size={12} />
+                    <span>Light Mode</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all hover:bg-red-500/10 text-red-500/80 hover:text-red-500 text-[11px] font-medium cursor-pointer"
+                title="Sign out"
+              >
+                <LogOut size={12} />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -342,7 +360,7 @@ export function DashboardSidebar({
           <div className="flex flex-col gap-2 items-center">
             <button
               onClick={toggleTheme}
-              className="w-full flex justify-center p-3 rounded-xl hover:bg-white/[0.04] transition-all text-[var(--text-muted)] opacity-40 hover:opacity-100 cursor-pointer"
+              className="w-full flex justify-center p-3 rounded-xl hover:bg-[var(--bg-highlight)] transition-all text-[var(--text-muted)] opacity-40 hover:opacity-100 cursor-pointer"
               title="Toggle theme"
             >
               {isLight ? <Moon size={16} /> : <Sun size={16} />}

@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(user);
         localStorage.setItem("wuup_token", token);
+        localStorage.setItem("wuup_just_logged_in", "true");
         router.push("/dashboard");
       } else {
         throw new Error("Login failed");
@@ -77,6 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (user?.email === "google-demo@wup.ai") {
+      localStorage.removeItem("wuup_has_seen_welcome");
+    }
     setUser(null);
     localStorage.removeItem("wuup_token");
     router.push("/");

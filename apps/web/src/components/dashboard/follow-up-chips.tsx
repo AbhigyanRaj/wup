@@ -25,13 +25,13 @@ export function FollowUpChips({ followUps, onSelect }: FollowUpChipsProps) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
         className="flex flex-col gap-2 mt-5 pt-4"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+        style={{ borderTop: "1px solid var(--border)" }}
       >
         <div className="flex items-center gap-1.5 mb-1">
-          <Sparkles size={9} style={{ color: "rgba(255,95,31,0.5)" }} />
+          <Sparkles size={9} className="text-[var(--orange)] opacity-60 animate-pulse" />
           <span
             className="text-[9px] font-bold uppercase tracking-[0.2em] select-none"
-            style={{ color: "rgba(255,255,255,0.15)" }}
+            style={{ color: "var(--text-muted)" }}
           >
             Continue exploring
           </span>
@@ -45,21 +45,21 @@ export function FollowUpChips({ followUps, onSelect }: FollowUpChipsProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3, delay: 0.25 + i * 0.07 }}
               onClick={() => onSelect(fu.suggestedPrompt)}
-              className="group flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-medium transition-all duration-200 active:scale-[0.97]"
+              className="group flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-medium transition-all duration-200 active:scale-[0.97] cursor-pointer"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                color: "rgba(255,255,255,0.4)",
+                background: "var(--bg-highlight)",
+                border: "1px solid var(--border)",
+                color: "var(--text-secondary)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,95,31,0.06)";
-                e.currentTarget.style.borderColor = "rgba(255,95,31,0.25)";
-                e.currentTarget.style.color = "rgba(255,255,255,0.75)";
+                e.currentTarget.style.background = "var(--orange-dim)";
+                e.currentTarget.style.borderColor = "rgba(37, 99, 235, 0.25)";
+                e.currentTarget.style.color = "var(--orange)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
-                e.currentTarget.style.color = "rgba(255,255,255,0.4)";
+                e.currentTarget.style.background = "var(--bg-highlight)";
+                e.currentTarget.style.borderColor = "var(--border)";
+                e.currentTarget.style.color = "var(--text-secondary)";
               }}
             >
               {fu.label}

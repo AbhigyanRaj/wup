@@ -1,5 +1,6 @@
 import { query_mongodb, get_mongodb_schema } from "./mongodb";
 import { read_sheets, get_sheets_metadata } from "./sheets";
+import { web_search } from "./websearch";
 
 /**
  * Registry of all intelligence tools available to the WUP Brain.
@@ -10,7 +11,8 @@ export const WUP_TOOLS_REGISTRY: Record<string, Function> = {
   query_mongodb,
   get_mongodb_schema,
   read_sheets,
-  get_sheets_metadata
+  get_sheets_metadata,
+  web_search
 };
 
 /**
@@ -20,6 +22,17 @@ export const WUP_TOOLS_REGISTRY: Record<string, Function> = {
 export const WUP_AI_TOOLS = [
   {
     functionDeclarations: [
+      {
+        name: "web_search",
+        description: "Executes a web search to fetch current facts, news, and real-time public information from the internet.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            query: { type: "STRING", description: "The specific search query to search on the web." }
+          },
+          required: ["query"]
+        }
+      },
       {
         name: "query_mongodb",
         description: "Executes a read-only query on a bridged MongoDB collection.",

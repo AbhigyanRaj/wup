@@ -16,18 +16,19 @@ interface AskBarProps {
   onSubmit: (message: string, model: string, searchWeb: boolean) => void;
   selectedModel: string;
   onModelChange: (model: string) => void;
+  searchWeb: boolean;
+  onSearchWebChange: (searchWeb: boolean) => void;
   exhaustedModels?: string[];
   usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean; availableModels?: string[] } | null;
 }
 
-export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels = [], usage }: AskBarProps) {
+export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSearchWebChange, exhaustedModels = [], usage }: AskBarProps) {
   const { theme } = useTheme();
   const isLight = theme === "light";
   
   const [input, setInput]         = useState("");
   const [focused, setFocused]     = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
-  const [searchWeb, setSearchWeb] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const isLimitReached = !!(usage && !usage.hasCustomKey && usage.freeTierUsage >= usage.freeTierLimit);
@@ -207,31 +208,31 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, exhaustedModels
           {/* Left — attach + model */}
           <div className="flex items-center gap-1">
             <button
-              className="p-2.5 rounded-xl transition-all hover:bg-white/[0.05] hover:text-white/60 active:scale-95 cursor-pointer"
+              className="p-2.5 rounded-xl transition-all hover:bg-[var(--bg-highlight)] hover:text-[var(--text-primary)] active:scale-95 cursor-pointer"
               style={{ color: "var(--text-muted)" }}
               title="Attach context"
             >
               <Paperclip size={16} />
             </button>
 
-            <div className="w-[1px] h-4 bg-white/[0.06] mx-1" />
+            <div className="w-[1px] h-4 bg-[var(--border)] mx-1" />
 
             {/* Search Web Toggle */}
             <button
-              onClick={() => setSearchWeb(s => !s)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer ${searchWeb ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-white/[0.05] text-[var(--text-secondary)]"}`}
+              onClick={() => onSearchWebChange(!searchWeb)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer ${searchWeb ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-[var(--bg-highlight)] text-[var(--text-secondary)]"}`}
               title="Search Web Grounding"
             >
               <Globe size={13} />
               <span className="opacity-90">Web</span>
             </button>
 
-            <div className="w-[1px] h-4 bg-white/[0.06] mx-1" />
+            <div className="w-[1px] h-4 bg-[var(--border)] mx-1" />
 
             {/* Model picker trigger */}
             <button
               onClick={() => setModelOpen(o => !o)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold tracking-wide uppercase transition-all hover:bg-white/[0.05] cursor-pointer"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold tracking-wide uppercase transition-all hover:bg-[var(--bg-highlight)] cursor-pointer"
               style={{
                 color: modelOpen ? "var(--text-primary)" : "var(--text-secondary)",
               }}

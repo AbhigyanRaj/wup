@@ -13,17 +13,36 @@ interface DashboardHeroProps {
 export function DashboardHero({ userName, usage }: DashboardHeroProps) {
   const { theme } = useTheme();
   const isLight = theme === "light";
-  const [greeting, setGreeting] = useState("Good afternoon");
+  const [tagline, setTagline] = useState("Let's query some data");
+  const [subtitle, setSubtitle] = useState("Bridge your PostgreSQL, MongoDB, or upload documents to chat in plain English.");
 
   useEffect(() => {
-    const h = new Date().getHours();
-    if (h < 5)       setGreeting("Rest well");
-    else if (h < 12) setGreeting("Good morning");
-    else if (h < 17) setGreeting("Good afternoon");
-    else             setGreeting("Good evening");
+    const sentences = [
+      {
+        tag: "Let's query some data",
+        sub: "Bridge your PostgreSQL, MongoDB, or upload files to chat with your databases in plain English."
+      },
+      {
+        tag: "What secrets shall we uncover",
+        sub: "Run raw SQL queries, explore collections, or synthesize deep reports from your documents."
+      },
+      {
+        tag: "Ready for database magic",
+        sub: "Connect a database source to map relationships and generate visualizations in seconds."
+      },
+      {
+        tag: "Data intelligence awaits",
+        sub: "Analyze transactions, query schemas, or generate clean charts automatically."
+      }
+    ];
+    const index = Math.floor(Math.random() * sentences.length);
+    setTagline(sentences[index].tag);
+    setSubtitle(sentences[index].sub);
   }, []);
 
-  const displayName = userName.charAt(0).toUpperCase() + userName.slice(1);
+  const displayName = userName === "google-demo"
+    ? "Explorer"
+    : userName.charAt(0).toUpperCase() + userName.slice(1);
   const pct = usage && !usage.hasCustomKey
     ? Math.min((usage.freeTierUsage / usage.freeTierLimit) * 100, 100)
     : 0;
@@ -40,11 +59,12 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.05, duration: 0.4 }}
-        className={`mb-4 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 ${
-          isLight
-            ? "border-zinc-200 bg-zinc-100 text-zinc-500"
-            : "border-white/[0.06] bg-white/[0.03] text-white/30"
-        }`}
+        className="mb-4 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--bg-highlight)",
+          color: "var(--text-muted)",
+        }}
       >
         <div className="w-1.5 h-1.5 rounded-full bg-[var(--orange)] shadow-[0_0_6px_rgba(37,99,235,0.45)]" />
         Intelligence Engine
@@ -54,11 +74,9 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className={`text-[34px] sm:text-[40px] tracking-[-0.02em] font-medium leading-tight mb-2.5 transition-colors ${
-          isLight ? "text-zinc-900" : "text-white/90"
-        }`}
+        className="text-[32px] sm:text-[38px] tracking-[-0.02em] font-medium leading-tight mb-2.5 transition-colors text-[var(--text-primary)]"
       >
-        {greeting},{" "}
+        {tagline},{" "}
         <span className="gradient-text font-bold" style={{ fontFamily: "var(--font-display)" }}>
           {displayName}
         </span>
@@ -69,11 +87,9 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.4 }}
-        className={`text-[14.5px] font-light tracking-wide max-w-[300px] leading-relaxed mb-8 transition-colors ${
-          isLight ? "text-zinc-500" : "text-zinc-400"
-        }`}
+        className="text-[14px] font-light tracking-wide max-w-[460px] leading-relaxed mb-8 transition-colors text-[var(--text-secondary)]"
       >
-        Ready to explore your data. What would you like to know?
+        {subtitle}
       </motion.p>
 
       {/* ── API Key Stats (shown only when key is set) ─────────────── */}
@@ -82,44 +98,45 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-3 mb-2"
+          className="flex flex-wrap items-center justify-center gap-2.5 mb-2"
         >
           {/* Key indicator */}
           <div
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium transition-colors"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-medium border transition-colors"
             style={{
-              background: "rgba(37,99,235,0.07)",
-              border: "1px solid rgba(37,99,235,0.18)",
-              color: "var(--orange)",
+              background: "var(--bg-highlight)",
+              borderColor: "var(--border)",
+              color: "var(--text-secondary)",
             }}
           >
-            <Key size={12} />
-            <span className="tracking-wide">Custom API active</span>
+            <Key size={11} className="text-[var(--orange)] opacity-85" />
+            <span className="tracking-wide">Custom API Active</span>
           </div>
 
           {/* Unlimited badge */}
           <div
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium transition-colors"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-medium border transition-colors"
             style={{
-              background: "rgba(74,222,128,0.06)",
-              border: "1px solid rgba(74,222,128,0.15)",
-              color: "var(--green)",
+              background: "var(--bg-highlight)",
+              borderColor: "var(--border)",
+              color: "var(--text-secondary)",
             }}
           >
-            <CheckCircle size={12} />
-            <span className="tracking-wide">Unlimited queries</span>
+            <CheckCircle size={11} className="text-emerald-500 opacity-85" />
+            <span className="tracking-wide">Unlimited Queries</span>
           </div>
 
           {/* Model access */}
           <div
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-[11.5px] font-medium border transition-colors ${
-              isLight
-                ? "bg-zinc-100 border-zinc-200 text-zinc-500"
-                : "bg-white/[0.04] border-white/[0.08] text-white/45"
-            }`}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-medium border transition-colors"
+            style={{
+              background: "var(--bg-highlight)",
+              borderColor: "var(--border)",
+              color: "var(--text-secondary)"
+            }}
           >
-            <Zap size={12} />
-            <span className="tracking-wide">All Gemini models</span>
+            <Zap size={11} className="text-[var(--orange)] opacity-85" />
+            <span className="tracking-wide">Gemini 2.5 Flash</span>
           </div>
         </motion.div>
       )}
@@ -130,16 +147,19 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.4 }}
-          className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl mb-2 border transition-colors ${
-            isLight
-              ? "bg-white border-zinc-200/80 shadow-sm"
-              : "bg-white/[0.03] border-white/[0.07]"
-          }`}
+          className="flex items-center gap-3 px-4 py-2.5 rounded-2xl mb-2 border transition-colors"
+          style={{
+            background: "var(--bg-raised)",
+            borderColor: "var(--border)",
+          }}
         >
-          <BarChart3 size={12} className={isLight ? "text-zinc-400" : "text-white/30"} />
-          <span className={`text-[11px] tracking-wide font-medium ${isLight ? "text-zinc-500" : "text-white/30"}`}>Free tier</span>
+          <BarChart3 size={12} className="text-[var(--text-muted)]" />
+          <span className="text-[11px] tracking-wide font-medium text-[var(--text-muted)]">Free tier</span>
           {/* Progress bar */}
-          <div className={`w-24 h-1 rounded-full overflow-hidden ${isLight ? "bg-zinc-100" : "bg-white/[0.08]"}`}>
+          <div
+            className="w-24 h-1 rounded-full overflow-hidden"
+            style={{ background: "var(--bg-highlight)" }}
+          >
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
@@ -149,7 +169,7 @@ export function DashboardHero({ userName, usage }: DashboardHeroProps) {
               }}
             />
           </div>
-          <span className={`text-[11px] font-mono tabular-nums ${pct >= 90 ? "text-rose-500" : isLight ? "text-zinc-500" : "text-white/35"}`}>
+          <span className={`text-[11px] font-mono tabular-nums ${pct >= 90 ? "text-rose-500" : "text-[var(--text-muted)]"}`}>
             {usage.freeTierUsage}/{usage.freeTierLimit}
           </span>
         </motion.div>

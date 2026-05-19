@@ -29,9 +29,18 @@ export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelO
     modelParams.systemInstruction = systemInstruction;
   }
 
-  const modelTools = tools ? [...tools] : [];
-  if (searchWeb) {
-    modelTools.push({ googleSearch: {} });
+  let modelTools = tools ? JSON.parse(JSON.stringify(tools)) : [];
+
+  if (!searchWeb) {
+    // If web search is disabled, filter out the web_search function from WUP_AI_TOOLS declarations
+    modelTools = modelTools.map((t: any) => {
+      if (t.functionDeclarations) {
+        return {
+          functionDeclarations: t.functionDeclarations.filter((fd: any) => fd.name !== "web_search")
+        };
+      }
+      return t;
+    }).filter((t: any) => !t.functionDeclarations || t.functionDeclarations.length > 0);
   }
 
   if (modelTools.length > 0) {

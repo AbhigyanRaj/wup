@@ -685,7 +685,10 @@ export class BrainOrchestrator {
       .join("\n");
     const bridgeSection = connections.length > 0 ? bridgeInfo : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
 
-    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
+    const webSearchInstruction = options?.searchWeb
+      ? "\n\nWEB SEARCH CAPABILITY:\n- You have a custom `web_search` tool. Use it to search the web for any current facts, news, realtime prices, cryptocurrency rates, weather, or public information outside of your database context. Cite any sources used."
+      : "";
+    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${webSearchInstruction}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
 
     let lastErr: GeminiError | null = null;
 
@@ -704,6 +707,7 @@ export class BrainOrchestrator {
         let currentPrompt: any = prompt;
         let turns = 0;
         const MAX_TURNS = 5;
+        const webSources: Array<{title: string, url: string}> = [];
 
         while (turns < MAX_TURNS) {
           turns++;
@@ -724,7 +728,26 @@ export class BrainOrchestrator {
               for (const call of calls) {
                 const toolFn = WUP_TOOLS_REGISTRY[call.name];
                 if (toolFn) {
+                  // Intercept web_search to stream progress to client
+                  if (call.name === "web_search") {
+                    const queryArg = (call.args as any)?.query ?? "";
+                    options?.onStatus?.(`Searching the web for: "${queryArg}"...`);
+                  }
+
                   const toolResult = await toolFn(call.args);
+
+                  if (call.name === "web_search" && toolResult?.results) {
+                    const items = toolResult.results;
+                    for (const item of items) {
+                      webSources.push({ title: item.title, url: item.url });
+                      // Stream the actual source fetched in sequence to show in UI
+                      options?.onStatus?.(`Fetched source: ${item.title}`);
+                    }
+                    if (items.length === 0) {
+                      options?.onStatus?.(`No web search results found.`);
+                    }
+                  }
+
                   toolResponses.push({
                     functionResponse: { name: call.name, response: toolResult },
                   });
@@ -781,7 +804,6 @@ export class BrainOrchestrator {
           // Extract web sources from Gemini Grounding metadata
           const finalResponse = await result.response;
           const gm: any = finalResponse.candidates?.[0]?.groundingMetadata;
-          const webSources: Array<{title: string, url: string}> = [];
           
           if (gm) {
              if (gm.groundingChunks) {
