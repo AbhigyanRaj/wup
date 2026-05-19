@@ -5,34 +5,34 @@
    Inspired by ChatGPT / Claude: clean, monochromatic, readable.
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Premium Midnight Navy/Slate Surfaces ── */
-  --bg-base:      #0e1118;   /* Luxurious soft graphite-charcoal canvas */
-  --bg-sidebar:   #090b10;   /* Matching slightly deeper sidebar */
-  --bg-raised:    #141924;   /* Cards, elevated elements */
-  --bg-overlay:   #19202f;   /* Dropdowns, modals */
-  --bg-highlight: #20293c;   /* Hovered/active elements */
+  /* ── Premium Monochromatic Graphite Surfaces ── */
+  --bg-base:      #0b0c0e;   /* Matte neutral charcoal canvas */
+  --bg-sidebar:   #070809;   /* Sidebar — slightly deeper */
+  --bg-raised:    #111215;   /* Cards, elevated elements */
+  --bg-overlay:   #17181b;   /* Dropdowns, modals */
+  --bg-highlight: #202125;   /* Hovered/active elements */
 
   /* ── Accent — pure white, restrained ── */
-  --accent:       rgba(255, 255, 255, 0.9);
-  --accent-hi:    rgba(255, 255, 255, 0.85);
-  --accent-lo:    rgba(255, 255, 255, 0.06);
-  --accent-glow:  rgba(255, 255, 255, 0.08);
-  --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(200,200,200,0.8) 100%);
+  --accent:       rgba(255, 255, 255, 0.92);
+  --accent-hi:    rgba(255, 255, 255, 0.88);
+  --accent-lo:    rgba(255, 255, 255, 0.05);
+  --accent-glow:  rgba(255, 255, 255, 0.07);
+  --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(210,210,210,0.82) 100%);
 
   /* ── High-End Accent — Royal Blue (retains variable name for full-app compatibility) ── */
   --orange:       #2563eb;
-  --orange-dim:   rgba(37, 99, 235, 0.08);
-  --orange-glow:  rgba(37, 99, 235, 0.15);
+  --orange-dim:   rgba(37, 99, 235, 0.06);
+  --orange-glow:  rgba(37, 99, 235, 0.12);
 
-  /* ── Borders (Subtle Blue-Tinted) ── */
-  --border:       rgba(59, 130, 246, 0.09);
-  --border-hover: rgba(59, 130, 246, 0.18);
-  --border-muted: rgba(59, 130, 246, 0.04);
+  /* ── Borders (Neutral Subtle Grey) ── */
+  --border:       rgba(255, 255, 255, 0.07);
+  --border-hover: rgba(255, 255, 255, 0.13);
+  --border-muted: rgba(255, 255, 255, 0.03);
 
   /* ── Text ── */
-  --text-primary:   rgba(255, 255, 255, 0.9);
-  --text-secondary: rgba(255, 255, 255, 0.5);
-  --text-muted:     rgba(255, 255, 255, 0.3);
+  --text-primary:   rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.52);
+  --text-muted:     rgba(255, 255, 255, 0.32);
 
   /* ── Semantic ── */
   --green:  #4ade80;

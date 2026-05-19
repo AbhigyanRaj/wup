@@ -544,18 +544,18 @@ export default function Home() {
     color: "var(--text-primary)",
     backgroundImage: isLight
       ? `
-        radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.02) 30%, transparent 60%),
-        radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.01) 0%, transparent 40%),
-        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.01) 0%, transparent 40%),
-        linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px)
+        radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.03) 0%, rgba(99, 102, 241, 0.01) 40%, transparent 70%),
+        radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.005) 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.005) 0%, transparent 40%),
+        linear-gradient(rgba(15, 23, 42, 0.065) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.065) 1px, transparent 1px)
       `
       : `
-        radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.15) 0%, rgba(99, 102, 241, 0.05) 30%, transparent 60%),
-        radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.02) 0%, transparent 40%),
-        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.02) 0%, transparent 40%),
-        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px)
+        radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.04) 0%, rgba(37, 99, 235, 0.01) 45%, transparent 70%),
+        radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.003) 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.003) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px)
       `,
     backgroundSize: "100% 100%, 100% 100%, 100% 100%, 56px 56px, 56px 56px"
   };

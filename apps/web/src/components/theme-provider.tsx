@@ -12,13 +12,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("wuup-theme") as Theme;
-    const systemPrefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-    const initialTheme = savedTheme || (systemPrefersLight ? "light" : "dark");
+    const initialTheme = savedTheme || "light";
     
     setTheme(initialTheme);
     

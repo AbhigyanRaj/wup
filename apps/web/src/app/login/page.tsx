@@ -47,24 +47,22 @@ export default function LoginPage() {
 
   return (
     <main 
-      className={`min-h-screen flex transition-colors duration-300 overflow-hidden selection:bg-[#2563eb]/25 w-full ${
-        isLight ? "bg-[#faf9f6]" : "bg-[#04060a]"
-      }`}
+      className="min-h-screen flex transition-colors duration-300 overflow-hidden selection:bg-[#2563eb]/25 w-full bg-[var(--bg-base)] text-[var(--text-primary)]"
       style={{
         backgroundImage: isLight
           ? `
-            radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.02) 30%, transparent 60%),
-            radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.01) 0%, transparent 40%),
-            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.01) 0%, transparent 40%),
-            linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px)
+            radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.03) 0%, rgba(99, 102, 241, 0.01) 40%, transparent 70%),
+            radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.005) 0%, transparent 40%),
+            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.005) 0%, transparent 40%),
+            linear-gradient(rgba(15, 23, 42, 0.065) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(15, 23, 42, 0.065) 1px, transparent 1px)
           `
           : `
-            radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.15) 0%, rgba(99, 102, 241, 0.05) 30%, transparent 60%),
-            radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.02) 0%, transparent 40%),
-            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.02) 0%, transparent 40%),
-            linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px)
+            radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.04) 0%, rgba(37, 99, 235, 0.01) 45%, transparent 70%),
+            radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.003) 0%, transparent 40%),
+            radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.003) 0%, transparent 40%),
+            linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px)
           `,
         backgroundSize: "100% 100%, 100% 100%, 100% 100%, 56px 56px, 56px 56px"
       }}
@@ -81,9 +79,9 @@ export default function LoginPage() {
 
         {/* Glow */}
         <div className="absolute bottom-0 left-0 w-[500px] h-[400px] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at bottom left, rgba(37,99,235,0.08) 0%, transparent 65%)" }} />
+          style={{ background: "radial-gradient(ellipse at bottom left, rgba(37,99,235,0.03) 0%, transparent 65%)" }} />
         <div className="absolute top-0 right-0 w-[300px] h-[300px] pointer-events-none"
-          style={{ background: isLight ? "radial-gradient(ellipse at top right, rgba(15,23,42,0.01) 0%, transparent 70%)" : "radial-gradient(ellipse at top right, rgba(255,255,255,0.02) 0%, transparent 70%)" }} />
+          style={{ background: isLight ? "radial-gradient(ellipse at top right, rgba(15,23,42,0.01) 0%, transparent 70%)" : "radial-gradient(ellipse at top right, rgba(255,255,255,0.01) 0%, transparent 70%)" }} />
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
