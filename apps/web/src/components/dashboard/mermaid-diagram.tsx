@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Maximize2, X, Code2 } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface MermaidDiagramProps {
   code: string;
@@ -44,7 +45,7 @@ function fixClassDefOrder(code: string): string {
  * - Responsive width
  * - Subtle drop-shadow filter for depth
  */
-function postProcessSvg(svgHtml: string): string {
+function postProcessSvg(svgHtml: string, isLight: boolean): string {
   let result = svgHtml;
 
   // Make responsive
@@ -52,11 +53,12 @@ function postProcessSvg(svgHtml: string): string {
     .replace(/width="[\d.]+(?:px)?"/, 'width="100%"')
     .replace(/height="[\d.]+(?:px)?"/, 'height="auto"');
 
-  // Inject a premium drop-shadow filter definition after <defs> or at start of <svg>
+  // Inject a premium drop-shadow filter definition
+  const shadowColor = isLight ? "rgba(0,0,0,0.08)" : "rgba(0,0,0,0.35)";
   const filterDef = `
     <defs>
       <filter id="wuup-shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.35)" flood-opacity="1"/>
+        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="${shadowColor}" flood-opacity="1"/>
       </filter>
     </defs>`;
 
@@ -70,7 +72,7 @@ function postProcessSvg(svgHtml: string): string {
   // Round all rect corners that don't already have rx
   result = result.replace(/<rect(?![^>]*\brx=)([^>]*?)(\/>|>)/g, '<rect rx="10" ry="10"$1$2');
 
-  // Add drop-shadow filter to node rects (those with fill colors, not transparent background)
+  // Add drop-shadow filter to node rects
   result = result.replace(/<rect rx="10" ry="10"([^>]*?)fill="(?!none|transparent|rgba\(0,0,0,0\))([^"]+)"([^>]*?)(\/>|>)/g,
     '<rect rx="10" ry="10"$1fill="$2"$3 filter="url(#wuup-shadow)"$4>');
 
@@ -81,6 +83,9 @@ function postProcessSvg(svgHtml: string): string {
 }
 
 export function MermaidDiagram({ code }: MermaidDiagramProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  
   const [svg, setSvg] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
@@ -100,10 +105,27 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     const render = async () => {
       try {
         const mermaid = (await import("mermaid")).default;
+        
+        // Define theme parameters depending on active user stylesheet theme
+        const isLightTheme = theme === "light";
+        
         mermaid.initialize({
           startOnLoad: false,
-          theme: "base",
-          themeVariables: {
+          theme: isLightTheme ? "default" : "base",
+          themeVariables: isLightTheme ? {
+            primaryColor: "#f1f5f9",
+            primaryTextColor: "#0f172a",
+            primaryBorderColor: "rgba(0, 0, 0, 0.1)",
+            lineColor: "rgba(0, 0, 0, 0.2)",
+            secondaryColor: "#e2e8f0",
+            tertiaryColor: "#f8fafc",
+            background: "transparent",
+            nodeBorder: "rgba(0, 0, 0, 0.08)",
+            clusterBkg: "rgba(0, 0, 0, 0.01)",
+            edgeLabelBackground: "transparent",
+            fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+            fontSize: "13px",
+          } : {
             primaryColor: "#1e293b",
             primaryTextColor: "#e2e8f0",
             primaryBorderColor: "rgba(255,255,255,0.12)",
@@ -125,7 +147,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
         const cleanCode = fixClassDefOrder(sanitizeMermaid(code));
         const { svg: rendered } = await mermaid.render(id, cleanCode);
         if (!cancelled) {
-          setSvg(postProcessSvg(rendered));
+          setSvg(postProcessSvg(rendered, isLightTheme));
           setError(null);
         }
       } catch (err: any) {
@@ -134,7 +156,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     };
     render();
     return () => { cancelled = true; };
-  }, [code, uid]);
+  }, [code, uid, theme]);
 
   const handleDownload = () => {
     const blob = new Blob([svg], { type: "image/svg+xml" });
@@ -149,10 +171,10 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
   if (error) {
     return (
       <div
-        className="rounded-xl px-4 py-3 text-[12px] font-mono mt-4"
+        className="rounded-xl px-4 py-3 text-[12px] font-mono mt-4 border"
         style={{
           background: "rgba(248,113,113,0.04)",
-          border: "1px solid rgba(248,113,113,0.12)",
+          borderColor: "rgba(248,113,113,0.12)",
           color: "rgba(248,113,113,0.6)",
         }}
       >
@@ -163,7 +185,10 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 
   if (!svg) {
     return (
-      <div className="flex items-center gap-2 mt-4 py-3 text-[12px]" style={{ color: "rgba(255,255,255,0.15)" }}>
+      <div 
+        className="flex items-center gap-2 mt-4 py-3 text-[12px] font-medium" 
+        style={{ color: "var(--text-muted)" }}
+      >
         <div className="w-1.5 h-1.5 rounded-full bg-[#ff5f1f] animate-pulse" />
         Rendering diagram...
       </div>
@@ -172,20 +197,20 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 
   return (
     <>
-      {/* ── Inline diagram — no box, flows naturally in chat ── */}
+      {/* ── Inline diagram ── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative mt-5 group"
       >
-        {/* Action row — appears on hover, sits above diagram */}
+        {/* Action row */}
         <div
           className="flex items-center justify-between mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         >
           <span
             className="text-[9px] font-bold uppercase tracking-[0.25em]"
-            style={{ color: "rgba(255,255,255,0.15)" }}
+            style={{ color: "var(--text-muted)" }}
           >
             Diagram
           </span>
@@ -209,11 +234,11 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="text-[11px] font-mono mb-4 p-4 rounded-xl overflow-x-auto"
+              className="text-[11px] font-mono mb-4 p-4 rounded-xl overflow-x-auto border"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                color: "rgba(255,255,255,0.4)",
+                background: isLight ? "rgba(0,0,0,0.015)" : "rgba(255,255,255,0.03)",
+                borderColor: "var(--border)",
+                color: "var(--text-secondary)",
                 lineHeight: "1.6",
               }}
             >
@@ -222,7 +247,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
           )}
         </AnimatePresence>
 
-        {/* The diagram — full natural width, no fixed height, scrolls with page */}
+        {/* The diagram */}
         <div
           className="w-full"
           style={{ lineHeight: 0 }}
@@ -240,7 +265,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[100]"
-              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+              style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }}
               onClick={() => setIsExpanded(false)}
             />
 
@@ -250,61 +275,63 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 60 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed right-0 top-0 bottom-0 z-[101] flex flex-col"
+              className="fixed right-0 top-0 bottom-0 z-[101] flex flex-col shadow-2xl border-l"
               style={{
                 width: "min(680px, 90vw)",
-                background: "#0e0e0e",
-                borderLeft: "1px solid rgba(255,255,255,0.07)",
+                background: "var(--bg-overlay)",
+                borderColor: "var(--border)",
               }}
             >
               {/* Panel header */}
               <div
-                className="flex items-center justify-between px-6 py-4 shrink-0"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                className="flex items-center justify-between px-6 py-4 shrink-0 border-b"
+                style={{ borderColor: "var(--border)" }}
               >
                 <span
                   className="text-[11px] font-bold uppercase tracking-[0.25em]"
-                  style={{ color: "rgba(255,255,255,0.25)" }}
+                  style={{ color: "var(--text-muted)" }}
                 >
                   Diagram
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleDownload}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors hover:bg-white/5"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors border ${
+                      isLight ? "hover:bg-black/5" : "hover:bg-white/5"
+                    }`}
                     style={{
-                      color: "rgba(255,255,255,0.35)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "var(--text-secondary)",
+                      borderColor: "var(--border)",
                     }}
                   >
                     <Download size={11} /> Export SVG
                   </button>
                   <button
                     onClick={() => setIsExpanded(false)}
-                    className="p-2 rounded-xl hover:bg-white/5 transition-colors"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
+                    className={`p-2 rounded-xl transition-colors ${
+                      isLight ? "hover:bg-black/5" : "hover:bg-white/5"
+                    }`}
+                    style={{ color: "var(--text-muted)" }}
                   >
                     <X size={15} />
                   </button>
                 </div>
               </div>
 
-              {/* Panel body — scrollable, diagram at natural size */}
-              <div
-                className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-8"
-              >
+              {/* Panel body */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-8">
                 <div dangerouslySetInnerHTML={{ __html: svg }} />
               </div>
 
               {/* Source code section */}
               <div
-                className="shrink-0 px-6 py-4"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+                className="shrink-0 px-6 py-4 border-t"
+                style={{ borderColor: "var(--border)" }}
               >
                 <button
                   onClick={() => setShowCode(s => !s)}
-                  className="flex items-center gap-2 text-[11px] transition-colors hover:text-white/60"
-                  style={{ color: "rgba(255,255,255,0.2)" }}
+                  className="flex items-center gap-2 text-[11px] transition-colors hover:opacity-80"
+                  style={{ color: "var(--text-muted)" }}
                 >
                   <Code2 size={12} />
                   {showCode ? "Hide" : "View"} source
@@ -316,7 +343,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       className="text-[11px] font-mono mt-3 overflow-x-auto"
-                      style={{ color: "rgba(255,255,255,0.3)", lineHeight: "1.6" }}
+                      style={{ color: "var(--text-secondary)", lineHeight: "1.6" }}
                     >
                       {code.trim()}
                     </motion.pre>
@@ -343,13 +370,18 @@ function ActionBtn({
   title: string;
   active?: boolean;
 }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  
   return (
     <button
       onClick={onClick}
       title={title}
-      className="p-1.5 rounded-lg transition-all duration-150 hover:bg-white/8 active:scale-95"
+      className={`p-1.5 rounded-lg transition-all duration-150 active:scale-95 ${
+        isLight ? "hover:bg-black/5" : "hover:bg-white/8"
+      }`}
       style={{
-        color: active ? "#ff5f1f" : "rgba(255,255,255,0.3)",
+        color: active ? "#ff5f1f" : (isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.3)"),
         background: active ? "rgba(255,95,31,0.08)" : "transparent",
       }}
     >

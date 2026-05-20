@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useTheme } from "@/components/theme-provider";
 
 interface DiagramNode {
   id: string;
@@ -22,6 +22,9 @@ interface DiagramData {
 }
 
 export function BespokeDiagram({ data }: { data: DiagramData }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  
   const { nodes, edges } = data;
 
   const width = 480;
@@ -48,52 +51,100 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
     return paddingTop + paddingBottom + nodes.length * (nodeHeight + verticalGap) - verticalGap;
   }, [nodes]);
 
-  // Color theme mapper based on node types
+  // Color theme mapper based on node types and current theme mode
   const getNodeTheme = (type?: string) => {
-    switch (type) {
-      case "start":
-      case "end":
-        return {
-          bg: "rgba(63, 63, 70, 0.4)",
-          border: "rgba(113, 113, 122, 0.5)",
-          text: "#f4f4f5",
-          glow: "rgba(113, 113, 122, 0.2)",
-        };
-      case "decision":
-        return {
-          bg: "rgba(109, 40, 217, 0.2)",
-          border: "rgba(139, 92, 246, 0.5)",
-          text: "#c084fc",
-          glow: "rgba(139, 92, 246, 0.25)",
-        };
-      case "success":
-        return {
-          bg: "rgba(21, 128, 61, 0.2)",
-          border: "rgba(34, 197, 94, 0.5)",
-          text: "#4ade80",
-          glow: "rgba(34, 197, 94, 0.25)",
-        };
-      case "error":
-        return {
-          bg: "rgba(185, 28, 28, 0.2)",
-          border: "rgba(239, 68, 68, 0.5)",
-          text: "#fca5a5",
-          glow: "rgba(239, 68, 68, 0.25)",
-        };
-      case "action":
-      default:
-        return {
-          bg: "rgba(29, 78, 216, 0.25)",
-          border: "rgba(59, 130, 246, 0.5)",
-          text: "#60a5fa",
-          glow: "rgba(59, 130, 246, 0.35)",
-        };
+    if (isLight) {
+      switch (type) {
+        case "start":
+        case "end":
+          return {
+            bg: "rgba(244, 244, 245, 0.8)",
+            border: "rgba(161, 161, 170, 0.4)",
+            text: "#27272a",
+            glow: "rgba(161, 161, 170, 0.04)",
+          };
+        case "decision":
+          return {
+            bg: "rgba(139, 92, 246, 0.08)",
+            border: "rgba(109, 40, 217, 0.35)",
+            text: "#6d28d9",
+            glow: "rgba(109, 40, 217, 0.05)",
+          };
+        case "success":
+          return {
+            bg: "rgba(34, 197, 94, 0.08)",
+            border: "rgba(21, 128, 61, 0.35)",
+            text: "#15803d",
+            glow: "rgba(21, 128, 61, 0.05)",
+          };
+        case "error":
+          return {
+            bg: "rgba(239, 68, 68, 0.08)",
+            border: "rgba(185, 28, 28, 0.35)",
+            text: "#b91c1c",
+            glow: "rgba(185, 28, 28, 0.05)",
+          };
+        case "action":
+        default:
+          return {
+            bg: "rgba(59, 130, 246, 0.08)",
+            border: "rgba(29, 78, 216, 0.35)",
+            text: "#1d4ed8",
+            glow: "rgba(29, 78, 216, 0.06)",
+          };
+      }
+    } else {
+      switch (type) {
+        case "start":
+        case "end":
+          return {
+            bg: "rgba(63, 63, 70, 0.4)",
+            border: "rgba(113, 113, 122, 0.5)",
+            text: "#f4f4f5",
+            glow: "rgba(113, 113, 122, 0.2)",
+          };
+        case "decision":
+          return {
+            bg: "rgba(109, 40, 217, 0.2)",
+            border: "rgba(139, 92, 246, 0.5)",
+            text: "#c084fc",
+            glow: "rgba(139, 92, 246, 0.25)",
+          };
+        case "success":
+          return {
+            bg: "rgba(21, 128, 61, 0.2)",
+            border: "rgba(34, 197, 94, 0.5)",
+            text: "#4ade80",
+            glow: "rgba(34, 197, 94, 0.25)",
+          };
+        case "error":
+          return {
+            bg: "rgba(185, 28, 28, 0.2)",
+            border: "rgba(239, 68, 68, 0.5)",
+            text: "#fca5a5",
+            glow: "rgba(239, 68, 68, 0.25)",
+          };
+        case "action":
+        default:
+          return {
+            bg: "rgba(29, 78, 216, 0.25)",
+            border: "rgba(59, 130, 246, 0.5)",
+            text: "#60a5fa",
+            glow: "rgba(59, 130, 246, 0.35)",
+          };
+      }
     }
   };
 
   if (!nodes || nodes.length === 0) {
     return (
-      <div className="w-full h-32 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.01] text-xs opacity-40">
+      <div 
+        className="w-full h-32 rounded-2xl flex items-center justify-center border text-xs opacity-40"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--bg-overlay)"
+        }}
+      >
         No diagram data available
       </div>
     );
@@ -103,9 +154,9 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
     <div
       className="w-full my-6 p-6 rounded-2xl shadow-xl flex justify-center overflow-auto custom-scrollbar select-none"
       style={{
-        background: "rgba(12, 13, 18, 0.6)",
+        background: isLight ? "rgba(245, 246, 248, 0.65)" : "rgba(12, 13, 18, 0.6)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: isLight ? "1px solid rgba(0, 0, 0, 0.06)" : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
       <div className="w-full max-w-[480px]">
@@ -125,7 +176,11 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#3f3f46" className="opacity-40" />
+              <path 
+                d="M 0 1.5 L 7 5 L 0 8.5 z" 
+                fill={isLight ? "#a1a1aa" : "#3f3f46"} 
+                className="opacity-60" 
+              />
             </marker>
           </defs>
 
@@ -149,9 +204,9 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
                 <path
                   d={`M ${startX} ${startY} L ${endX} ${endY}`}
                   fill="none"
-                  stroke="#3f3f46"
+                  stroke={isLight ? "#a1a1aa" : "#3f3f46"}
                   strokeWidth={1.5}
-                  className="opacity-35"
+                  className={isLight ? "opacity-60" : "opacity-35"}
                   markerEnd="url(#arrow)"
                 />
 
@@ -164,16 +219,16 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
                       width={40}
                       height={16}
                       rx={4}
-                      fill="#0c0d12"
-                      stroke="rgba(255,255,255,0.06)"
+                      fill={isLight ? "#ffffff" : "#0c0d12"}
+                      stroke={isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)"}
                       strokeWidth={1}
                     />
                     <text
-                      fill="#ffffff"
+                      fill={isLight ? "#71717a" : "#ffffff"}
                       fontSize={8}
                       textAnchor="middle"
                       y={3}
-                      className="font-bold opacity-45 uppercase tracking-wider"
+                      className="font-bold opacity-75 uppercase tracking-wider"
                     >
                       {edge.label}
                     </text>
@@ -230,10 +285,10 @@ export function BespokeDiagram({ data }: { data: DiagramData }) {
                   <text
                     x={nodeWidth / 2}
                     y={42}
-                    fill="#ffffff"
+                    fill={isLight ? "#71717a" : "#a1a1aa"}
                     fontSize={8.5}
                     textAnchor="middle"
-                    className="opacity-40 tracking-wide"
+                    className="tracking-wide opacity-80"
                   >
                     {node.sublabel}
                   </text>

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "@/components/theme-provider";
 
 interface ChartData {
   type: "bar" | "line" | "pie";
@@ -12,6 +13,8 @@ interface ChartData {
 }
 
 export function BespokeChart({ data }: { data: ChartData }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const { title, type, xAxisKey, yAxisKey, series } = data;
@@ -27,12 +30,16 @@ export function BespokeChart({ data }: { data: ChartData }) {
     return rawMax * 1.15;
   }, [numericValues]);
 
-  const minVal = 0;
-
   // 2. Render SVG elements based on chart types
   if (!series || series.length === 0) {
     return (
-      <div className="w-full h-48 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.01] text-xs opacity-40">
+      <div 
+        className="w-full h-48 rounded-2xl flex items-center justify-center border text-xs opacity-40"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--bg-overlay)",
+        }}
+      >
         No chart data available
       </div>
     );
@@ -42,13 +49,16 @@ export function BespokeChart({ data }: { data: ChartData }) {
     <div
       className="w-full my-6 p-6 rounded-2xl shadow-xl select-none"
       style={{
-        background: "rgba(12, 13, 18, 0.6)",
+        background: isLight ? "rgba(245, 246, 248, 0.65)" : "rgba(12, 13, 18, 0.6)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: isLight ? "1px solid rgba(0, 0, 0, 0.06)" : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
       {title && (
-        <h4 className="text-xs font-bold uppercase tracking-widest mb-6 opacity-60 flex items-center gap-2">
+        <h4 
+          className="text-xs font-bold uppercase tracking-widest mb-6 flex items-center gap-2"
+          style={{ color: "var(--text-secondary)" }}
+        >
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
           {title}
         </h4>
@@ -102,6 +112,9 @@ function CartesianChartRender({
   hoveredIndex,
   setHoveredIndex,
 }: CartesianProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   const width = 500;
   const height = 220;
   const paddingLeft = 45;
@@ -131,7 +144,7 @@ function CartesianChartRender({
     return ticks;
   }, [maxVal]);
 
-  // Line Path generation (using simple linear connections first)
+  // Line Path generation
   const linePath = useMemo(() => {
     if (series.length === 0) return "";
     return series
@@ -161,8 +174,8 @@ function CartesianChartRender({
         <defs>
           {/* Glowing Gradients */}
           <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#1d4ed8" stopOpacity="0.2" />
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#1d4ed8" stopOpacity="0.3" />
           </linearGradient>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
@@ -174,23 +187,23 @@ function CartesianChartRender({
         {gridTicks.map((tick, i) => {
           const y = getY(tick);
           return (
-            <g key={i} className="opacity-10">
+            <g key={i} className={isLight ? "opacity-20" : "opacity-10"}>
               <line
                 x1={paddingLeft}
                 y1={y}
                 x2={width - paddingRight}
                 y2={y}
-                stroke="#ffffff"
+                stroke={isLight ? "#000000" : "#ffffff"}
                 strokeWidth={1}
                 strokeDasharray="4,4"
               />
               <text
                 x={paddingLeft - 10}
                 y={y + 4}
-                fill="#ffffff"
+                fill={isLight ? "#52525b" : "#ffffff"}
                 fontSize={8}
                 textAnchor="end"
-                className="font-mono"
+                className="font-mono opacity-80"
               >
                 {Math.round(tick)}
               </text>
@@ -206,17 +219,17 @@ function CartesianChartRender({
               key={i}
               x={x}
               y={height - 10}
-              fill="#ffffff"
+              fill={isLight ? "#52525b" : "#ffffff"}
               fontSize={8}
               textAnchor="middle"
-              className="opacity-30 tracking-wider"
+              className={isLight ? "opacity-70 tracking-wider font-medium" : "opacity-35 tracking-wider"}
             >
               {String(item[xAxisKey])}
             </text>
           );
         })}
 
-        {/* Area Flow (Line chart bottom shadow) */}
+        {/* Area Flow */}
         {type === "line" && (
           <path d={areaPath} fill="url(#lineGrad)" className="transition-all" />
         )}
@@ -234,7 +247,7 @@ function CartesianChartRender({
           />
         )}
 
-        {/* Dynamic Bars (Bar chart) */}
+        {/* Dynamic Bars */}
         {type === "bar" &&
           series.map((_, i) => {
             const x = getX(i);
@@ -285,7 +298,7 @@ function CartesianChartRender({
                   cx={x}
                   cy={y}
                   r={isHovered ? 5 : 3.5}
-                  fill={isHovered ? "#3b82f6" : "#0c0d12"}
+                  fill={isHovered ? "#3b82f6" : (isLight ? "#ffffff" : "#0c0d12")}
                   stroke="#3b82f6"
                   strokeWidth={2}
                   className="pointer-events-none transition-all"
@@ -307,17 +320,18 @@ function CartesianChartRender({
             exit={{ opacity: 0, y: 5 }}
             className="absolute p-3 rounded-xl pointer-events-none z-20 shadow-2xl text-[11px]"
             style={{
-              background: "rgba(15, 23, 42, 0.95)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
+              background: isLight ? "rgba(255, 255, 255, 0.98)" : "rgba(15, 23, 42, 0.95)",
+              border: isLight ? "1px solid rgba(59, 130, 246, 0.2)" : "1px solid rgba(59, 130, 246, 0.3)",
+              color: isLight ? "#18181b" : "#ffffff",
               left: `${(getX(hoveredIndex) / width) * 100}%`,
               top: `${(getY(numericValues[hoveredIndex]) / height) * 100 - 15}%`,
               transform: "translate(-50%, -100%)",
             }}
           >
-            <div className="font-bold opacity-45 uppercase tracking-wider mb-0.5">
+            <div className="font-bold opacity-50 uppercase tracking-wider mb-0.5">
               {String(series[hoveredIndex][xAxisKey])}
             </div>
-            <div className="font-mono text-blue-400 font-bold text-xs">
+            <div className="font-mono text-blue-500 dark:text-blue-400 font-bold text-xs">
               {numericValues[hoveredIndex].toLocaleString()}
             </div>
           </motion.div>
@@ -337,6 +351,8 @@ interface PieProps {
 }
 
 function PieChartRender({ series, xAxisKey, yAxisKey, numericValues }: PieProps) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const total = useMemo(() => {
@@ -418,16 +434,22 @@ function PieChartRender({ series, xAxisKey, yAxisKey, numericValues }: PieProps)
 
         {/* Center label inside donut */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
-          <span className="text-[10px] font-bold tracking-widest uppercase opacity-40">
+          <span 
+            className="text-[10px] font-bold tracking-widest uppercase opacity-55"
+            style={{ color: "var(--text-muted)" }}
+          >
             {hoveredIdx !== null ? slices[hoveredIdx].label : "Total"}
           </span>
-          <span className="text-sm font-mono font-bold mt-0.5 text-blue-400">
+          <span className="text-sm font-mono font-bold mt-0.5 text-blue-600 dark:text-blue-400">
             {hoveredIdx !== null
               ? slices[hoveredIdx].value.toLocaleString()
               : total.toLocaleString()}
           </span>
           {hoveredIdx !== null && (
-            <span className="text-[9px] font-mono opacity-50">
+            <span 
+              className="text-[9px] font-mono opacity-65"
+              style={{ color: "var(--text-muted)" }}
+            >
               {Math.round(slices[hoveredIdx].percentage * 100)}%
             </span>
           )}
@@ -439,11 +461,16 @@ function PieChartRender({ series, xAxisKey, yAxisKey, numericValues }: PieProps)
         {slices.map((slice, i) => (
           <div
             key={i}
-            className="flex items-center gap-3 py-1.5 px-3 rounded-xl transition-all cursor-pointer hover:bg-white/[0.04]"
+            className={`flex items-center gap-3 py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
+              isLight ? "hover:bg-black/[0.03]" : "hover:bg-white/[0.04]"
+            }`}
             onMouseEnter={() => setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}
             style={{
-              background: hoveredIdx === i ? "rgba(255,255,255,0.03)" : "transparent",
+              background: hoveredIdx === i 
+                ? (isLight ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.03)") 
+                : "transparent",
+              color: "var(--text-primary)",
             }}
           >
             <span
@@ -456,7 +483,10 @@ function PieChartRender({ series, xAxisKey, yAxisKey, numericValues }: PieProps)
             <span className="truncate max-w-[120px] font-medium tracking-wide">
               {slice.label}
             </span>
-            <span className="font-mono text-[10px] ml-auto font-bold opacity-60">
+            <span 
+              className="font-mono text-[10px] ml-auto font-bold opacity-60"
+              style={{ color: "var(--text-secondary)" }}
+            >
               {Math.round(slice.percentage * 100)}%
             </span>
           </div>

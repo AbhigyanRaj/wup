@@ -32,6 +32,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 export const metadata: Metadata = {
   title: "Wuup | AI Data Intelligence",
   description: "AI-powered data intelligence platform",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

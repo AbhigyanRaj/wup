@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { ArrowUpDown, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface TableData {
   columns: string[];
@@ -9,6 +10,8 @@ interface TableData {
 }
 
 export function DataTable({ data }: { data: TableData }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const { columns, rows } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,7 +72,13 @@ export function DataTable({ data }: { data: TableData }) {
 
   if (!rows || rows.length === 0) {
     return (
-      <div className="w-full h-32 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.01] text-xs opacity-40">
+      <div 
+        className="w-full h-32 rounded-2xl flex items-center justify-center border text-xs opacity-40"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--bg-overlay)"
+        }}
+      >
         Empty data table
       </div>
     );
@@ -77,27 +86,37 @@ export function DataTable({ data }: { data: TableData }) {
 
   return (
     <div
-      className="w-full my-6 overflow-hidden rounded-2xl shadow-xl border border-white/[0.08]"
+      className="w-full my-6 overflow-hidden rounded-2xl shadow-xl border"
       style={{
-        background: "rgba(12, 13, 18, 0.4)",
+        background: isLight ? "rgba(245, 246, 248, 0.65)" : "rgba(12, 13, 18, 0.4)",
+        borderColor: isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.08)",
         backdropFilter: "blur(8px)",
       }}
     >
       {/* Search Filtering Bar */}
       <div
-        className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05]"
-        style={{ background: "rgba(255, 255, 255, 0.01)" }}
+        className="flex items-center gap-3 px-5 py-3 border-b"
+        style={{ 
+          background: isLight ? "rgba(0, 0, 0, 0.01)" : "rgba(255, 255, 255, 0.01)",
+          borderColor: isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)"
+        }}
       >
-        <Search size={14} className="opacity-35" />
+        <Search size={14} className="opacity-35" style={{ color: "var(--text-secondary)" }} />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Filter rows..."
-          className="bg-transparent border-none text-xs w-full text-white placeholder-white/30 focus:outline-none"
+          className="bg-transparent border-none text-xs w-full focus:outline-none"
+          style={{ 
+            color: "var(--text-primary)",
+          }}
         />
         {filteredRows.length !== rows.length && (
-          <span className="text-[9px] font-bold uppercase tracking-wider opacity-30 select-none">
+          <span 
+            className="text-[9px] font-bold uppercase tracking-wider opacity-35 select-none"
+            style={{ color: "var(--text-secondary)" }}
+          >
             {filteredRows.length} of {rows.length} rows
           </span>
         )}
@@ -108,8 +127,11 @@ export function DataTable({ data }: { data: TableData }) {
         <table className="w-full text-left border-collapse text-xs select-text">
           <thead>
             <tr
-              className="border-b border-white/[0.06] select-none"
-              style={{ background: "rgba(255,255,255,0.015)" }}
+              className="border-b select-none"
+              style={{ 
+                background: isLight ? "rgba(0,0,0,0.015)" : "rgba(255,255,255,0.015)",
+                borderColor: isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)"
+              }}
             >
               {columns.map((col) => {
                 const isSorted = sortConfig.key === col;
@@ -119,18 +141,19 @@ export function DataTable({ data }: { data: TableData }) {
                   <th
                     key={col}
                     onClick={() => requestSort(col)}
-                    className="px-5 py-3 font-semibold tracking-wider opacity-60 hover:opacity-100 cursor-pointer transition-all uppercase text-[10px]"
+                    className="px-5 py-3 font-semibold tracking-wider hover:opacity-100 cursor-pointer transition-all uppercase text-[10px]"
+                    style={{ color: "var(--text-secondary)", opacity: 0.7 }}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{col}</span>
                       {isSorted ? (
                         dir === "asc" ? (
-                          <ArrowUp size={10} className="text-blue-400" />
+                          <ArrowUp size={10} className="text-blue-500" />
                         ) : (
-                          <ArrowDown size={10} className="text-blue-400" />
+                          <ArrowDown size={10} className="text-blue-500" />
                         )
                       ) : (
-                        <ArrowUpDown size={10} className="opacity-20" />
+                        <ArrowUpDown size={10} className="opacity-30" />
                       )}
                     </div>
                   </th>
@@ -142,9 +165,13 @@ export function DataTable({ data }: { data: TableData }) {
             {sortedRows.map((row, idx) => (
               <tr
                 key={idx}
-                className="border-b border-white/[0.03] transition-all hover:bg-white/[0.03]"
+                className={`border-b transition-all ${
+                  isLight ? "hover:bg-black/[0.015] border-black/[0.03]" : "hover:bg-white/[0.03] border-white/[0.03]"
+                }`}
                 style={{
-                  background: idx % 2 === 0 ? "rgba(255,255,255,0.005)" : "transparent",
+                  background: idx % 2 === 0 
+                    ? (isLight ? "rgba(0,0,0,0.005)" : "rgba(255,255,255,0.005)") 
+                    : "transparent",
                 }}
               >
                 {columns.map((col) => {
