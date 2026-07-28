@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 import { cryptoService } from "../utils/crypto";
-import { Connection } from "../../../../apps/api/src/models/Connection";
+import { Connection } from "@wup/models";
 
 /**
  * Executes a Read-Only MongoDB query on behalf of the Brain.

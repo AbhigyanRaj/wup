@@ -2,8 +2,8 @@ import crypto from "crypto";
 import path from "path";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { KnowledgeSource } from "../models/KnowledgeSource";
-import { KnowledgeChunk } from "../models/KnowledgeChunk";
+import { KnowledgeSource } from "@wup/models";
+import { KnowledgeChunk } from "@wup/models";
 import { ingestorService, type SupportedMimeType } from "@wup/ingestor";
 
 const MAX_SOURCES_PER_USER = parseInt(process.env.MAX_SOURCES_PER_USER ?? "20", 10);

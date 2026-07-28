@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Connection } from "../models/Connection";
+import { Connection } from "@wup/models";
 import { cryptoService } from "@wup/brain";
 
 /**

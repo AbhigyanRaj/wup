@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Chat } from "../models/Chat";
-import { Message } from "../models/Message";
+import { Chat } from "@wup/models";
+import { Message } from "@wup/models";
 import { brain, CHAT_CONTEXT_MAX_MESSAGES, type ChatTurn } from "@wup/brain";
 
 /**

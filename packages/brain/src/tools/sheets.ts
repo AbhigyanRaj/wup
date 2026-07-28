@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 import { cryptoService } from "../utils/crypto";
-import { Connection } from "../../../../apps/api/src/models/Connection";
+import { Connection } from "@wup/models";
 
 /**
  * Reads data from a bridged Google Sheet.

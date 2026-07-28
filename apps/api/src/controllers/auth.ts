@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { User } from "../models/User";
+import { User } from "@wup/models";
 import { UserPayload } from "@wup/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "wup_super_secret_brain_key_2026";

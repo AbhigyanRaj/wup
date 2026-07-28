@@ -1,6 +1,6 @@
 import type { Content } from "@google/generative-ai";
-import { Connection } from "../../../apps/api/src/models/Connection";
-import { User } from "../../../apps/api/src/models/User";
+import { Connection } from "@wup/models";
+import { User } from "@wup/models";
 import { getGeminiModel, WUP_SYSTEM_PROMPT } from "./ai/gemini";
 import { WUP_AI_TOOLS, WUP_TOOLS_REGISTRY } from "./tools/registry";
 import { ragService, safeRetrieve, buildRagContext } from "./rag/retriever";

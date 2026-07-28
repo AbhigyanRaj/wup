@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { User } from "../models/User";
+import { User } from "@wup/models";
 
 export const updateApiKey = async (req: Request, res: Response) => {
   const userId = (req as any).user?.id;
