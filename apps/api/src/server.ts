@@ -9,8 +9,7 @@ import knowledgeRoutes from "./routes/knowledge";
 import userRoutes from "./routes/user";
 
 // Register models so Mongoose knows them before any package references them by name
-import "./models/KnowledgeSource";
-import "./models/KnowledgeChunk";
+import "@wup/models";
 
 dotenv.config();
 
