@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const PERKS = [
   "Query any MongoDB collection in plain English",
-  "Upload PDFs — get cited, grounded answers",
+  "Upload PDFs and get cited, grounded answers",
   "Live web search combined with your data",
   "50 queries free · No card required",
 ];
@@ -68,7 +68,7 @@ export default function LoginPage() {
       }}
     >
 
-      {/* ── Left panel — brand ─────────────────────────────────────── */}
+      {/* ── Left panel: brand ─────────────────────────────────────── */}
       <div 
         className={`hidden lg:flex flex-col justify-between w-[44%] shrink-0 relative px-14 py-12 overflow-hidden transition-colors duration-300`}
         style={{ 
@@ -134,7 +134,7 @@ export default function LoginPage() {
         <p className={`text-[10px] relative z-10 transition-colors ${isLight ? "text-zinc-400" : "text-zinc-600"}`}>© 2026 Wuup · Abhigyan Raj</p>
       </div>
 
-      {/* ── Right panel — form ─────────────────────────────────────── */}
+      {/* ── Right panel: form ─────────────────────────────────────── */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 relative">
 
         {/* Subtle center glow */}
@@ -199,7 +199,7 @@ export default function LoginPage() {
                 Continue with Google
               </button>
               <p className={`text-[9px] text-center tracking-wider transition-colors ${isLight ? "text-zinc-400" : "text-zinc-600"}`}>
-                Demo mode — Google integration coming soon
+                Demo mode. Google integration coming soon
               </p>
             </div>
 

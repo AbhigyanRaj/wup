@@ -180,7 +180,7 @@ export default function DashboardPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          // Map DB messages to MessageProps — include ragSources for citation pills
+          // Map DB messages to MessageProps, including ragSources for citation pills
           setActiveMessages(
             data.map((m: any) => ({
               role: m.role,
@@ -557,7 +557,7 @@ export default function DashboardPage() {
             }}
           >
             <div className="max-w-2xl mx-auto pointer-events-auto flex flex-col gap-3">
-              {/* Clarification Modal — appears above the AskBar */}
+              {/* Clarification Modal: appears above the AskBar */}
               <AnimatePresence>
                 {clarification && (
                   <ClarificationModal
@@ -566,7 +566,7 @@ export default function DashboardPage() {
                     onSelect={(answer) => {
                       setClarification(null);
                       handleSendMessage(
-                        `${clarification.originalPrompt} — specifically: ${answer}`,
+                        `${clarification.originalPrompt}. Specifically: ${answer}`,
                         currentModel,
                         searchWeb
                       );

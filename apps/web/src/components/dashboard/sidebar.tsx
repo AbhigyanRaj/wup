@@ -97,7 +97,7 @@ export function DashboardSidebar({
 
       {/* Actions */}
       <div className="px-3 pt-2 pb-4 space-y-1 shrink-0">
-        {/* New Chat — accent colored */}
+        {/* New Chat: accent colored */}
         <button
           onClick={() => { onNewChat(); onCloseMobile?.(); }}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group cursor-pointer ${!expanded ? "justify-center" : ""}`}

@@ -32,7 +32,7 @@ export function TypingIndicator({ statuses }: TypingIndicatorProps) {
       <div className="max-w-3xl mx-auto px-6">
         <div className="flex items-start gap-4">
 
-          {/* AI avatar — subtle pulsing orb */}
+          {/* AI avatar: subtle pulsing orb */}
           <div className="relative w-6 h-6 shrink-0 mt-0.5 flex items-center justify-center">
             <motion.div
               animate={{ scale: [1, 1.35, 1], opacity: [0.3, 0.7, 0.3] }}

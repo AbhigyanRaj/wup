@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ─── Design Tokens ──────────────────────────────────────────────────────────
-   Palette: True neutral dark — zero blue tinting on surfaces.
+   Palette: True neutral dark, zero blue tinting on surfaces.
    Inspired by ChatGPT / Claude: clean, monochromatic, readable.
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
@@ -12,14 +12,14 @@
   --bg-overlay:   #1b1c20;   /* Dropdowns, modals */
   --bg-highlight: #24262a;   /* Hovered/active elements */
 
-  /* ── Accent — pure white, restrained ── */
+  /* ── Accent: pure white, restrained ── */
   --accent:       rgba(255, 255, 255, 0.94);
   --accent-hi:    rgba(255, 255, 255, 0.90);
   --accent-lo:    rgba(255, 255, 255, 0.05);
   --accent-glow:  rgba(255, 255, 255, 0.08);
   --accent-grad:  linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(215,215,215,0.84) 100%);
 
-  /* ── High-End Accent — Royal Blue (retains variable name for full-app compatibility) ── */
+  /* ── High-End Accent: Royal Blue (retains variable name for full-app compatibility) ── */
   --orange:       #2563eb;
   --orange-dim:   rgba(37, 99, 235, 0.06);
   --orange-glow:  rgba(37, 99, 235, 0.12);
@@ -58,14 +58,14 @@
   --bg-overlay:   #ffffff;   /* Modals */
   --bg-highlight: #dce0e4;   /* Hover highlight */
 
-  /* ── Accent — Royal Indigo ── */
+  /* ── Accent: Royal Indigo ── */
   --accent:       rgba(15, 23, 42, 0.94);
   --accent-hi:    rgba(15, 23, 42, 0.88);
   --accent-lo:    rgba(37, 99, 235, 0.03);
   --accent-glow:  rgba(37, 99, 235, 0.06);
   --accent-grad:  linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 
-  /* ── Accent — Blue (retains variable name for dashboard compat) ── */
+  /* ── Accent: Blue (retains variable name for dashboard compat) ── */
   --orange:       #2563eb;
   --orange-dim:   rgba(37, 99, 235, 0.05);
   --orange-glow:  rgba(37, 99, 235, 0.1);

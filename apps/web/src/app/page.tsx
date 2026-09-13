@@ -62,7 +62,7 @@ function TerminalDemo() {
         <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] opacity-90 hover:opacity-100 transition-opacity" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] opacity-90 hover:opacity-100 transition-opacity" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f] opacity-90 hover:opacity-100 transition-opacity" />
-        <span className={`ml-3 text-[10px] font-mono tracking-wider transition-colors ${isLight ? "text-zinc-400" : "text-zinc-500"}`}>wuup — terminal</span>
+        <span className={`ml-3 text-[10px] font-mono tracking-wider transition-colors ${isLight ? "text-zinc-400" : "text-zinc-500"}`}>wuup / terminal</span>
       </div>
 
       {/* Content */}
@@ -404,7 +404,7 @@ function AgenticExecutionSandbox() {
                 <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
               </div>
               <span className={`text-[10px] font-mono tracking-wider transition-colors ${isLight ? "text-zinc-500 font-semibold" : "text-zinc-500"}`}>
-                wuup — orchestrator.log
+                wuup / orchestrator.log
               </span>
               <div className="w-10" />
             </div>
@@ -566,7 +566,7 @@ export default function Home() {
       style={mainStyle}
     >
 
-      {/* ── Nav — SpotGov Floating Capsule style ───────────────────── */}
+      {/* ── Nav: SpotGov Floating Capsule style ───────────────────── */}
       <nav 
         className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex justify-between items-center px-6 h-12 w-[calc(100%-2rem)] max-w-4xl rounded-full transition-all duration-300"
         style={{ 
@@ -608,11 +608,11 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ── Hero — High-End Editorial Style ─────────────────────────── */}
+      {/* ── Hero: High-End Editorial Style ─────────────────────────── */}
       <section className="relative pt-36 pb-20 px-6 sm:px-10 max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row items-start gap-16 lg:gap-20">
 
-          {/* Left — copy */}
+          {/* Left: copy */}
           <div className="flex-1 max-w-xl">
             <motion.div
               initial={{ opacity: 0, y: 8 }} 
@@ -647,7 +647,7 @@ export default function Home() {
                 isLight ? "text-zinc-600" : "text-zinc-300"
               }`}
             >
-              Connect MongoDB databases, stream Google Sheets, or upload secure PDFs — then ask anything in plain, conversational English with mathematical grounding.
+              Connect MongoDB databases, stream Google Sheets, or upload secure PDFs, then ask anything in plain, conversational English with mathematical grounding.
             </motion.p>
 
             <motion.div
@@ -695,7 +695,7 @@ export default function Home() {
             </motion.div>
           </div>
 
-          {/* Right — terminal demo */}
+          {/* Right: terminal demo */}
           <motion.div
             initial={{ opacity: 0, y: 16 }} 
             animate={{ opacity: 1, y: 0 }} 
@@ -829,7 +829,7 @@ export default function Home() {
             }`}>
               <div className="flex flex-col md:flex-row">
 
-                {/* Left — copy */}
+                {/* Left: copy */}
                 <div className="flex-1 p-10 flex flex-col gap-6" style={{ background: "rgba(255,255,255,0.005)" }}>
                   <div className="flex items-center gap-3">
                     <div 
@@ -853,7 +853,7 @@ export default function Home() {
                   </Link>
                 </div>
 
-                {/* Right — Visual Mock Settings Panel */}
+                {/* Right: Visual Mock Settings Panel */}
                 <div className={`flex-1 p-8 flex flex-col justify-center border-l transition-all duration-300 ${
                   isLight ? "bg-zinc-50/40 border-zinc-200/80" : "bg-white/[0.005] border-white/[0.06]"
                 }`}>

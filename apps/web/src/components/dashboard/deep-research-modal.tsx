@@ -269,7 +269,7 @@ export function DeepResearchModal({ isOpen, onClose }: DeepResearchModalProps) {
                     transition={{ duration: 0.22 }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"
                   >
-                    {/* Left Column — Text & Bullets */}
+                    {/* Left Column: Text & Bullets */}
                     <div className="space-y-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1.5">
@@ -304,7 +304,7 @@ export function DeepResearchModal({ isOpen, onClose }: DeepResearchModalProps) {
                       </ul>
                     </div>
 
-                    {/* Right Column — Visual representation */}
+                    {/* Right Column: Visual representation */}
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                         Live Preview Simulated

@@ -48,7 +48,7 @@ export function MessageList({ messages, isTyping, typingStatuses = [], onFollowU
         ))}
       </AnimatePresence>
 
-      {/* Typing indicator — wrapped in AnimatePresence so it animates in/out */}
+      {/* Typing indicator: wrapped in AnimatePresence so it animates in/out */}
       <AnimatePresence>
         {isTyping && <TypingIndicator key="typing" statuses={typingStatuses} />}
       </AnimatePresence>

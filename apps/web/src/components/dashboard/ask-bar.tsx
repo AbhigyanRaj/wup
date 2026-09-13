@@ -205,7 +205,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSe
           className="absolute bottom-0 left-0 right-0 flex items-center justify-between"
           style={{ padding: "0 12px 12px" }}
         >
-          {/* Left — attach + model */}
+          {/* Left: attach + model */}
           <div className="flex items-center gap-1">
             <button
               className="p-2.5 rounded-xl transition-all hover:bg-[var(--bg-highlight)] hover:text-[var(--text-primary)] active:scale-95 cursor-pointer"
@@ -266,7 +266,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSe
             )}
           </div>
 
-          {/* Right — send */}
+          {/* Right: send */}
           <motion.button
             onClick={submit}
             disabled={!canSend}
