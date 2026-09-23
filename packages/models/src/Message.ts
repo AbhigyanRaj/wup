@@ -6,6 +6,22 @@ import mongoose from "mongoose";
  * frontend can render citation pills when the conversation is reloaded.
  */
 
+const querySchema = new mongoose.Schema(
+  {
+    tool: { type: String },
+    connectionName: { type: String },
+    db: { type: String },
+    collection: { type: String },
+    query: { type: String }, // pretty-printed Extended JSON
+    rowCount: { type: Number },
+    truncated: { type: Boolean },
+    durationMs: { type: Number },
+    error: { type: String },
+  },
+  // "collection" is a reserved Mongoose path name; here it is just a stored string
+  { _id: false, suppressReservedKeysWarning: true }
+);
+
 const messageSchema = new mongoose.Schema({
   chatId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -67,6 +83,8 @@ const messageSchema = new mongoose.Schema({
       label: { type: String },
     }],
   },
+  // Database queries executed to produce this answer (shown as "Query used")
+  queries: [querySchema],
   createdAt: { 
     type: Date, 
     default: Date.now 

@@ -25,6 +25,11 @@ const chatSchema = new mongoose.Schema({
     enum: ["active", "archived"], 
     default: "active" 
   },
+  // Data bridges this chat may use. Empty = all of the user's bridges.
+  bridgeIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Connection"
+  }],
   createdAt: { 
     type: Date, 
     default: Date.now 

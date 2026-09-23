@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Globe } from "lucide-react";
+import { FileText, Globe, Database, ChevronDown, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MermaidDiagram } from "./mermaid-diagram";
@@ -12,6 +12,7 @@ import { BespokeChart } from "./bespoke-chart";
 import { DataTable } from "./data-table";
 import { BespokeDiagram } from "./bespoke-diagram";
 import { useTheme } from "@/components/theme-provider";
+import type { QueryRecord } from "@/lib/bridges";
 
 interface RagSource { sourceFile: string; pageNumber: number; score: number; text?: string; }
 
@@ -96,7 +97,68 @@ export interface MessageProps {
   tableData?: any;
   diagramData?: any;
   followUps?: FollowUpSuggestion[];
+  /** Database queries run to produce this answer */
+  queries?: QueryRecord[];
   onFollowUpSelect?: (prompt: string) => void;
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  mongo_find: "find",
+  mongo_count: "count",
+  mongo_distinct: "distinct",
+  mongo_aggregate: "aggregate",
+  mongo_list_sources: "list",
+};
+
+/** Collapsible panel listing the exact database queries behind an answer. */
+function QueriesUsed({ queries }: { queries: QueryRecord[] }) {
+  const [open, setOpen] = useState(false);
+  const failed = queries.filter((q) => q.error).length;
+  const totalMs = queries.reduce((n, q) => n + (q.durationMs || 0), 0);
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--border)] overflow-hidden not-prose">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left hover:bg-[var(--bg-highlight)]/40 transition-colors cursor-pointer"
+      >
+        <Database size={12} className="text-[var(--text-muted)]" />
+        <span className="text-[11.5px] font-medium text-[var(--text-secondary)]">
+          {queries.length === 1 ? "Query used" : `${queries.length} queries used`}
+        </span>
+        <span className="text-[11px] text-[var(--text-muted)] truncate">
+          · {Array.from(new Set(queries.map((q) => `${q.db}.${q.collection}`))).join(", ")}
+        </span>
+        {failed > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10.5px] text-[var(--amber)]">
+            <AlertTriangle size={10} />{failed} failed
+          </span>
+        )}
+        <span className="ml-auto text-[10.5px] tabular-nums text-[var(--text-muted)]">{totalMs}ms</span>
+        <ChevronDown size={13} className={`text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
+          {queries.map((q, i) => (
+            <div key={i} className="px-3.5 py-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                <span className="px-1.5 py-0.5 rounded-md bg-[var(--orange)]/10 text-[var(--orange)] font-mono font-semibold">
+                  {TOOL_LABELS[q.tool] ?? q.tool}
+                </span>
+                <span className="font-mono text-[var(--text-primary)]">{q.db}.{q.collection}</span>
+                <span className="text-[var(--text-muted)]">on {q.connectionName}</span>
+                <span className="ml-auto text-[var(--text-muted)] tabular-nums">
+                  {q.error ? "failed" : `${q.rowCount.toLocaleString("en-US")} row${q.rowCount === 1 ? "" : "s"}${q.truncated ? " (limited)" : ""}`} · {q.durationMs}ms
+                </span>
+              </div>
+              {q.error && <p className="text-[11.5px] text-[var(--amber)]">{q.error}</p>}
+              <CodeBlock language="json" value={q.query} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Interactive Inline Citation Cards ───────────────────────────────────────
@@ -193,7 +255,7 @@ function MarkdownCodeBlock({ node, className, children, ...props }: any) {
   );
 }
 
-export function MessageItem({ role, content, ragSources, webSources, visualType, chartData, tableData, diagramData, followUps, onFollowUpSelect }: MessageProps) {
+export function MessageItem({ role, content, ragSources, webSources, visualType, chartData, tableData, diagramData, followUps, queries, onFollowUpSelect }: MessageProps) {
   const isAssistant = role === "assistant";
   const hasCitations = isAssistant && ((ragSources && ragSources.length > 0) || (webSources && webSources.length > 0));
   const hasFollowUps = isAssistant && followUps && followUps.length > 0 && onFollowUpSelect;
@@ -267,6 +329,9 @@ export function MessageItem({ role, content, ragSources, webSources, visualType,
               {visualType === "diagram" && diagramData && (
                 <BespokeDiagram data={diagramData} />
               )}
+
+              {/* Exact database queries behind this answer */}
+              {queries && queries.length > 0 && <QueriesUsed queries={queries} />}
             </div>
           ) : (
             <div

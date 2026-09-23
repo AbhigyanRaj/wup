@@ -67,27 +67,22 @@ export const updateApiKey = async (req: Request, res: Response) => {
       const modelsData = await modelsRes.json();
       availableModels = modelsData.data?.map((m: any) => m.id) || [];
     } else if (provider === "anthropic") {
-      const testRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
+      // Listing models validates the key without spending tokens
+      const modelsRes = await fetch("https://api.anthropic.com/v1/models?limit=100", {
         headers: {
           "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1,
-          messages: [{ role: "user", content: "hi" }]
-        })
+          "anthropic-version": "2023-06-01"
+        }
       });
-      if (!testRes.ok && testRes.status !== 400 && testRes.status !== 402) {
-        const errData = await testRes.json().catch(() => ({}));
-        if (testRes.status === 401) {
+      if (!modelsRes.ok) {
+        const errData = await modelsRes.json().catch(() => ({}));
+        if (modelsRes.status === 401) {
           return res.status(400).json({ error: "Invalid Anthropic API key" });
         }
         return res.status(400).json({ error: errData.error?.message || "Invalid Anthropic API key or unable to reach provider" });
       }
-      availableModels = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"];
+      const modelsData = await modelsRes.json();
+      availableModels = modelsData.data?.map((m: any) => m.id) || [];
     }
 
     (user as any).customApiKey = apiKey;

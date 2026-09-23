@@ -39,6 +39,7 @@ export function MessageList({ messages, isTyping, typingStatuses = [], onFollowU
             chartData={msg.chartData}
             tableData={msg.tableData}
             diagramData={msg.diagramData}
+            queries={msg.queries}
             // Only show follow-ups on the last assistant message and not while typing
             followUps={
               index === lastAssistantIndex && !isTyping ? msg.followUps : undefined

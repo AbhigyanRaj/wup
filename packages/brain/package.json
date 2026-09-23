@@ -5,16 +5,20 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\""
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
+    "mongodb-memory-server": "^10.4.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@wup/ingestor": "file:../ingestor",
     "@wup/models": "file:../models",
-    "mongodb": "^6.3.0",
-    "googleapis": "^129.0.0"
+    "googleapis": "^129.0.0",
+    "mongodb": "^6.3.0"
   }
 }

@@ -8,7 +8,7 @@ import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { AskBar } from "@/components/dashboard/ask-bar";
 import { CategoryPills } from "@/components/dashboard/category-pills";
 import { MessageList } from "@/components/dashboard/message-list";
-import { Menu, AlertCircle } from "lucide-react";
+import { Menu, AlertCircle, Sparkles } from "lucide-react";
 import { ConnectDbModal } from "@/components/dashboard/connect-db-modal";
 import { UploadModal, KnowledgeSource } from "@/components/dashboard/upload-modal";
 import { MessageProps } from "@/components/dashboard/message-item";
@@ -17,19 +17,18 @@ import { ApiKeyModal } from "@/components/dashboard/api-key-modal";
 import { WelcomeModal } from "@/components/dashboard/welcome-modal";
 import { DeepResearchModal } from "@/components/dashboard/deep-research-modal";
 import { useTheme } from "@/components/theme-provider";
+import { BridgeDetailsDrawer } from "@/components/dashboard/bridge-details-drawer";
+import { bridgesApi, type BridgeSummary } from "@/lib/bridges";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Chat {
   _id: string;
   title: string;
+  bridgeIds?: string[];
 }
 
-export interface ConnectionItem {
-  _id: string;
-  name: string;
-  type: string;
-}
+export type ConnectionItem = BridgeSummary;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -70,6 +69,9 @@ export default function DashboardPage() {
 
   // Connections (DB bridges)
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
+  const [openBridgeId, setOpenBridgeId] = useState<string | null>(null);
+  // Bridges enabled for the active (or about-to-be-created) chat; empty = all
+  const [selectedBridgeIds, setSelectedBridgeIds] = useState<string[]>([]);
 
   // Knowledge sources
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([]);
@@ -191,6 +193,7 @@ export default function DashboardPage() {
               chartData: m.chartData ?? null,
               tableData: m.tableData ?? null,
               diagramData: m.diagramData ?? null,
+              queries: m.queries ?? [],
             }))
           );
         }
@@ -200,6 +203,25 @@ export default function DashboardPage() {
     };
     fetchMessages();
   }, [activeChatId]);
+
+  // Load the bridge selection saved on the chat when switching chats
+  useEffect(() => {
+    if (!activeChatId) return;
+    const chat = chats.find((c) => c._id === activeChatId);
+    setSelectedBridgeIds((chat?.bridgeIds ?? []).map(String));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId]);
+
+  const handleBridgeChange = async (ids: string[]) => {
+    setSelectedBridgeIds(ids);
+    if (!activeChatId) return; // applied when the chat is created
+    setChats((prev) => prev.map((c) => (c._id === activeChatId ? { ...c, bridgeIds: ids } : c)));
+    try {
+      await bridgesApi.setChatBridges(activeChatId, ids);
+    } catch (err) {
+      console.error("Saving bridge selection failed:", err);
+    }
+  };
 
   const handleSendMessage = async (content: string, model: string = "Auto-Rotate", searchWeb: boolean = false) => {
     const token = localStorage.getItem("wuup_token");
@@ -227,6 +249,10 @@ export default function DashboardPage() {
         if (!chatRes.ok) throw new Error("Could not initialize chat session.");
         const newChat = await chatRes.json();
         currentChatId = newChat._id;
+        if (selectedBridgeIds.length > 0) {
+          await bridgesApi.setChatBridges(newChat._id, selectedBridgeIds).catch(() => {});
+          newChat.bridgeIds = selectedBridgeIds;
+        }
         setChats((prev) => [newChat, ...prev]);
         setActiveChatId(currentChatId);
       }
@@ -357,6 +383,7 @@ export default function DashboardPage() {
                 chartData: finalData.assistantMessage.chartData ?? null,
                 tableData: finalData.assistantMessage.tableData ?? null,
                 diagramData: finalData.assistantMessage.diagramData ?? null,
+                queries: finalData.assistantMessage.queries ?? [],
                 followUps: finalData.clarification ? [] : (finalData.followUps ?? []),
               };
             }
@@ -374,6 +401,7 @@ export default function DashboardPage() {
                  chartData: finalData.assistantMessage.chartData ?? null,
                  tableData: finalData.assistantMessage.tableData ?? null,
                  diagramData: finalData.assistantMessage.diagramData ?? null,
+                 queries: finalData.assistantMessage.queries ?? [],
                  followUps: finalData.clarification ? [] : (finalData.followUps ?? []),
                }
              ];
@@ -430,13 +458,23 @@ export default function DashboardPage() {
     }
   };
 
-  const handleConnectionAdded = async () => {
-    const token = localStorage.getItem("wuup_token");
-    const connRes = await fetch(`${API_URL}/connections`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (connRes.ok) setConnections(await connRes.json());
-  };
+  const handleConnectionAdded = useCallback(async () => {
+    try {
+      setConnections(await bridgesApi.list());
+    } catch { /* silent */ }
+  }, []);
+
+  // Keep bridge status dots fresh while any schema scan is running
+  useEffect(() => {
+    if (!connections.some((c) => c.status === "scanning")) return;
+    const t = setTimeout(handleConnectionAdded, 4000);
+    return () => clearTimeout(t);
+  }, [connections, handleConnectionAdded]);
+
+  const bridgeSuggestions = connections
+    .filter((c) => c.status === "active")
+    .flatMap((c) => c.suggestions ?? [])
+    .slice(0, 4);
 
   const mainStyle = {
     backgroundImage: isLight
@@ -463,6 +501,7 @@ export default function DashboardPage() {
         onDeleteChat={handleDeleteChat}
         connections={connections || []}
         onDeleteConnection={handleDeleteConnection}
+        onOpenConnection={setOpenBridgeId}
         onOpenAddDb={() => setIsDbModalOpen(true)}
         onOpenUpload={() => setIsUploadModalOpen(true)}
         onOpenApiKey={() => setIsApiKeyModalOpen(true)}
@@ -527,7 +566,28 @@ export default function DashboardPage() {
                     onSearchWebChange={setSearchWeb}
                     exhaustedModels={exhaustedModels}
                     usage={usage}
+                    connections={connections}
+                    selectedBridgeIds={selectedBridgeIds}
+                    onBridgeChange={handleBridgeChange}
                   />
+                  {bridgeSuggestions.length > 0 && (
+                    <div className="mt-6">
+                      <p className="flex items-center gap-1.5 mb-2.5 px-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)] select-none">
+                        <Sparkles size={11} /> Ask your data
+                      </p>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {bridgeSuggestions.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => handleSendMessage(q, currentModel, searchWeb)}
+                            className="text-left px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-raised)] text-[12.5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--orange)]/30 transition-all cursor-pointer"
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-8">
                     <CategoryPills onSelect={(prompt) => handleSendMessage(prompt, currentModel, searchWeb)} />
                   </div>
@@ -583,6 +643,9 @@ export default function DashboardPage() {
                 onSearchWebChange={setSearchWeb}
                 exhaustedModels={exhaustedModels}
                 usage={usage}
+                connections={connections}
+                selectedBridgeIds={selectedBridgeIds}
+                onBridgeChange={handleBridgeChange}
               />
               <p className="text-[10px] text-center opacity-20 font-bold uppercase tracking-widest select-none">
                 AI may display inaccurate info.
@@ -596,6 +659,16 @@ export default function DashboardPage() {
       <ConnectDbModal
         isOpen={isDbModalOpen}
         onClose={() => { setIsDbModalOpen(false); handleConnectionAdded(); }}
+        onCreated={handleConnectionAdded}
+        onAsk={(q) => handleSendMessage(q, currentModel, searchWeb)}
+      />
+
+      <BridgeDetailsDrawer
+        bridgeId={openBridgeId}
+        onClose={() => setOpenBridgeId(null)}
+        onChanged={handleConnectionAdded}
+        onDeleted={(id) => setConnections((prev) => prev.filter((c) => c._id !== id))}
+        onAsk={(q) => handleSendMessage(q, currentModel, searchWeb)}
       />
 
       <UploadModal

@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { cryptoService } from "../utils/crypto";
 import { Connection } from "@wup/models";
+import type { ToolContext } from "./types";
 
 /**
  * Reads data from a bridged Google Sheet.
@@ -9,12 +10,11 @@ export const read_sheets = async ({ connectionId, sheetName, range = "A1:Z100" }
   connectionId: string,
   sheetName?: string,
   range?: string
-}) => {
+}, ctx: ToolContext) => {
   console.log(`[WUP Brain Tool] Reading Google Sheet for connection ${connectionId}`);
 
   try {
-    const conn = await Connection.findById(connectionId);
-    if (!conn) throw new Error("Connection not found");
+    const conn = await loadSheetsConnection(connectionId, ctx);
 
     // Decrypting the Sheet URL or ID
     const sheetConfig = cryptoService.decrypt(conn.config);
@@ -71,12 +71,11 @@ export const read_sheets = async ({ connectionId, sheetName, range = "A1:Z100" }
 /**
  * Lists the available sheets (tabs) in a Google Spreadsheet.
  */
-export const get_sheets_metadata = async ({ connectionId }: { connectionId: string }) => {
+export const get_sheets_metadata = async ({ connectionId }: { connectionId: string }, ctx: ToolContext) => {
   console.log(`[WUP Brain Tool] Getting Spreadsheet metadata for connection ${connectionId}`);
 
   try {
-    const conn = await Connection.findById(connectionId);
-    if (!conn) throw new Error("Connection not found");
+    const conn = await loadSheetsConnection(connectionId, ctx);
 
     const sheetConfig = cryptoService.decrypt(conn.config);
     const spreadsheetIdMatch = sheetConfig.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
@@ -124,3 +123,13 @@ export const get_sheets_metadata = async ({ connectionId }: { connectionId: stri
     };
   }
 };
+
+/** Loads a Sheets bridge owned by the current user and enabled for this chat. */
+async function loadSheetsConnection(connectionId: string, ctx: ToolContext) {
+  if (ctx.allowedConnectionIds?.length && !ctx.allowedConnectionIds.includes(String(connectionId))) {
+    throw new Error("That bridge isn't enabled for this chat.");
+  }
+  const conn = await Connection.findOne({ _id: connectionId, userId: ctx.userId }).catch(() => null);
+  if (!conn) throw new Error("Connection not found");
+  return conn;
+}

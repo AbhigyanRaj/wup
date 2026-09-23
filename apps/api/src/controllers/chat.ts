@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import { Chat } from "@wup/models";
-import { Message } from "@wup/models";
+import { Chat, Connection, Message } from "@wup/models";
 import { brain, CHAT_CONTEXT_MAX_MESSAGES, type ChatTurn } from "@wup/brain";
 
 /**
@@ -87,6 +86,7 @@ export const saveMessage = async (req: Request, res: Response) => {
       chatHistory,
       model,
       searchWeb,
+      bridgeIds: ((chat as any).bridgeIds ?? []).map((id: any) => String(id)),
       onStatus: (message: string) => {
         res.write(`data: ${JSON.stringify({ type: "status", message })}\n\n`);
       }
@@ -116,6 +116,7 @@ export const saveMessage = async (req: Request, res: Response) => {
       chartData: finalMetadata?.chartData ?? null,
       tableData: finalMetadata?.tableData ?? null,
       diagramData: finalMetadata?.diagramData ?? null,
+      queries: finalMetadata?.queries ?? [],
     });
 
     // 4. Update chat timestamp
@@ -142,6 +143,28 @@ export const saveMessage = async (req: Request, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: "error", message: "Failed to process chat" })}\n\n`);
       res.end();
     }
+  }
+};
+
+export const updateChat = async (req: Request, res: Response) => {
+  const { chatId } = req.params;
+  const { title, bridgeIds } = req.body;
+  const userId = (req as any).user.id;
+
+  try {
+    const chat: any = await Chat.findOne({ _id: chatId, userId });
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+
+    if (title) chat.title = title;
+    if (Array.isArray(bridgeIds)) {
+      // Only keep bridges the user actually owns
+      const owned = await Connection.find({ _id: { $in: bridgeIds }, userId }).select("_id").lean();
+      chat.bridgeIds = owned.map((c) => c._id);
+    }
+    await chat.save();
+    res.json(chat);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update chat" });
   }
 };
 

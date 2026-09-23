@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { ArrowUp, ChevronDown, Paperclip, Globe } from "lucide-react";
+import { ArrowUp, ChevronDown, Paperclip, Globe, Database, Check } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "@/components/theme-provider";
 
 const MODELS = [
   { id: "Auto-Rotate",              name: "Auto",        desc: "Best available" },
   { id: "gemini-2.5-flash",         name: "Gemini 2.5",  desc: "Premium"        },
-  { id: "gemini-2.0-flash",         name: "Gemini 2.0",  desc: "Balanced"       },
+  { id: "gemini-flash-latest",      name: "Flash Latest", desc: "Balanced"      },
   { id: "gemini-flash-lite-latest", name: "Flash Lite",  desc: "Fastest"        },
 ];
 
@@ -20,16 +20,42 @@ interface AskBarProps {
   onSearchWebChange: (searchWeb: boolean) => void;
   exhaustedModels?: string[];
   usage?: { freeTierUsage: number; freeTierLimit: number; hasCustomKey: boolean; availableModels?: string[] } | null;
+  /** Data bridges the user can pick from for this chat. */
+  connections?: { _id: string; name: string }[];
+  /** Bridges enabled for this chat; empty = all. */
+  selectedBridgeIds?: string[];
+  onBridgeChange?: (ids: string[]) => void;
 }
 
-export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSearchWebChange, exhaustedModels = [], usage }: AskBarProps) {
+export function AskBar({
+  onSubmit, selectedModel, onModelChange, searchWeb, onSearchWebChange, exhaustedModels = [], usage,
+  connections = [], selectedBridgeIds = [], onBridgeChange,
+}: AskBarProps) {
   const { theme } = useTheme();
   const isLight = theme === "light";
   
   const [input, setInput]         = useState("");
   const [focused, setFocused]     = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [bridgeOpen, setBridgeOpen] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  // Ignore selections for bridges that no longer exist
+  const activeBridgeIds = selectedBridgeIds.filter((id) => connections.some((c) => c._id === id));
+  const bridgeLabel =
+    activeBridgeIds.length === 0 || activeBridgeIds.length === connections.length
+      ? connections.length === 1 ? connections[0].name : "All data"
+      : activeBridgeIds.length === 1
+      ? connections.find((c) => c._id === activeBridgeIds[0])?.name ?? "1 bridge"
+      : `${activeBridgeIds.length} bridges`;
+
+  const toggleBridge = (id: string) => {
+    if (!onBridgeChange) return;
+    const base = activeBridgeIds.length === 0 ? connections.map((c) => c._id) : activeBridgeIds;
+    const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    // Everything selected (or nothing left) means "all bridges"
+    onBridgeChange(next.length === 0 || next.length === connections.length ? [] : next);
+  };
 
   const isLimitReached = !!(usage && !usage.hasCustomKey && usage.freeTierUsage >= usage.freeTierLimit);
   const canSend     = input.trim().length > 0 && !isLimitReached;
@@ -75,6 +101,7 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSe
     onSubmit(input.trim(), selectedModel, searchWeb);
     setInput("");
     setModelOpen(false);
+    setBridgeOpen(false);
     if (ref.current) ref.current.style.height = "auto";
   };
 
@@ -159,6 +186,56 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSe
         )}
       </AnimatePresence>
 
+      {/* ── Bridge dropdown ────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {bridgeOpen && connections.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="absolute bottom-full mb-2 left-0 z-50 w-60 rounded-xl overflow-hidden border"
+            style={{
+              background: "var(--bg-overlay)",
+              borderColor: "var(--border)",
+              boxShadow: isLight ? "0 8px 30px rgba(0,0,0,0.06)" : "0 8px 40px rgba(0,0,0,0.6)",
+            }}
+          >
+            <p className="px-3.5 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              Data this chat can use
+            </p>
+            <div className="max-h-[260px] overflow-y-auto pb-1.5">
+              <button
+                onClick={() => onBridgeChange?.([])}
+                className="w-full flex items-center justify-between px-4 py-2 text-left text-[12.5px] hover:bg-[var(--bg-highlight)] cursor-pointer"
+                style={{ color: activeBridgeIds.length === 0 ? "var(--orange)" : "var(--text-secondary)" }}
+              >
+                All bridges
+                {activeBridgeIds.length === 0 && <Check size={13} />}
+              </button>
+              {connections.map((c) => {
+                const on = activeBridgeIds.length === 0 || activeBridgeIds.includes(c._id);
+                return (
+                  <button
+                    key={c._id}
+                    onClick={() => toggleBridge(c._id)}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-[var(--bg-highlight)] cursor-pointer"
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center shrink-0"
+                      style={{ borderColor: on ? "var(--orange)" : "var(--border-hover)", background: on ? "var(--orange)" : "transparent" }}
+                    >
+                      {on && <Check size={10} strokeWidth={3} color="white" />}
+                    </span>
+                    <span className="text-[12.5px] truncate" style={{ color: "var(--text-secondary)" }}>{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Main input card ────────────────────────────────────────────────── */}
       <div
         className="relative transition-all duration-300 ease-out group border"
@@ -229,9 +306,24 @@ export function AskBar({ onSubmit, selectedModel, onModelChange, searchWeb, onSe
 
             <div className="w-[1px] h-4 bg-[var(--border)] mx-1" />
 
+            {/* Bridge selector */}
+            {connections.length > 0 && onBridgeChange && (
+              <>
+                <button
+                  onClick={() => { setBridgeOpen((o) => !o); setModelOpen(false); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer max-w-[160px] ${activeBridgeIds.length > 0 ? "bg-[var(--orange)]/10 text-[var(--orange)]" : "hover:bg-[var(--bg-highlight)] text-[var(--text-secondary)]"}`}
+                  title="Choose which data bridges this chat can query"
+                >
+                  <Database size={13} className="shrink-0" />
+                  <span className="opacity-90 truncate normal-case tracking-normal font-semibold">{bridgeLabel}</span>
+                </button>
+                <div className="w-[1px] h-4 bg-[var(--border)] mx-1" />
+              </>
+            )}
+
             {/* Model picker trigger */}
             <button
-              onClick={() => setModelOpen(o => !o)}
+              onClick={() => { setModelOpen(o => !o); setBridgeOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold tracking-wide uppercase transition-all hover:bg-[var(--bg-highlight)] cursor-pointer"
               style={{
                 color: modelOpen ? "var(--text-primary)" : "var(--text-secondary)",

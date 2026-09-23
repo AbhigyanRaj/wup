@@ -1,15 +1,16 @@
-import { query_mongodb, get_mongodb_schema } from "./mongodb";
 import { read_sheets, get_sheets_metadata } from "./sheets";
 import { web_search } from "./websearch";
+import { MONGO_TOOLS, MONGO_TOOL_DECLARATIONS } from "../bridges/mongo/tools";
+import type { ToolFn } from "./types";
 
 /**
  * Registry of all intelligence tools available to the WUP Brain.
- * Each entry maps a Gemini Tool Name to its execution logic.
+ * Each entry maps a tool name to its execution logic. Every tool receives a
+ * ToolContext (userId, allowed bridges, query recorder) as its second argument.
  */
 
-export const WUP_TOOLS_REGISTRY: Record<string, Function> = {
-  query_mongodb,
-  get_mongodb_schema,
+export const WUP_TOOLS_REGISTRY: Record<string, ToolFn> = {
+  ...MONGO_TOOLS,
   read_sheets,
   get_sheets_metadata,
   web_search
@@ -33,31 +34,7 @@ export const WUP_AI_TOOLS = [
           required: ["query"]
         }
       },
-      {
-        name: "query_mongodb",
-        description: "Executes a read-only query on a bridged MongoDB collection.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            connectionId: { type: "STRING", description: "The ID of the MongoDB connection bridge." },
-            collection: { type: "STRING", description: "The name of the collection to query." },
-            query: { type: "OBJECT", description: "The MongoDB query object (e.g. { category: 'sales' })." },
-            limit: { type: "NUMBER", description: "Max records to return (default 10)." }
-          },
-          required: ["connectionId", "collection"]
-        }
-      },
-      {
-        name: "get_mongodb_schema",
-        description: "Lists all collections available in a bridged MongoDB connection.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            connectionId: { type: "STRING", description: "The ID of the MongoDB connection bridge." }
-          },
-          required: ["connectionId"]
-        }
-      },
+      ...MONGO_TOOL_DECLARATIONS,
       {
         name: "read_sheets",
         description: "Reads a range of data from a bridged Google Sheet. Requires a sheetName (tab name).",

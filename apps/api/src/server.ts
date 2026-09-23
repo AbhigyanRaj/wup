@@ -1,6 +1,7 @@
+// Load .env before any other import: several modules read process.env at load time
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import connectionRoutes from "./routes/connection";
@@ -10,8 +11,6 @@ import userRoutes from "./routes/user";
 
 // Register models so Mongoose knows them before any package references them by name
 import "@wup/models";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;

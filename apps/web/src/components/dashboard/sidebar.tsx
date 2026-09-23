@@ -12,6 +12,7 @@ import { useTheme } from "@/components/theme-provider";
 import { Chat } from "@/app/dashboard/page";
 import { AnimatePresence, motion } from "framer-motion";
 import { KnowledgeSource } from "./upload-modal";
+import { StatusDot as BridgeStatusDot } from "./bridge-details-drawer";
 
 interface SidebarProps {
   chats: Chat[];
@@ -19,8 +20,9 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
-  connections: { _id: string; name: string; type: string }[];
+  connections: { _id: string; name: string; type: string; status?: string }[];
   onDeleteConnection: (id: string) => void;
+  onOpenConnection?: (id: string) => void;
   onOpenAddDb: () => void;
   onOpenUpload: () => void;
   onOpenApiKey: () => void;
@@ -50,7 +52,7 @@ function SectionLabel({ label }: { label: string }) {
 
 export function DashboardSidebar({
   chats, activeChatId, onNewChat, onSelectChat, onDeleteChat,
-  connections, onDeleteConnection, onOpenAddDb, onOpenUpload, onOpenApiKey, onOpenResearch,
+  connections, onDeleteConnection, onOpenConnection, onOpenAddDb, onOpenUpload, onOpenApiKey, onOpenResearch,
   knowledgeSources, onDeleteSource, isMobileOpen, onCloseMobile, usage,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -229,14 +231,16 @@ export function DashboardSidebar({
               {connections.map((conn) => (
                 <div
                   key={`b-${conn._id}`}
-                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-[var(--bg-highlight)]"
+                  onClick={() => { onOpenConnection?.(conn._id); onCloseMobile?.(); }}
+                  title={conn.status === "error" ? "Bridge needs attention" : "Open bridge details"}
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-[var(--bg-highlight)] cursor-pointer"
                 >
                   {expanded ? (
                     <>
-                      <div className="w-1.5 h-1.5 rounded-full shrink-0 opacity-40" style={{ background: "var(--text-primary)" }} />
+                      <BridgeStatusDot status={conn.status ?? "active"} />
                       <span className="flex-1 text-[13px] font-light truncate tracking-wide" style={{ color: "var(--text-secondary)" }}>{conn.name}</span>
                       <button
-                        onClick={() => onDeleteConnection(conn._id)}
+                        onClick={(e) => { e.stopPropagation(); onDeleteConnection(conn._id); }}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded-md transition-all hover:bg-[var(--bg-overlay)]"
                         style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}

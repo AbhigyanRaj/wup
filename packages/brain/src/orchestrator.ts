@@ -2,19 +2,23 @@ import type { Content } from "@google/generative-ai";
 import { Connection } from "@wup/models";
 import { User } from "@wup/models";
 import { getGeminiModel, WUP_SYSTEM_PROMPT } from "./ai/gemini";
+import { streamWithTools, resolveModel, type CustomProvider } from "./ai/providers";
 import { WUP_AI_TOOLS, WUP_TOOLS_REGISTRY } from "./tools/registry";
-import { ragService, safeRetrieve, buildRagContext } from "./rag/retriever";
+import type { QueryRecord, ToolContext } from "./tools/types";
+import { ragService, safeRetrieve, buildRagContext, type RetrievedChunk } from "./rag/retriever";
+import { buildBridgeDigest } from "./bridges/mongo/digest";
+import { rowsToTable } from "./bridges/mongo/values";
 
 /**
  * BrainOrchestrator: The central intelligence engine for WUP.
  *
  * Query pipeline (RAG-first):
- *   1. Fetch user's active DB bridges (connections)
+ *   1. Fetch user's active DB bridges (connections), filtered by the chat's selection
  *   2. RAG retrieval — embed query → vector search → top-K chunks (non-blocking)
- *   3. Build context: [RAG chunks] + [chat history] + [bridge list]
- *   4. Call Gemini LLM with full context + tools
- *   5. Execute tool calls if any (DB bridge function-calling loop)
- *   6. Return grounded answer + source citations
+ *   3. Build context: [RAG chunks] + [chat history] + [bridge schema digest]
+ *   4. Call the LLM (Gemini, or the user's own provider) with full context + tools
+ *   5. Execute tool calls (DB bridge function-calling loop), recording each query
+ *   6. Return a grounded answer: tables/charts are built from the real query rows
  */
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -49,6 +53,8 @@ export interface BrainResponse {
     title: string;
     url: string;
   }>;
+  /** Database queries run to produce this answer (shown as "Query used") */
+  queries?: QueryRecord[];
   visualType?: "none" | "mermaid" | "chart" | "table" | "diagram";
   chartData?: {
     type: "bar" | "line" | "pie";
@@ -72,6 +78,17 @@ export interface ChatTurn {
   role: "user" | "assistant" | "system";
   content: string;
 }
+
+export interface AskOptions {
+  chatHistory?: ChatTurn[];
+  model?: string;
+  searchWeb?: boolean;
+  /** Bridges enabled for this chat; empty/undefined = all of the user's bridges */
+  bridgeIds?: string[];
+  onStatus?: (message: string) => void;
+}
+
+type BrainResult = BrainResponse & { usedModel?: string; exhausted?: string[] };
 
 interface GeminiError extends Error {
   status?: number;
@@ -125,6 +142,16 @@ function buildGeminiHistory(turns: ChatTurn[]): Content[] {
 const META_START = "---WUP_META---";
 const META_END = "---END_WUP_META---";
 
+interface StructuredResponse {
+  content: string;
+  followUps: FollowUpSuggestion[];
+  clarification?: ClarificationData;
+  visualType: string;
+  chartData?: any;
+  tableData?: any;
+  diagramData?: any;
+}
+
 /**
  * Splits the model's response on delimiter markers to extract:
  *   - content: the clean markdown before the meta block
@@ -133,15 +160,7 @@ const META_END = "---END_WUP_META---";
  *
  * Gracefully falls back to plain text with empty followUps if parsing fails.
  */
-function parseStructuredResponse(raw: string): {
-  content: string;
-  followUps: FollowUpSuggestion[];
-  clarification?: ClarificationData;
-  visualType: string;
-  chartData?: any;
-  tableData?: any;
-  diagramData?: any;
-} {
+export function parseStructuredResponse(raw: string): StructuredResponse {
   const metaStart = raw.indexOf(META_START);
   const metaEnd = raw.indexOf(META_END);
 
@@ -180,699 +199,449 @@ function parseStructuredResponse(raw: string): {
   }
 }
 
-async function* streamOpenAICompatible(
-  url: string,
-  apiKey: string,
-  modelName: string,
-  systemInstruction: string,
-  prompt: string,
-  chatHistory: ChatTurn[],
-  provider: string
-): AsyncGenerator<string, void, unknown> {
-  const messages = [
-    { role: "system", content: systemInstruction },
-    ...chatHistory.map(turn => ({
-      role: turn.role === "assistant" ? "assistant" : "user",
-      content: turn.content
-    })),
-    { role: "user", content: prompt }
-  ];
+/**
+ * Hides the meta block from the token stream. Holds back the last
+ * (META_START.length - 1) characters so a marker split across chunks is caught.
+ */
+export class MetaStreamFilter {
+  private buffer = "";
+  private metaStarted = false;
+  private visible = "";
+  private meta = "";
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (provider === "anthropic") {
-    headers["x-api-key"] = apiKey;
-    headers["anthropic-version"] = "2023-06-01";
-  } else {
-    headers["Authorization"] = `Bearer ${apiKey}`;
-  }
-
-  if (provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://wuup.ai";
-    headers["X-Title"] = "Wuup";
-  }
-
-  let resolvedModel = modelName;
-  if (modelName === "Auto-Rotate") {
-    if (provider === "openrouter") {
-      resolvedModel = "google/gemini-2.5-flash";
-    } else if (provider === "openai") {
-      resolvedModel = "gpt-4o-mini";
-    } else {
-      resolvedModel = "claude-3-5-sonnet-20241022";
+  push(text: string): string {
+    if (this.metaStarted) {
+      this.meta += text;
+      return "";
     }
-  }
-
-  const payload: any = {
-    model: resolvedModel,
-    stream: true,
-  };
-
-  if (provider === "anthropic") {
-    payload.messages = messages.filter(m => m.role !== "system");
-    const sysMsg = messages.find(m => m.role === "system");
-    if (sysMsg) {
-      payload.system = sysMsg.content;
+    this.buffer += text;
+    const idx = this.buffer.indexOf(META_START);
+    if (idx !== -1) {
+      this.metaStarted = true;
+      const out = this.buffer.slice(0, idx);
+      this.meta = this.buffer.slice(idx + META_START.length);
+      this.buffer = "";
+      this.visible += out;
+      return out;
     }
-    payload.max_tokens = 4096;
-  } else {
-    payload.messages = messages;
-    payload.temperature = 0.2;
+    const safeLength = this.buffer.length - (META_START.length - 1);
+    if (safeLength <= 0) return "";
+    const out = this.buffer.slice(0, safeLength);
+    this.buffer = this.buffer.slice(safeLength);
+    this.visible += out;
+    return out;
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let parsedErr = errorText;
-    try {
-      const parsed = JSON.parse(errorText);
-      parsedErr = parsed.error?.message || parsed.message || errorText;
-    } catch (e) {}
-    throw new Error(`API error: ${response.status} - ${parsedErr}`);
+  /** Flushes held-back text when the stream ends without a meta block. */
+  flush(): string {
+    if (this.metaStarted) return "";
+    const out = this.buffer;
+    this.buffer = "";
+    this.visible += out;
+    return out;
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("Response body is not readable");
-  }
-
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        const cleanLine = line.trim();
-        if (!cleanLine) continue;
-        if (cleanLine.startsWith("data: ")) {
-          const dataStr = cleanLine.slice(6);
-          if (dataStr === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(dataStr);
-            if (parsed.error?.message) {
-              throw new Error(parsed.error.message);
-            }
-            if (provider === "anthropic") {
-              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-                yield parsed.delta.text;
-              }
-            } else {
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                yield content;
-              }
-            }
-          } catch (e: any) {
-            if (e instanceof SyntaxError) {
-              // Ignore partial chunk syntax parse errors
-            } else {
-              throw e;
-            }
-          }
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
+  /** The full response (visible text + meta block) for parseStructuredResponse. */
+  fullText(): string {
+    return this.metaStarted ? this.visible + META_START + this.meta : this.visible + this.buffer;
   }
 }
 
+// ─── Grounding ────────────────────────────────────────────────────────────────
+
+const MAX_CHART_POINTS = 50;
+
+/**
+ * Replaces model-written table/chart data with the real rows from the last
+ * database query, so numbers on screen always match what the database returned.
+ */
+export function applyGrounding(structured: StructuredResponse, rows?: Array<Record<string, any>>): StructuredResponse {
+  if (!rows || rows.length === 0 || structured.clarification) return structured;
+  const vt = structured.visualType;
+  if (vt === "diagram" || vt === "mermaid") return structured;
+
+  const table = rowsToTable(rows);
+  const x = structured.chartData?.xAxisKey;
+  const y = structured.chartData?.yAxisKey;
+  if (vt === "chart" && x && y && table.rows.every((r) => x in r && y in r)) {
+    return {
+      ...structured,
+      chartData: {
+        ...structured.chartData,
+        series: table.rows.slice(0, MAX_CHART_POINTS).map((r) => ({ [x]: String(r[x]), [y]: Number(r[y]) || 0 })),
+      },
+      tableData: table,
+    };
+  }
+  return { ...structured, visualType: "table", chartData: undefined, tableData: table };
+}
+
+/** Collects database queries and the last result rows during one request. */
+class QueryRecorder {
+  queries: QueryRecord[] = [];
+  lastRows?: Array<Record<string, any>>;
+
+  /** Clears state before retrying the request on another model. */
+  reset() {
+    this.queries = [];
+    this.lastRows = undefined;
+  }
+
+  record = (record: QueryRecord, rows?: Array<Record<string, any>>) => {
+    if (record.tool === "mongo_describe") return;
+    this.queries.push(record);
+    if (!record.error && rows && rows.length > 0) this.lastRows = rows;
+  };
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
+
+const LIMIT_MSG =
+  "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.";
+
+const DATA_BRIDGE_PROMPT = `
+
+DATA BRIDGE RULES:
+- The bridge digest below lists every queryable collection with its real field names and types. Use those exact field names; never guess.
+- If a collection shows no fields, call mongo_describe before querying it.
+- "How many" questions: use mongo_count. Grouping, averages, top-N, trends, joins: use mongo_aggregate. Listing or looking up records: use mongo_find with a projection of the relevant fields.
+- Filters and pipelines are Extended JSON strings: {"$oid":"..."} for ObjectIds, {"$date":"2024-01-01T00:00:00Z"} for dates.
+- Never invent numbers or records. Every figure you state must come from a tool result. If a query returns nothing or fails, say so plainly and suggest a fix.
+- The app renders the real query rows automatically. For database answers do NOT write rows into tableData or chartData.series. For a chart, set visualType "chart" with chartData.type, xAxisKey and yAxisKey naming fields in your last query's result (use $project to give them readable names) and leave series empty.
+- If a tool says a field is hidden or a collection isn't enabled, tell the user; don't try to work around it.`;
 
 export class BrainOrchestrator {
   /** Models tried in order during Auto-Rotate mode */
   private static readonly MODEL_ROTATION = [
     "gemini-2.5-flash",
-    "gemini-2.0-flash",
+    "gemini-flash-latest",
     "gemini-flash-lite-latest",
-    "gemini-1.5-flash-latest",
+    "gemini-2.5-flash-lite",
   ];
 
   /** Models that hit daily limits in this server process lifetime */
   private static exhaustedModels = new Set<string>();
 
   /**
-   * Main entry point for a user's question to the Brain.
-   *
-   * @param userId      Authenticated user ID (used for RAG scoping + bridge lookup)
-   * @param prompt      The current user message
-   * @param options.chatHistory  Prior turns in this thread (oldest → newest)
-   * @param options.model        Specific model name, or "Auto-Rotate"
+   * Non-streaming variant: consumes askStream and returns the final metadata.
    */
-  async ask(
-    userId: string,
-    prompt: string,
-    options?: { chatHistory?: ChatTurn[]; model?: string }
-  ): Promise<BrainResponse & { usedModel?: string; exhausted?: string[] }> {
-    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
-    const geminiHistory = buildGeminiHistory(historyTurns);
-
-    const requestedModel = options?.model;
-    const modelsToTry =
-      requestedModel && requestedModel !== "Auto-Rotate"
-        ? [requestedModel]
-        : BrainOrchestrator.MODEL_ROTATION.filter(
-            (m) => !BrainOrchestrator.exhaustedModels.has(m)
-          );
-
-    // Fallback: if all preferred models are exhausted, try the last one anyway
-    if (modelsToTry.length === 0) {
-      modelsToTry.push(
-        BrainOrchestrator.MODEL_ROTATION[BrainOrchestrator.MODEL_ROTATION.length - 1]
-      );
+  async ask(userId: string, prompt: string, options?: AskOptions): Promise<BrainResult> {
+    let final: BrainResult | undefined;
+    let text = "";
+    for await (const chunk of this.askStream(userId, prompt, options)) {
+      if (typeof chunk === "string") text += chunk;
+      else final = chunk.data;
     }
-
-    console.log(
-      `[WUP Brain] Query from userId=${userId} | model=${requestedModel || "Auto-Rotate"} | prompt="${prompt.slice(0, 80)}..."`
-    );
-
-    // ── Step 0: Check Hybrid Model Limits ───────────────────────────────────
-    const user = await User.findById(userId);
-    let customKey: string | undefined = undefined;
-
-    if (user) {
-      const u = user as any;
-      if (u.customApiKey) {
-        customKey = u.customApiKey;
-        console.log(`[WUP Brain] Using custom API key for user ${userId}`);
-      } else {
-        if (u.freeTierUsage >= u.freeTierLimit) {
-          console.log(`[WUP Brain] User ${userId} hit free tier limit`);
-          return {
-            content: "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.",
-            source: "system",
-            followUps: [
-              { label: "Add API Key", suggestedPrompt: "How do I add my API key?" }
-            ]
-          };
-        }
-        u.freeTierUsage += 1;
-        await user.save();
-        console.log(`[WUP Brain] User ${userId} free tier usage: ${u.freeTierUsage}/${u.freeTierLimit}`);
-      }
-    }
-
-    if (user && (user as any).customApiKey && (user as any).customApiProvider && (user as any).customApiProvider !== "gemini") {
-      let fullText = "";
-      const stream = this.askStream(userId, prompt, options);
-      for await (const chunk of stream) {
-        if (typeof chunk === "string") {
-          fullText += chunk;
-        }
-      }
-      const structured = parseStructuredResponse(fullText);
-      return {
-        ...structured,
-        visualType: structured.visualType as any,
-        source: (user as any).customApiProvider,
-        usedModel: requestedModel || "Auto-Rotate"
-      };
-    }
-
-    // ── Step 1: Fetch active DB bridges ──────────────────────────────────────
-    const connections = await Connection.find({ userId });
-    const bridgeInfo = connections
-      .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
-      .join("\n");
-
-    // ── Step 2: RAG Retrieval (non-blocking — failure returns []) ─────────────
-    const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
-
-    if (retrievedChunks.length > 0) {
-      console.log(
-        `[WUP Brain] RAG: ${retrievedChunks.length} chunks retrieved | ` +
-        `top_score=${retrievedChunks[0].score.toFixed(3)}`
-      );
-    } else {
-      console.log(`[WUP Brain] RAG: no relevant chunks found — answering from general knowledge`);
-    }
-
-    // ── Step 3: Build dynamic system instruction ──────────────────────────────
-    const ragContext = buildRagContext(retrievedChunks);
-    const bridgeSection =
-      connections.length > 0
-        ? bridgeInfo
-        : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
-
-    const dynamicInstruction =
-      `${WUP_SYSTEM_PROMPT}` +
-      `${ragContext}` +
-      `\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
-
-    // ── Step 4: Model rotation loop ───────────────────────────────────────────
-    let lastErr: GeminiError | null = null;
-
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(`[WUP Brain] Attempting model: ${modelName}`);
-
-        const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName, customKey);
-        const chat = model.startChat({ history: geminiHistory });
-        let result = await this.callWithRetry(() => chat.sendMessage(prompt));
-        let response = result.response;
-
-        // ── Step 5: Tool call loop (DB bridge function-calling) ───────────────
-        let calls = response.functionCalls();
-        let turns = 0;
-        const MAX_TURNS = 5; // L-5: prevent runaway tool loops
-
-        while (calls && calls.length > 0 && turns < MAX_TURNS) {
-          turns++;
-          const toolResponses: any[] = [];
-
-          for (const call of calls) {
-            const toolFn = WUP_TOOLS_REGISTRY[call.name];
-            if (toolFn) {
-              console.log(`[WUP Brain] Tool call: ${call.name} (turn ${turns})`);
-              const toolResult = await toolFn(call.args);
-              toolResponses.push({
-                functionResponse: { name: call.name, response: toolResult },
-              });
-            }
-          }
-
-          if (toolResponses.length > 0) {
-            result = await this.callWithRetry(() => chat.sendMessage(toolResponses));
-            response = result.response;
-            calls = response.functionCalls();
-          } else {
-            break;
-          }
-        }
-
-        // ── Step 6: Return enriched response ──────────────────────────────────
-        const structured = parseStructuredResponse(response.text());
-        return {
-          content: structured.content,
-          followUps: structured.followUps,
-          clarification: structured.clarification,
-          source: connections.length > 0 ? connections[0].name : undefined,
-          queryPerformed: calls && calls.length > 0 ? calls[0].name : undefined,
-          ragSources: retrievedChunks.map((c) => ({
-            sourceFile: c.metadata.sourceFile,
-            pageNumber: c.metadata.pageNumber,
-            score: c.score,
-          })),
-          usedModel: modelName,
-          exhausted: Array.from(BrainOrchestrator.exhaustedModels),
-        };
-      } catch (err: unknown) {
-        const error = err as GeminiError;
-        lastErr = error;
-
-        const isDailyQuota =
-          JSON.stringify(error.errorDetails)?.includes("PerDay") ||
-          error.message?.includes("RESOURCE_EXHAUSTED");
-
-        if (isDailyQuota || error.status === 429) {
-          console.warn(
-            `[WUP Brain] Model ${modelName} hit limits. Marking exhausted.`
-          );
-          BrainOrchestrator.exhaustedModels.add(modelName);
-          continue; // Try next model
-        }
-
-        // Non-quota errors (404, 500, etc.) — try next model too
-        console.error(`[WUP Brain] Error with ${modelName}: ${error.message}`);
-        continue;
-      }
-    }
-
-    // All models failed
-    const isQuotaError =
-      lastErr?.message?.includes("quota") ||
-      JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
-
-    const isLocationError =
-      lastErr?.message?.toLowerCase().includes("location") ||
-      JSON.stringify(lastErr?.errorDetails)?.toLowerCase().includes("location");
-
-    const fallbackContent = isLocationError
-      ? "Google restricts direct Gemini API access from this server's region (Singapore). Please deploy your backend server in a supported region (like US-East or US-West), or add your own OpenAI, Anthropic, or OpenRouter API key in settings to continue chatting."
-      : isQuotaError
-      ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
-      : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
-
-    return {
-      content: fallbackContent,
-      exhausted: Array.from(BrainOrchestrator.exhaustedModels),
-    };
+    return final ?? { content: text };
   }
 
   /**
-   * SSE Streaming variant of ask(). 
-   * Yields text tokens as they stream, handles tool calls silently, and returns the final metadata object.
+   * Builds the system instruction: base prompt + web search + RAG context + bridge digest.
    */
-  async *askStream(
-    userId: string,
-    prompt: string,
-    options?: { chatHistory?: ChatTurn[]; model?: string; searchWeb?: boolean; onStatus?: (message: string) => void }
-  ): AsyncGenerator<
-    string | { type: "done"; data: BrainResponse & { usedModel?: string; exhausted?: string[] } },
-    BrainResponse & { usedModel?: string; exhausted?: string[] }
-  > {
-    options?.onStatus?.("Connecting to WUP Engine...");
-    
-    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
-    const geminiHistory = buildGeminiHistory(historyTurns);
-
-    const requestedModel = options?.model;
-    const modelsToTry = requestedModel && requestedModel !== "Auto-Rotate"
-        ? [requestedModel]
-        : BrainOrchestrator.MODEL_ROTATION.filter(m => !BrainOrchestrator.exhaustedModels.has(m));
-
-    if (modelsToTry.length === 0) {
-      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[BrainOrchestrator.MODEL_ROTATION.length - 1]);
-    }
-
-    const user = await User.findById(userId);
-    let customKey: string | undefined = undefined;
-
-    if (user) {
-      const u = user as any;
-      if (u.customApiKey) {
-        customKey = u.customApiKey;
-      } else {
-        if (u.freeTierUsage >= u.freeTierLimit) {
-          const limitMsg = "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.";
-          yield limitMsg;
-          return { content: limitMsg, source: "system", followUps: [{ label: "Add API Key", suggestedPrompt: "How do I add my API key?" }] };
-        }
-        u.freeTierUsage += 1;
-        await user.save();
-      }
-    }
-
-    if (user && (user as any).customApiKey && (user as any).customApiProvider && (user as any).customApiProvider !== "gemini") {
-      const u = user as any;
-      const customProvider = u.customApiProvider;
-      options?.onStatus?.("Searching Knowledge Base for context...");
-      const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
-      const ragContext = buildRagContext(retrievedChunks);
-
-      const connections = await Connection.find({ userId });
-      const bridgeInfo = connections
-        .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
-        .join("\n");
-      const bridgeSection = connections.length > 0 ? bridgeInfo : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
-
-      const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
-
-      options?.onStatus?.(`Routing to ${customProvider} model...`);
-      
-      let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
-      if (customProvider === "openai") {
-        apiUrl = "https://api.openai.com/v1/chat/completions";
-      } else if (customProvider === "anthropic") {
-        apiUrl = "https://api.anthropic.com/v1/messages";
-      }
-
-      let fullText = "";
-      try {
-        const stream = streamOpenAICompatible(
-          apiUrl,
-          u.customApiKey,
-          requestedModel || "Auto-Rotate",
-          dynamicInstruction,
-          prompt,
-          historyTurns,
-          customProvider
-        );
-
-        for await (const chunk of stream) {
-          fullText += chunk;
-          yield chunk;
-        }
-
-        const structured = parseStructuredResponse(fullText);
-        const finalResult = {
-          type: "done" as const,
-          data: {
-            content: structured.content,
-            followUps: structured.followUps,
-            clarification: structured.clarification,
-            source: connections.length > 0 ? connections[0].name : undefined,
-            ragSources: retrievedChunks.map((c) => ({
-              sourceFile: c.metadata.sourceFile,
-              pageNumber: c.metadata.pageNumber,
-              score: c.score,
-              text: c.text,
-            })),
-            webSources: [],
-            visualType: structured.visualType as any,
-            chartData: structured.chartData,
-            tableData: structured.tableData,
-            diagramData: structured.diagramData,
-            usedModel: requestedModel || "Auto-Rotate",
-            exhausted: []
-          }
-        };
-        yield finalResult;
-        return finalResult.data;
-      } catch (err: any) {
-        console.error(`[WUP Brain] ${customProvider} streaming error:`, err);
-        const errorMsg = `Error communicating with ${customProvider}: ${err.message || "Please verify your API key."}`;
-        yield errorMsg;
-        const fallbackResult = {
-          type: "done" as const,
-          data: {
-            content: errorMsg,
-            followUps: [{ label: "Verify API Key", suggestedPrompt: "How do I check my API key?" }],
-            visualType: "none" as const,
-            usedModel: requestedModel || "Auto-Rotate",
-            exhausted: []
-          }
-        };
-        yield fallbackResult;
-        return fallbackResult.data;
-      }
-    }
-
+  private async prepareContext(userId: string, prompt: string, options?: AskOptions) {
     options?.onStatus?.("Searching Knowledge Base for context...");
-
     const retrievedChunks = await safeRetrieve(ragService, userId, prompt);
-    const ragContext = buildRagContext(retrievedChunks);
-
     if (retrievedChunks.length > 0) {
       options?.onStatus?.(`Found ${retrievedChunks.length} relevant document chunks.`);
-    } else {
-      options?.onStatus?.(`No relevant documents found. Relying on general knowledge.`);
     }
 
-    const connections = await Connection.find({ userId });
-    
+    const filter: Record<string, unknown> = { userId };
+    if (options?.bridgeIds?.length) filter._id = { $in: options.bridgeIds };
+    const connections: any[] = await Connection.find(filter).select("-config").lean();
     if (connections.length > 0) {
-      options?.onStatus?.(`Checking ${connections.length} active database bridges...`);
+      options?.onStatus?.(`Checking ${connections.length} active database bridge${connections.length > 1 ? "s" : ""}...`);
     }
 
-    const bridgeInfo = connections
-      .map((c) => `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${c._id}`)
-      .join("\n");
-    const bridgeSection = connections.length > 0 ? bridgeInfo : "NONE. Remind the user to add a DB bridge via the 'Add DB' button.";
+    const bridgeSection =
+      connections.length > 0
+        ? `${DATA_BRIDGE_PROMPT}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${buildBridgeDigest(connections)}`
+        : "\n\nACTIVE DB BRIDGES FOR THIS USER:\nNONE. Remind the user to add a DB bridge via the 'Add DB' button.";
 
     const webSearchInstruction = options?.searchWeb
       ? "\n\nWEB SEARCH CAPABILITY:\n- You have a custom `web_search` tool. Use it to search the web for any current facts, news, realtime prices, cryptocurrency rates, weather, or public information outside of your database context. Cite any sources used."
       : "";
-    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${webSearchInstruction}${ragContext}\n\nACTIVE DB BRIDGES FOR THIS USER:\n${bridgeSection}`;
+
+    const dynamicInstruction = `${WUP_SYSTEM_PROMPT}${webSearchInstruction}${buildRagContext(retrievedChunks)}${bridgeSection}`;
+    return { retrievedChunks, connections, dynamicInstruction };
+  }
+
+  private buildResult(
+    structured: StructuredResponse,
+    ctx: {
+      recorder: QueryRecorder;
+      retrievedChunks: RetrievedChunk[];
+      connections: any[];
+      webSources: Array<{ title: string; url: string }>;
+      usedModel: string;
+      exhausted: string[];
+    }
+  ): BrainResult {
+    const grounded = applyGrounding(structured, ctx.recorder.lastRows);
+    const firstQuery = ctx.recorder.queries[0];
+    return {
+      content: grounded.content,
+      followUps: grounded.followUps,
+      clarification: grounded.clarification,
+      source: firstQuery?.connectionName ?? (ctx.connections.length > 0 ? ctx.connections[0].name : undefined),
+      queryPerformed: firstQuery?.tool,
+      queries: ctx.recorder.queries,
+      ragSources: ctx.retrievedChunks.map((c) => ({
+        sourceFile: c.metadata.sourceFile,
+        pageNumber: c.metadata.pageNumber,
+        score: c.score,
+        text: c.text,
+      })),
+      webSources: ctx.webSources,
+      visualType: grounded.visualType as BrainResponse["visualType"],
+      chartData: grounded.chartData,
+      tableData: grounded.tableData,
+      diagramData: grounded.diagramData,
+      usedModel: ctx.usedModel,
+      exhausted: ctx.exhausted,
+    };
+  }
+
+  /** Tool declarations for this request (web_search only when enabled). */
+  private toolDeclarations(searchWeb?: boolean): any[] {
+    return WUP_AI_TOOLS[0].functionDeclarations.filter((d: any) => searchWeb || d.name !== "web_search");
+  }
+
+  /**
+   * SSE Streaming entry point.
+   * Yields text tokens as they stream, handles tool calls, and yields a final { type: "done" } object.
+   */
+  async *askStream(
+    userId: string,
+    prompt: string,
+    options?: AskOptions
+  ): AsyncGenerator<string | { type: "done"; data: BrainResult }, BrainResult> {
+    options?.onStatus?.("Connecting to WUP Engine...");
+
+    const historyTurns = (options?.chatHistory ?? []).slice(-CHAT_CONTEXT_MAX_MESSAGES);
+    const requestedModel = options?.model;
+
+    // ── Step 0: Free tier / custom key ─────────────────────────────────────
+    const user: any = await User.findById(userId);
+    let customKey: string | undefined;
+
+    if (user) {
+      if (user.customApiKey) {
+        customKey = user.customApiKey;
+      } else {
+        if (user.freeTierUsage >= user.freeTierLimit) {
+          yield LIMIT_MSG;
+          const data: BrainResult = {
+            content: LIMIT_MSG,
+            source: "system",
+            followUps: [{ label: "Add API Key", suggestedPrompt: "How do I add my API key?" }],
+          };
+          yield { type: "done", data };
+          return data;
+        }
+        user.freeTierUsage += 1;
+        await user.save();
+      }
+    }
+
+    // ── Steps 1-3: Context ─────────────────────────────────────────────────
+    const { retrievedChunks, connections, dynamicInstruction } = await this.prepareContext(userId, prompt, options);
+
+    const recorder = new QueryRecorder();
+    const webSources: Array<{ title: string; url: string }> = [];
+    const toolCtx: ToolContext = {
+      userId,
+      allowedConnectionIds: options?.bridgeIds,
+      onQuery: recorder.record,
+      onStatus: options?.onStatus,
+    };
+
+    const executeTool = async (name: string, args: any) => {
+      const toolFn = WUP_TOOLS_REGISTRY[name];
+      if (!toolFn) return { success: false, error: `Unknown tool: ${name}` };
+      if (name === "web_search") {
+        options?.onStatus?.(`Searching the web for: "${args?.query ?? ""}"...`);
+      }
+      const result = await toolFn(args, toolCtx);
+      if (name === "web_search" && result?.results) {
+        for (const item of result.results) {
+          webSources.push({ title: item.title, url: item.url });
+          options?.onStatus?.(`Fetched source: ${item.title}`);
+        }
+        if (result.results.length === 0) options?.onStatus?.(`No web search results found.`);
+      }
+      return result;
+    };
+
+    // ── Step 4a: Bring-your-own-key providers ──────────────────────────────
+    const customProvider: string | undefined = user?.customApiKey ? user.customApiProvider : undefined;
+    if (customProvider && customProvider !== "gemini") {
+      const provider = customProvider as CustomProvider;
+      options?.onStatus?.(`Routing to ${provider} model...`);
+      const filter = new MetaStreamFilter();
+      try {
+        for await (const chunk of streamWithTools({
+          provider,
+          apiKey: user.customApiKey,
+          model: requestedModel || "Auto-Rotate",
+          systemInstruction: dynamicInstruction,
+          history: historyTurns,
+          prompt,
+          declarations: this.toolDeclarations(options?.searchWeb),
+          executeTool,
+        })) {
+          const out = filter.push(chunk);
+          if (out) yield out;
+        }
+        const tail = filter.flush();
+        if (tail) yield tail;
+
+        const data = this.buildResult(parseStructuredResponse(filter.fullText()), {
+          recorder,
+          retrievedChunks,
+          connections,
+          webSources,
+          usedModel: resolveModel(provider, requestedModel),
+          exhausted: [],
+        });
+        yield { type: "done", data };
+        return data;
+      } catch (err: any) {
+        console.error(`[WUP Brain] ${provider} streaming error:`, err?.message ?? err);
+        const errorMsg = `Error communicating with ${provider}: ${err?.message || "Please verify your API key."}`;
+        yield errorMsg;
+        const data: BrainResult = {
+          content: errorMsg,
+          followUps: [{ label: "Verify API Key", suggestedPrompt: "How do I check my API key?" }],
+          visualType: "none",
+          queries: recorder.queries,
+          usedModel: requestedModel || "Auto-Rotate",
+          exhausted: [],
+        };
+        yield { type: "done", data };
+        return data;
+      }
+    }
+
+    // ── Step 4b: Gemini with model rotation ────────────────────────────────
+    const geminiHistory = buildGeminiHistory(historyTurns);
+    const modelsToTry =
+      requestedModel && requestedModel !== "Auto-Rotate"
+        ? [requestedModel]
+        : BrainOrchestrator.MODEL_ROTATION.filter((m) => !BrainOrchestrator.exhaustedModels.has(m));
+    if (modelsToTry.length === 0) {
+      modelsToTry.push(BrainOrchestrator.MODEL_ROTATION[BrainOrchestrator.MODEL_ROTATION.length - 1]);
+    }
 
     let lastErr: GeminiError | null = null;
 
     for (const modelName of modelsToTry) {
+      // Nothing streamed yet for this model: safe to retry on the next one
+      let streamedAny = false;
       try {
         options?.onStatus?.(`Routing to ${modelName}...`);
+        recorder.reset();
+        webSources.length = 0;
         const model = getGeminiModel(dynamicInstruction, WUP_AI_TOOLS, modelName, customKey, options?.searchWeb);
-        const chat = model.startChat({ history: geminiHistory });
-        
-        if (options?.searchWeb) {
-           options?.onStatus?.(`Searching the web for current information...`);
-        } else {
-           options?.onStatus?.(`Generating Response...`);
-        }
+        options?.onStatus?.(options?.searchWeb ? `Searching the web for current information...` : `Generating Response...`);
 
-        let currentPrompt: any = prompt;
-        let turns = 0;
+        // Conversation is managed here rather than via ChatSession: current Gemini models
+        // reject the legacy "function" role the SDK uses for tool results, and Gemini 3
+        // requires the model's function-call parts (with thought signatures) echoed verbatim.
+        const contents: Content[] = [...geminiHistory, { role: "user", parts: [{ text: prompt }] }];
+        const filter = new MetaStreamFilter();
         const MAX_TURNS = 5;
-        const webSources: Array<{title: string, url: string}> = [];
 
-        while (turns < MAX_TURNS) {
-          turns++;
-          // Instead of sendMessage, we use sendMessageStream to stream tokens
-          const result = await this.callWithRetry(() => chat.sendMessageStream(currentPrompt));
-          
-          let hasToolCall = false;
-          let toolResponses: any[] = [];
-          
-          let fullText = "";
-          let buffer = "";
-          let metaStarted = false;
+        for (let turn = 0; turn < MAX_TURNS; turn++) {
+          const result = await this.callWithRetry(() => model.generateContentStream({ contents }));
+          const modelParts: any[] = [];
+          const calls: Array<{ name: string; args: any }> = [];
 
           for await (const chunk of result.stream) {
-            const calls = chunk.functionCalls();
-            if (calls && calls.length > 0) {
-              hasToolCall = true;
-              for (const call of calls) {
-                const toolFn = WUP_TOOLS_REGISTRY[call.name];
-                if (toolFn) {
-                  // Intercept web_search to stream progress to client
-                  if (call.name === "web_search") {
-                    const queryArg = (call.args as any)?.query ?? "";
-                    options?.onStatus?.(`Searching the web for: "${queryArg}"...`);
-                  }
-
-                  const toolResult = await toolFn(call.args);
-
-                  if (call.name === "web_search" && toolResult?.results) {
-                    const items = toolResult.results;
-                    for (const item of items) {
-                      webSources.push({ title: item.title, url: item.url });
-                      // Stream the actual source fetched in sequence to show in UI
-                      options?.onStatus?.(`Fetched source: ${item.title}`);
-                    }
-                    if (items.length === 0) {
-                      options?.onStatus?.(`No web search results found.`);
-                    }
-                  }
-
-                  toolResponses.push({
-                    functionResponse: { name: call.name, response: toolResult },
-                  });
+            for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
+              modelParts.push(part);
+              if (part.functionCall) {
+                calls.push({ name: part.functionCall.name, args: part.functionCall.args });
+              } else if (typeof part.text === "string" && !(part as any).thought && calls.length === 0) {
+                const out = filter.push(part.text);
+                if (out) {
+                  streamedAny = true;
+                  yield out;
                 }
               }
-              break; // exit stream chunk loop to handle tool responses
-            } else if (chunk.text) {
-              const textChunk = chunk.text();
-              buffer += textChunk;
-              
-              if (!metaStarted) {
-                const matchIdx = buffer.indexOf(META_START);
-                if (matchIdx !== -1) {
-                  metaStarted = true;
-                  const cleanNew = buffer.slice(0, matchIdx);
-                  if (cleanNew.length > 0) {
-                    fullText += cleanNew;
-                    yield cleanNew;
-                  }
-                  buffer = buffer.slice(matchIdx + META_START.length);
-                } else {
-                  // Not found yet. To prevent chunk boundaries from splitting META_START,
-                  // we yield everything EXCEPT the last (META_START.length - 1) characters.
-                  const safeLength = buffer.length - (META_START.length - 1);
-                  if (safeLength > 0) {
-                    const toYield = buffer.slice(0, safeLength);
-                    fullText += toYield;
-                    yield toYield;
-                    buffer = buffer.slice(safeLength);
-                  }
-                }
-              }
-              // If metaStarted is true, buffer just accumulates textChunk seamlessly
             }
           }
 
-          if (hasToolCall && toolResponses.length > 0) {
-            currentPrompt = toolResponses;
-            continue; // Go back to top of while loop with the tool response
+          if (calls.length > 0) {
+            contents.push({ role: "model", parts: modelParts });
+            const responses: any[] = [];
+            for (const call of calls) {
+              const toolResult = await executeTool(call.name, call.args);
+              responses.push({ functionResponse: { name: call.name, response: toolResult } });
+            }
+            contents.push({ role: "user", parts: responses });
+            continue; // send tool results back to the model
           }
 
-          // Complete response successfully generated
-          if (!metaStarted && buffer.length > 0) {
-             // Flush remaining buffer if we never hit META_START
-             fullText += buffer;
-             yield buffer;
-             buffer = "";
-          }
-
-          if (metaStarted) {
-             fullText += META_START + buffer; // reconstruct full string for the parser
-          }
+          const tail = filter.flush();
+          if (tail) yield tail;
 
           // Extract web sources from Gemini Grounding metadata
           const finalResponse = await result.response;
           const gm: any = finalResponse.candidates?.[0]?.groundingMetadata;
-          
-          if (gm) {
-             if (gm.groundingChunks) {
-                gm.groundingChunks.forEach((c: any) => {
-                   if (c.web?.uri) webSources.push({ url: c.web.uri, title: c.web.title || c.web.uri });
-                });
-             } else if (gm.web?.webUris) {
-                gm.web.webUris.forEach((u: any) => {
-                   webSources.push({ url: u.uri, title: u.title || u.uri });
-                });
-             }
+          if (gm?.groundingChunks) {
+            gm.groundingChunks.forEach((c: any) => {
+              if (c.web?.uri) webSources.push({ url: c.web.uri, title: c.web.title || c.web.uri });
+            });
+          } else if (gm?.web?.webUris) {
+            gm.web.webUris.forEach((u: any) => webSources.push({ url: u.uri, title: u.title || u.uri }));
           }
-
-          const structured = parseStructuredResponse(fullText);
-          const finalResult = {
-            type: "done" as const,
-            data: {
-              content: structured.content,
-              followUps: structured.followUps,
-              clarification: structured.clarification,
-              source: connections.length > 0 ? connections[0].name : undefined,
-              ragSources: retrievedChunks.map((c) => ({
-                sourceFile: c.metadata.sourceFile,
-                pageNumber: c.metadata.pageNumber,
-                score: c.score,
-                text: c.text,
-              })),
-              webSources,
-              visualType: structured.visualType as any,
-              chartData: structured.chartData,
-              tableData: structured.tableData,
-              diagramData: structured.diagramData,
-              usedModel: modelName,
-              exhausted: Array.from(BrainOrchestrator.exhaustedModels),
-            }
-          };
-          yield finalResult;
-          return finalResult.data;
+          break;
         }
+
+        const data = this.buildResult(parseStructuredResponse(filter.fullText()), {
+          recorder,
+          retrievedChunks,
+          connections,
+          webSources,
+          usedModel: modelName,
+          exhausted: Array.from(BrainOrchestrator.exhaustedModels),
+        });
+        yield { type: "done", data };
+        return data;
       } catch (err: unknown) {
         const error = err as GeminiError;
         lastErr = error;
-        const isDailyQuota = JSON.stringify(error.errorDetails)?.includes("PerDay") || error.message?.includes("RESOURCE_EXHAUSTED");
+        const isDailyQuota =
+          JSON.stringify(error.errorDetails)?.includes("PerDay") || error.message?.includes("RESOURCE_EXHAUSTED");
         if (isDailyQuota || error.status === 429) {
           BrainOrchestrator.exhaustedModels.add(modelName);
-          continue;
+        } else {
+          console.error(`[WUP Brain] Error with ${modelName}: ${error.message}`);
         }
-        continue;
+        // Retrying after partial output would duplicate text in the client
+        if (streamedAny) break;
       }
     }
 
-    const isQuotaError = lastErr?.message?.includes("quota") || JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
-    const isLocationError = lastErr?.message?.toLowerCase().includes("location") || JSON.stringify(lastErr?.errorDetails)?.toLowerCase().includes("location");
-    
+    const isQuotaError =
+      lastErr?.message?.includes("quota") || JSON.stringify(lastErr?.errorDetails)?.includes("QuotaFailure");
+    const isLocationError =
+      lastErr?.message?.toLowerCase().includes("location") ||
+      JSON.stringify(lastErr?.errorDetails)?.toLowerCase().includes("location");
+
     const fallbackMsg = isLocationError
-        ? "Google restricts direct Gemini API access from this server's region (Singapore). Please deploy your backend server in a supported region (like US-East or US-West), or add your own OpenAI, Anthropic, or OpenRouter API key in settings to continue chatting."
-        : isQuotaError
-        ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
-        : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
+      ? "Google restricts direct Gemini API access from this server's region (Singapore). Please deploy your backend server in a supported region (like US-East or US-West), or add your own OpenAI, Anthropic, or OpenRouter API key in settings to continue chatting."
+      : isQuotaError
+      ? "All available Gemini models have reached their daily limits. Please try again tomorrow."
+      : "I'm currently unable to process your request. Please try a different model or try again in a moment.";
     yield fallbackMsg;
-    const fallbackResult = {
-      type: "done" as const,
-      data: {
-        content: fallbackMsg,
-        exhausted: Array.from(BrainOrchestrator.exhaustedModels),
-      }
+    const data: BrainResult = {
+      content: fallbackMsg,
+      queries: recorder.queries,
+      exhausted: Array.from(BrainOrchestrator.exhaustedModels),
     };
-    yield fallbackResult;
-    return fallbackResult.data;
+    yield { type: "done", data };
+    return data;
   }
 
   /**
