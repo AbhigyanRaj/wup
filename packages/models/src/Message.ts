@@ -131,6 +131,23 @@ const messageErrorSchema = new mongoose.Schema(
   { _id: false }
 );
 
+/**
+ * A user's edited Excalidraw scene for one diagram of the message. Elements and
+ * files are opaque to the API (validated and size capped at the route).
+ */
+const diagramEditSchema = new mongoose.Schema(
+  {
+    elements: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    appState: {
+      viewBackgroundColor: { type: String },
+      gridSize: { type: Number },
+    },
+    files: { type: mongoose.Schema.Types.Mixed, default: {} },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false, minimize: false }
+);
+
 const messageSchema = new mongoose.Schema({
   chatId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -223,6 +240,11 @@ const messageSchema = new mongoose.Schema({
   },
   // Database queries executed to produce this answer (shown as "Query used")
   queries: [querySchema],
+  /**
+   * Edited diagrams, keyed "visual" (diagramData) or "m:<n>" (n-th mermaid
+   * fence in content). The generated version is never overwritten.
+   */
+  diagramEdits: { type: Map, of: diagramEditSchema, default: undefined },
   createdAt: {
     type: Date,
     default: Date.now,

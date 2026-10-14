@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DiagramData } from "@wup/contracts";
-import { toMermaid } from "./to-mermaid";
+import { toMermaid, toMermaidSource } from "./to-mermaid";
 import { normalizeDiagram, pickDirection } from "./normalize";
 
 describe("toMermaid", () => {
@@ -54,5 +54,20 @@ describe("normalizeDiagram", () => {
       edges: ["a", "b", "c", "d", "e"].map((to) => ({ from: "r", to })),
     });
     expect(pickDirection(d)).toBe("LR");
+  });
+});
+
+describe("toMermaidSource", () => {
+  it("maps Mermaid-safe ids to node kinds", () => {
+    const { code, kinds } = toMermaidSource({
+      nodes: [
+        { id: "end", label: "Done", type: "success" },
+        { id: "1-check", label: "Ok?", type: "decision" },
+      ],
+      edges: [{ from: "1-check", to: "end" }],
+    });
+    expect(code).toContain("n_1_check -->");
+    expect(kinds.get("n_end")).toBe("success");
+    expect(kinds.get("n_1_check")).toBe("decision");
   });
 });

@@ -2,6 +2,7 @@ import type {
   ChartData,
   Clarification,
   DiagramData,
+  DiagramEdit,
   FollowUp,
   LegacyRagSource,
   LegacyWebSource,
@@ -141,6 +142,26 @@ function diagramToDTO(d: any): DiagramData | null {
   return { nodes: arr(d.nodes).map(clean), edges: arr(d.edges).map(clean) };
 }
 
+/** Map (hydrated doc) or plain object (lean) of saved scenes -> plain record. */
+export function diagramEditsToDTO(raw: any): Record<string, DiagramEdit> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const entries: Array<[string, any]> = raw instanceof Map ? [...raw.entries()] : Object.entries(raw);
+  const out: Record<string, DiagramEdit> = {};
+  for (const [key, e] of entries) {
+    if (!e || typeof e !== "object") continue;
+    const appState: DiagramEdit["appState"] = {};
+    if (typeof e.appState?.viewBackgroundColor === "string") appState.viewBackgroundColor = e.appState.viewBackgroundColor;
+    if (typeof e.appState?.gridSize === "number") appState.gridSize = e.appState.gridSize;
+    out[key] = {
+      elements: arr(e.elements),
+      appState,
+      files: e.files && typeof e.files === "object" ? e.files : {},
+      updatedAt: iso(e.updatedAt) ?? new Date(0).toISOString(),
+    };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 function queryToDTO(q: any): QueryRecord {
   return {
     tool: str(q?.tool),
@@ -225,6 +246,7 @@ export function toMessageDTO(doc: any): MessageDTO {
       : null;
 
   const error = d.error && (d.error.code || d.error.message) ? { code: d.error.code ?? "INTERNAL", message: str(d.error.message) } : null;
+  const diagramEdits = diagramEditsToDTO(d.diagramEdits);
 
   return {
     id,
@@ -249,6 +271,7 @@ export function toMessageDTO(doc: any): MessageDTO {
     metrics,
     feedback,
     error,
+    ...(diagramEdits ? { diagramEdits } : {}),
     ragSources,
     webSources,
   } as MessageDTO;

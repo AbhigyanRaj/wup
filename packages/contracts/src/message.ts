@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ErrorCodeSchema, ISODateSchema, IdSchema } from "./common";
-import { ChatModeSchema, FeedbackRatingSchema } from "./chat";
+import { ChatModeSchema, DiagramAppStateSchema, DiagramFileSchema, FeedbackRatingSchema } from "./chat";
 import { LlmProviderSchema } from "./user";
 
 export const MessageStatusSchema = z.enum(["complete", "stopped", "error"]);
@@ -200,6 +200,15 @@ export const MessageErrorSchema = z.object({
 });
 export type MessageError = z.infer<typeof MessageErrorSchema>;
 
+/** A user's edited Excalidraw scene for one diagram of a message. */
+export const DiagramEditSchema = z.object({
+  elements: z.array(z.record(z.string(), z.unknown())),
+  appState: DiagramAppStateSchema,
+  files: z.record(z.string(), DiagramFileSchema),
+  updatedAt: ISODateSchema,
+});
+export type DiagramEdit = z.infer<typeof DiagramEditSchema>;
+
 export const MessageDTOSchema = z.object({
   id: IdSchema,
   /** @deprecated alias of id, kept for older clients */
@@ -230,6 +239,11 @@ export const MessageDTOSchema = z.object({
   metrics: MessageMetricsSchema.nullable(),
   feedback: MessageFeedbackSchema.nullable(),
   error: MessageErrorSchema.nullable(),
+  /**
+   * Edited diagrams by key ("visual" for diagramData, "m:<n>" for the n-th
+   * mermaid fence). Missing or empty: every diagram is the generated version.
+   */
+  diagramEdits: z.record(z.string(), DiagramEditSchema).optional(),
   /** @deprecated use sources (kind "doc") */
   ragSources: z.array(LegacyRagSourceSchema).optional(),
   /** @deprecated use sources (kind "web") */

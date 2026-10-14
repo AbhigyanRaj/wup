@@ -1,7 +1,8 @@
 /*
- * DiagramData to Mermaid flowchart source ("Copy as Mermaid").
- * Ids are made Mermaid safe, labels are quoted with entity escapes, and node
- * types map to shapes plus classDefs that match the in-app diagram styling.
+ * DiagramData to Mermaid flowchart source. It feeds the Excalidraw converter and
+ * "Copy Mermaid". Ids are made Mermaid safe, labels are quoted with entity
+ * escapes, and node types map to shapes plus classDefs that match the in-app
+ * diagram palette.
  */
 
 import type { DiagramData } from "@wup/contracts";
@@ -32,12 +33,22 @@ function shape(kind: DiagramKind, label: string): string {
 const CLASS_DEFS: Partial<Record<DiagramKind, string>> = {
   start: "fill:#f9f9f9,stroke:#e6e6e6,color:#1f1f1f",
   end: "fill:#f9f9f9,stroke:#e6e6e6,color:#1f1f1f",
-  decision: "fill:#fafcff,stroke:#d2dff9,color:#3333cc",
-  success: "fill:#f2f8eb,stroke:#e6e6e6,color:#496d21",
-  error: "fill:#fde7e2,stroke:#e6e6e6,color:#c43d2b",
+  decision: "fill:#e8effc,stroke:#a7c0f1,color:#1f1f1f",
+  success: "fill:#f2f8eb,stroke:#acd587,color:#1f1f1f",
+  error: "fill:#fde7e2,stroke:#eba18f,color:#1f1f1f",
 };
 
+export interface MermaidSource {
+  code: string;
+  /** Node kind by Mermaid-safe id (the ids the Excalidraw converter keeps). */
+  kinds: Map<string, DiagramKind>;
+}
+
 export function toMermaid(d: DiagramData): string {
+  return toMermaidSource(d).code;
+}
+
+export function toMermaidSource(d: DiagramData): MermaidSource {
   const g = normalizeDiagram(d);
   const ids = new Map<string, string>();
   const used = new Set<string>();
@@ -74,5 +85,6 @@ export function toMermaid(d: DiagramData): string {
     lines.push(`  classDef ${cls} ${CLASS_DEFS[kind]}`);
     lines.push(`  class ${members.join(",")} ${cls}`);
   }
-  return lines.join("\n");
+  const kinds = new Map(g.nodes.map((n) => [ids.get(n.id)!, n.type]));
+  return { code: lines.join("\n"), kinds };
 }

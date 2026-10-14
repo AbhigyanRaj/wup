@@ -27,20 +27,6 @@ export function useSvgId(prefix: string): string {
   return `${prefix}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 }
 
-/** Resolves once web fonts are ready so canvas text measurement matches the render. */
-export function useFontsReady(): boolean {
-  const [ready, setReady] = useState(() => typeof document !== "undefined" && document.fonts?.status === "loaded");
-  useEffect(() => {
-    if (ready || typeof document === "undefined" || !document.fonts) return;
-    let alive = true;
-    document.fonts.ready.then(() => alive && setReady(true));
-    return () => {
-      alive = false;
-    };
-  }, [ready]);
-  return ready;
-}
-
 /** A boolean that flips back to false after `ms` (for "Copied" ticks). */
 export function useFlash(ms = 1600) {
   const [on, setOn] = useState(false);
@@ -52,4 +38,30 @@ export function useFlash(ms = 1600) {
     timer.current = setTimeout(() => setOn(false), ms);
   }, [ms]);
   return [on, flash] as const;
+}
+
+/**
+ * True once the element has come within `margin` of the viewport, then stays
+ * true (heavy renderers load on first sight and are kept).
+ */
+export function useSeenOnce<T extends Element>(margin = "300px") {
+  const ref = useRef<T | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (seen) return;
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: margin },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen, margin]);
+  return [ref, seen] as const;
 }

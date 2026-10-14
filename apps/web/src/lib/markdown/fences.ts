@@ -68,6 +68,28 @@ export function splitOpenFence(markdown: string): OpenFenceSplit {
   return { complete, pending: { lang, code } };
 }
 
+/**
+ * 1-based line numbers where closed ```mermaid fences open, in order. The chat
+ * uses them to give each mermaid diagram a stable index ("m:<n>") for saved edits.
+ */
+export function mermaidFenceLines(markdown: string): number[] {
+  const lines = markdown.split("\n");
+  const out: number[] = [];
+  let open: (FenceOpen & { info: string; line: number }) | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (open) {
+      if (closesFence(lines[i], open)) {
+        if ((open.info.split(/\s+/)[0] ?? "").toLowerCase() === "mermaid") out.push(open.line + 1);
+        open = null;
+      }
+    } else {
+      const f = openFence(lines[i]);
+      if (f) open = { ...f, line: i };
+    }
+  }
+  return out;
+}
+
 const LIST_ITEM_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_ROW_RE = /^\s*\|/;
 

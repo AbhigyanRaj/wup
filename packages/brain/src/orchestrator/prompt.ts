@@ -57,8 +57,8 @@ ${META_END}
 VISUAL TYPES:
 - "chart": trends over time, comparisons of a metric, distributions. Include chartData.
 - "table": lists of records or comparisons across several fields. Include tableData unless the rows come from a database query (see DATA RULES).
-- "diagram": flows, processes, architectures, decision trees. Include diagramData (preferred over mermaid).
-- "mermaid": only for very complex relationship graphs that don't fit diagramData. Put a \`\`\`mermaid block starting with "flowchart TD" in the answer; define nodes and edges before any classDef lines; no raw parentheses, slashes or angle brackets in labels.
+- "diagram": flows, processes, architectures, decision trees. Include diagramData (preferred over mermaid). Keep it under 25 nodes with short labels (2 to 5 words; put detail in sublabel).
+- "mermaid": only when diagramData can't express it. Put a \`\`\`mermaid block in the answer, preferring flowchart TD, sequenceDiagram or classDiagram (other types render as a flat image). Keep it under 25 nodes with short labels; define nodes and edges before any classDef lines; no raw parentheses, slashes or angle brackets in labels.
 - "none": plain text answers.`;
 
 export const DATA_RULES = `DATA RULES:

@@ -104,8 +104,8 @@ const envMs = (name: string, fallback: number) => {
 
 export function resolveTimeouts(opts?: DriverOptions): { connectMs: number; idleMs: number } {
   return {
-    connectMs: opts?.connectMs ?? envMs("LLM_CONNECT_TIMEOUT_MS", 30_000),
-    idleMs: opts?.idleMs ?? envMs("LLM_IDLE_TIMEOUT_MS", 60_000),
+    connectMs: opts?.connectMs ?? envMs("LLM_CONNECT_TIMEOUT_MS", 120_000),
+    idleMs: opts?.idleMs ?? envMs("LLM_IDLE_TIMEOUT_MS", 90_000),
   };
 }
 
@@ -214,8 +214,9 @@ export class RequestGuard {
 
   abortError(): LlmError {
     if (this.parent?.aborted) return new LlmError("ABORTED", "The request was stopped.");
-    if (this.reason === "idle") return new LlmError("PROVIDER_ERROR", "The AI provider stopped responding. Please try again.");
-    return new LlmError("PROVIDER_ERROR", "The AI provider took too long to respond. Please try again.");
+    // 504 marks timeouts as rotatable: "auto" moves to the next model when nothing reached the user yet.
+    if (this.reason === "idle") return new LlmError("PROVIDER_ERROR", "The AI provider stopped responding. Please try again.", 504);
+    return new LlmError("PROVIDER_ERROR", "The AI provider took too long to respond. Please try again.", 504);
   }
 
   /** Resolves with p, or rejects as soon as the guard aborts. */

@@ -15,7 +15,8 @@ for (const vp of VIEWPORTS) {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     const errors: string[] = [];
     page.on("console", (m) => {
-      if (m.type() === "error") errors.push(m.text());
+      // The Excalidraw converter logs before it falls back to an image (class diagram case).
+      if (m.type() === "error" && !m.text().startsWith("Error processing Mermaid diagram")) errors.push(m.text());
     });
     page.on("pageerror", (e) => errors.push(e.message));
 
@@ -30,10 +31,17 @@ for (const vp of VIEWPORTS) {
     await expect(page.getByText("Shown as a table").first()).toBeVisible();
     // All-zero pie.
     await expect(page.getByText("No values to chart")).toBeVisible();
+    // Diagrams (Excalidraw) load once scrolled near: diagramData and a mermaid flowchart draw a canvas.
+    for (const name of ["diagramData flowchart", "Mermaid flowchart", "Mermaid sequence diagram"]) {
+      const c = page.locator(`[data-case^="${name}"]`);
+      await c.scrollIntoViewIfNeeded();
+      await expect(c.locator("[data-diagram-canvas] canvas").first()).toBeVisible({ timeout: 60_000 });
+    }
     // Invalid mermaid shows the calm card.
+    await page.locator('[data-case="Invalid"]').scrollIntoViewIfNeeded();
     await expect(page.getByText("Couldn't draw this diagram")).toBeVisible({ timeout: 60_000 });
-    // Valid mermaid draws an SVG.
-    await expect(page.locator(".mermaid-svg svg").first()).toBeVisible({ timeout: 60_000 });
+    // A fence still streaming is never parsed.
+    await expect(page.locator('[data-case^="Streaming"]').getByText("Drawing diagram")).toBeVisible();
 
     // Keyboard: arrow keys move the focused point and announce it.
     const firstChart = page.locator('[aria-roledescription="chart"]').first();

@@ -28,9 +28,6 @@ export interface CleanDiagram {
   duplicateNodes: number;
 }
 
-/** Above this the graph is shown as a list instead of a layout. */
-export const DIAGRAM_MAX_NODES = 60;
-
 const KINDS = new Set<DiagramKind>(["start", "end", "action", "decision", "success", "error"]);
 
 function str(v: unknown): string | undefined {

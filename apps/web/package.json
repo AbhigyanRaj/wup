@@ -12,7 +12,8 @@
     "check:seo": "node ../../scripts/check-seo.mjs"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.1.1",
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@excalidraw/mermaid-to-excalidraw": "^2.2.2",
     "@mdx-js/loader": "^3.1.1",
     "@mdx-js/react": "^3.1.1",
     "@next/mdx": "16.2.3",

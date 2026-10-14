@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { Element, ElementContent } from "hast";
 import { remarkCitations } from "@/lib/markdown/remark-citations";
 import { holdback } from "@/lib/markdown/holdback";
-import { splitBlocks, splitOpenFence } from "@/lib/markdown/fences";
+import { mermaidFenceLines, splitBlocks, splitOpenFence } from "@/lib/markdown/fences";
 import { Citation } from "../citation";
 import { HighlightedCode, MermaidBlock } from "../renderers";
 import { PendingBlock } from "./pending-block";
@@ -38,12 +38,37 @@ function codeLanguage(code: Element): string {
   return lang ? lang.slice("language-".length).toLowerCase() : "";
 }
 
+/**
+ * Mermaid fence numbering for the block being rendered, as "base|line,line":
+ * base = mermaid fences in earlier blocks, lines = where this block's fences
+ * open. A string so the context value is stable while the answer streams.
+ */
+const MermaidFences = React.createContext("0|");
+
+function mermaidIndex(fences: string, line: number | undefined): number | undefined {
+  const [base, list] = fences.split("|");
+  const local = list ? list.split(",").map(Number).indexOf(line ?? -1) : -1;
+  return local < 0 ? undefined : Number(base) + local;
+}
+
+function numberMermaidFences(blocks: string[]): string[] {
+  const out: string[] = [];
+  let base = 0;
+  for (const b of blocks) {
+    const lines = mermaidFenceLines(b);
+    out.push(`${base}|${lines.join(",")}`);
+    base += lines.length;
+  }
+  return out;
+}
+
 const MdPre: Components["pre"] = ({ node }) => {
+  const fences = React.useContext(MermaidFences);
   const code = node?.children.find((c): c is Element => c.type === "element" && c.tagName === "code");
   if (!code) return null;
   const lang = codeLanguage(code);
   const value = hastText(code).replace(/\n$/, "");
-  if (lang === "mermaid") return <MermaidBlock code={value} />;
+  if (lang === "mermaid") return <MermaidBlock code={value} index={mermaidIndex(fences, node?.position?.start.line)} />;
   return <HighlightedCode language={lang || null} value={value} />;
 };
 
@@ -107,13 +132,16 @@ export function Markdown({ content, streaming = false, className }: MarkdownProp
     [safe, streaming],
   );
   const blocks = React.useMemo(() => splitBlocks(complete), [complete]);
+  const fences = React.useMemo(() => numberMermaidFences(blocks), [blocks]);
 
   return (
     <div className={[styles.prose, className].filter(Boolean).join(" ")}>
       {blocks.map((text, i) => (
         // Blocks are positional and append-only: block i stays block i while
         // streaming, so its position is its identity.
-        <Block key={`b${i}`} text={text} />
+        <MermaidFences.Provider key={`b${i}`} value={fences[i]}>
+          <Block text={text} />
+        </MermaidFences.Provider>
       ))}
       {pending ? <PendingBlock lang={pending.lang} code={pending.code} /> : null}
     </div>

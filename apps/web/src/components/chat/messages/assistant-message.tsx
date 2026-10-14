@@ -7,7 +7,8 @@ import { draftToMessage, isActivePhase, type StreamEntry } from "@/lib/stream-st
 import { unifySources } from "@/lib/sources";
 import { CitationContext, type CitationContextValue } from "../citation";
 import { Markdown } from "../markdown/markdown";
-import { VisualBlock } from "../renderers";
+import { DiagramPersistContext, VisualBlock, type DiagramPersistValue } from "../renderers";
+import { useAuth } from "@/components/providers/auth-provider";
 import { ThinkingSteps, TypingDots } from "./thinking-steps";
 import { ResearchTimeline } from "./research-timeline";
 import { QueriesUsed } from "./queries-used";
@@ -85,6 +86,15 @@ function AssistantMessageInner({
     else if (message) onRegenerate(message.id);
   };
 
+  // Saved diagram edits for this answer (none while streaming or for local drafts).
+  const isDemo = useAuth().user?.isDemo === true;
+  const savedId = saved && !isLocal ? saved.id : null;
+  const diagramEdits = saved?.diagramEdits;
+  const diagramPersist = React.useMemo<DiagramPersistValue | null>(
+    () => (savedId ? { chatId, messageId: savedId, edits: diagramEdits, persist: !isDemo } : null),
+    [chatId, savedId, diagramEdits, isDemo],
+  );
+
   const showThinking = streaming && !content;
   const isResearch = (message?.mode ?? live?.mode) === "research" || steps.length > 0;
 
@@ -114,23 +124,25 @@ function AssistantMessageInner({
         />
       ) : null}
 
-      {content ? (
-        <CitationContext.Provider value={citationValue}>
-          <Markdown content={content} streaming={streaming} />
-        </CitationContext.Provider>
-      ) : null}
+      <DiagramPersistContext.Provider value={diagramPersist}>
+        {content ? (
+          <CitationContext.Provider value={citationValue}>
+            <Markdown content={content} streaming={streaming} />
+          </CitationContext.Provider>
+        ) : null}
 
-      {streaming && content ? <TypingDots className="mt-2" /> : null}
+        {streaming && content ? <TypingDots className="mt-2" /> : null}
 
-      {!streaming && !content && status === "stopped" ? (
-        <p className="text-[15px] italic text-tx-tertiary">Stopped before wuup started answering.</p>
-      ) : null}
+        {!streaming && !content && status === "stopped" ? (
+          <p className="text-[15px] italic text-tx-tertiary">Stopped before wuup started answering.</p>
+        ) : null}
 
-      {message && message.visualType !== "none" ? (
-        <div className="mt-4">
-          <VisualBlock message={message} />
-        </div>
-      ) : null}
+        {message && message.visualType !== "none" ? (
+          <div className="mt-4">
+            <VisualBlock message={message} />
+          </div>
+        ) : null}
+      </DiagramPersistContext.Provider>
 
       {message?.queries?.length ? (
         <QueriesUsed queries={message.queries} defaultOpen={defaultQueriesOpen} id={`queries-${message.id}`} />

@@ -7,11 +7,14 @@ import type { MessageDTO } from "@wup/contracts";
 import { cn } from "@/lib/cn";
 import { RendererBoundary } from "./renderer-boundary";
 import { RendererSkeleton } from "./renderer-skeleton";
+import { ExcalidrawDiagram } from "./excalidraw/excalidraw-diagram";
+import { useDiagramPersist } from "./excalidraw/persist";
 
 /*
  * Public: renders the structured visual attached to an assistant message
  * (chart, table or diagram). Every renderer loads lazily behind a skeleton and
- * sits in a RendererBoundary that falls back to the rows or raw JSON.
+ * sits in a RendererBoundary that falls back to the rows or raw JSON. Diagrams
+ * go through ExcalidrawDiagram, which lazy-loads Excalidraw once on screen.
  * visualType "mermaid" is drawn from the markdown fence (MermaidBlock), not here.
  */
 
@@ -23,12 +26,23 @@ const DataTable = dynamic(() => import("./table/data-table").then((m) => m.DataT
   ssr: false,
   loading: () => <RendererSkeleton kind="table" />,
 });
-const DiagramBlock = dynamic(() => import("./diagram/diagram-block").then((m) => m.DiagramBlock), {
-  ssr: false,
-  loading: () => <RendererSkeleton kind="diagram" />,
-});
 
 export type VisualMessage = Pick<MessageDTO, "visualType" | "chartData" | "tableData" | "diagramData">;
+
+/** diagramData under the persist context (chat): saved edits use key "visual". */
+function VisualDiagram({ diagram }: { diagram: NonNullable<MessageDTO["diagramData"]> }) {
+  const ctx = useDiagramPersist();
+  return (
+    <ExcalidrawDiagram
+      diagram={diagram}
+      chatId={ctx?.chatId}
+      messageId={ctx?.messageId}
+      diagramKey="visual"
+      savedScene={ctx?.edits?.visual}
+      persist={ctx?.persist}
+    />
+  );
+}
 
 function rowsOf(v: unknown): Record<string, unknown>[] {
   return Array.isArray(v) ? v.filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null) : [];
@@ -50,7 +64,7 @@ export function VisualBlock({ message }: { message: VisualMessage }) {
   if (visualType === "diagram" && diagramData) {
     return (
       <RendererBoundary raw={diagramData} title="Diagram">
-        <DiagramBlock diagram={diagramData} />
+        <VisualDiagram diagram={diagramData} />
       </RendererBoundary>
     );
   }

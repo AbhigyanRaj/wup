@@ -90,3 +90,47 @@ export const FeedbackBodySchema = z.object({
   note: z.string().trim().max(LIMITS.maxFeedbackNote).optional(),
 });
 export type FeedbackBody = z.infer<typeof FeedbackBodySchema>;
+
+// ─── Diagram edits ────────────────────────────────────────────────────────────
+
+/**
+ * Which diagram of a message an edit belongs to: "visual" is the message's
+ * diagramData, "m:<n>" the n-th (0 based) ```mermaid fence in its content.
+ */
+export const DIAGRAM_KEY_PATTERN = /^(visual|m:\d{1,3})$/;
+export const DiagramKeySchema = z.string().regex(DIAGRAM_KEY_PATTERN, "Invalid diagram key");
+export type DiagramKey = z.infer<typeof DiagramKeySchema>;
+
+/** A saved Excalidraw scene is capped at this many bytes of JSON. */
+export const MAX_DIAGRAM_SCENE_BYTES = 1_000_000;
+
+/** Only these appState fields are stored; everything else is dropped. */
+export const DiagramAppStateSchema = z.object({
+  viewBackgroundColor: z.string().max(32).optional(),
+  gridSize: z.number().int().min(0).max(100).nullable().optional(),
+});
+export type DiagramAppState = z.infer<typeof DiagramAppStateSchema>;
+
+/** Excalidraw BinaryFileData (images only), keyed by file id. */
+export const DiagramFileSchema = z.object({
+  id: z.string().max(128),
+  mimeType: z.string().regex(/^image\/[a-z0-9.+-]+$/i),
+  dataURL: z.string().startsWith("data:image/"),
+  created: z.number().optional(),
+  lastRetrieved: z.number().optional(),
+});
+export type DiagramFile = z.infer<typeof DiagramFileSchema>;
+
+export const SaveDiagramBodySchema = z.object({
+  /** Excalidraw elements, stored as-is (opaque to the API). */
+  elements: z.array(z.record(z.string(), z.unknown())).max(5000),
+  appState: DiagramAppStateSchema.optional(),
+  files: z.record(z.string().max(128), DiagramFileSchema).optional(),
+});
+export type SaveDiagramBody = z.infer<typeof SaveDiagramBodySchema>;
+
+export const SaveDiagramResponseSchema = z.object({
+  key: DiagramKeySchema,
+  updatedAt: z.string(),
+});
+export type SaveDiagramResponse = z.infer<typeof SaveDiagramResponseSchema>;

@@ -1,13 +1,17 @@
 import { Router } from "express";
+import { z } from "zod";
 import {
   CreateChatBodySchema,
+  DiagramKeySchema,
   FeedbackBodySchema,
   ListChatsQuerySchema,
   RegenerateBodySchema,
+  SaveDiagramBodySchema,
   SendMessageBodySchema,
   UpdateChatBodySchema,
 } from "@wup/contracts";
 import * as chat from "../controllers/chat";
+import { resetDiagram, saveDiagram } from "../controllers/chat/diagrams";
 import { chatLimiter, objectIdParam, validate } from "../controllers/chat/deps";
 import { authenticate } from "../middleware/auth";
 
@@ -24,6 +28,8 @@ import { authenticate } from "../middleware/auth";
  *   POST   /:chatId/messages                       send (SSE)
  *   POST   /:chatId/messages/:messageId/regenerate (SSE)
  *   PUT    /:chatId/messages/:messageId/feedback   {rating, note?}
+ *   PUT    /:chatId/messages/:messageId/diagrams/:key  {elements, appState?, files?} (key: visual | m:<n>)
+ *   DELETE /:chatId/messages/:messageId/diagrams/:key  reset to the generated diagram
  *   POST   /:chatId/stop                           202 {stopped}
  *   GET    /:chatId/export?format=md
  *   GET    /:chatId/messages/:messageId/export?format=md
@@ -51,6 +57,14 @@ router.post(
 );
 router.put("/:chatId/messages/:messageId/feedback", validate({ body: FeedbackBodySchema }), chat.setFeedback);
 router.post("/:chatId/stop", chat.stopGeneration);
+
+const DiagramParamsSchema = z.looseObject({ key: DiagramKeySchema });
+router.put(
+  "/:chatId/messages/:messageId/diagrams/:key",
+  validate({ params: DiagramParamsSchema, body: SaveDiagramBodySchema }),
+  saveDiagram
+);
+router.delete("/:chatId/messages/:messageId/diagrams/:key", validate({ params: DiagramParamsSchema }), resetDiagram);
 
 router.get("/:chatId/export", validate({ query: chat.ExportQuerySchema }), chat.exportChat);
 router.get("/:chatId/messages/:messageId/export", validate({ query: chat.ExportQuerySchema }), chat.exportMessage);

@@ -1,0 +1,48 @@
+/*
+ * Excalidraw, recoloured for the wuup kit. Loaded with the lazy canvas chunk,
+ * never with the chat bundle. Light theme only.
+ */
+
+.root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.root :global(.excalidraw) {
+  --ui-font: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-primary: #2563eb;
+  --color-primary-darker: #1d4ed8;
+  --color-primary-darkest: #1e40af;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #e8effc;
+  --color-primary-light-darker: #d2dff9;
+  --color-brand-hover: #1d4ed8;
+  --color-brand-active: #1e40af;
+  --focus-highlight-color: #a7c0f1;
+  --island-bg-color: #ffffff;
+  --default-bg-color: #ffffff;
+}
+
+/* Inline view: canvas only. No menus, footer, zen exit or toasts. */
+.view :global(.layer-ui__wrapper),
+.view :global(.App-menu),
+.view :global(.App-bottom-bar),
+.view :global(.footer-center),
+.view :global(.disable-zen-mode),
+.view :global(.Toast),
+.view :global(.scroll-back-to-content) {
+  display: none !important;
+}
+
+.view :global(.excalidraw .App-menu_top),
+.view :global(.excalidraw .layer-ui__wrapper__footer) {
+  display: none !important;
+}
+
+/* Editor: keep the shape tools, drop file actions, library and collab chrome. */
+.edit :global(.default-sidebar-trigger),
+.edit :global(.layer-ui__wrapper__top-right),
+.edit :global(.help-icon) {
+  display: none !important;
+}

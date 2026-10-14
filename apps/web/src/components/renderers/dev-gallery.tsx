@@ -174,36 +174,56 @@ const diagram = (d: unknown): VisualMessage => ({
   diagramData: d as DiagramData,
 });
 
+const CHECKOUT: DiagramData = {
+  nodes: [
+    { id: "start", label: "Customer opens checkout", type: "start" },
+    { id: "cart", label: "Validate cart", sublabel: "orders collection", type: "action" },
+    { id: "pay", label: "Charge card", type: "action" },
+    { id: "ok", label: "Payment approved?", type: "decision" },
+    { id: "retry", label: "Ask for another card", type: "action" },
+    { id: "done", label: "Order confirmed", type: "success" },
+    { id: "fail", label: "Order cancelled", type: "error" },
+  ],
+  edges: [
+    { from: "start", to: "cart" },
+    { from: "cart", to: "pay" },
+    { from: "pay", to: "ok" },
+    { from: "ok", to: "done", label: "yes" },
+    { from: "ok", to: "retry", label: "no" },
+    { from: "retry", to: "pay", label: "new card" },
+    { from: "retry", to: "fail", label: "gives up" },
+  ],
+};
+
+const STAGES = ["Ingest", "Validate", "Enrich", "Score", "Route", "Review", "Publish", "Archive"];
+const LARGE: DiagramData = {
+  nodes: [
+    { id: "src", label: "Event stream", type: "start" },
+    ...STAGES.flatMap((s, i) => [
+      { id: `a${i}`, label: s, type: "action" as const },
+      { id: `q${i}`, label: `${s} ok?`, type: "decision" as const },
+    ]),
+    { id: "sink", label: "Warehouse", type: "success" },
+    { id: "dlq", label: "Dead letter queue", type: "error" },
+  ],
+  edges: [
+    { from: "src", to: "a0" },
+    ...STAGES.flatMap((_, i) => [
+      { from: `a${i}`, to: `q${i}` },
+      { from: `q${i}`, to: i + 1 < STAGES.length ? `a${i + 1}` : "sink", label: "yes" },
+      { from: `q${i}`, to: "dlq", label: "no" },
+    ]),
+  ],
+};
+
 const DIAGRAMS: Array<{ name: string; message: VisualMessage }> = [
-  {
-    name: "Checkout flow with a decision and a retry cycle",
-    message: diagram({
-      nodes: [
-        { id: "start", label: "Customer opens checkout", type: "start" },
-        { id: "cart", label: "Validate cart and stock", sublabel: "orders collection", type: "action" },
-        { id: "pay", label: "Charge card", type: "action" },
-        { id: "ok", label: "Payment approved?", type: "decision" },
-        { id: "retry", label: "Ask the customer to retry with another card", type: "action" },
-        { id: "done", label: "Order confirmed", type: "success" },
-        { id: "fail", label: "Order cancelled", type: "error" },
-      ],
-      edges: [
-        { from: "start", to: "cart" },
-        { from: "cart", to: "pay" },
-        { from: "pay", to: "ok" },
-        { from: "ok", to: "done", label: "yes" },
-        { from: "ok", to: "retry", label: "no" },
-        { from: "retry", to: "pay", label: "new card" },
-        { from: "retry", to: "fail", label: "gives up" },
-      ],
-    }),
-  },
+  { name: "diagramData flowchart: decision, success and error nodes, a retry cycle", message: diagram(CHECKOUT) },
   {
     name: "Long text, duplicate ids, dangling and undefined edges",
     message: diagram({
       nodes: [
-        { id: "a", label: "Scan the MongoDB schema and sample a few hundred documents from every scoped collection", type: "start" },
-        { id: "b", label: "Redact sensitive fields such as password, token and card number before anything reaches the model", sublabel: "Runs on every query result" },
+        { id: "a", label: "Scan the MongoDB schema and sample documents from every scoped collection", type: "start" },
+        { id: "b", label: "Redact sensitive fields before anything reaches the model", sublabel: "Runs on every query result" },
         { id: "b", label: "Duplicate id (dropped)" },
         { id: "c", label: "Answer with numbered citations", type: "end" },
       ],
@@ -211,7 +231,7 @@ const DIAGRAMS: Array<{ name: string; message: VisualMessage }> = [
     }),
   },
   {
-    name: "Edges missing entirely (wide, shallow: LR)",
+    name: "Wide and shallow (LR)",
     message: diagram({
       nodes: [
         { id: "src", label: "Sources", type: "start" },
@@ -221,16 +241,12 @@ const DIAGRAMS: Array<{ name: string; message: VisualMessage }> = [
         { id: "t", label: "TXT" },
         { id: "md", label: "Markdown" },
       ],
-      edges: [
-        { from: "src", to: "m" },
-        { from: "src", to: "s" },
-        { from: "src", to: "p" },
-        { from: "src", to: "t" },
-        { from: "src", to: "md" },
-      ],
+      edges: ["m", "s", "p", "t", "md"].map((to) => ({ from: "src", to })),
     }),
   },
+  { name: `Large graph (${LARGE.nodes.length} nodes)`, message: diagram(LARGE) },
   { name: "No edges key at all", message: diagram({ nodes: [{ id: "x", label: "Lonely step" }] }) },
+  { name: "No nodes", message: diagram({ nodes: [] }) },
 ];
 
 const ORDERS = Array.from({ length: 24 }, (_, i) => ({
@@ -298,6 +314,28 @@ const MERMAID_SEQ = `sequenceDiagram
   M-->>W: Rows (redacted)
   W-->>U: Answer with chart`;
 
+const MERMAID_CLASS = `classDiagram
+  class Bridge {
+    +string id
+    +string type
+    +scan()
+  }
+  class MongoBridge {
+    +collections
+    +query()
+  }
+  class SheetsBridge {
+    +sheetId
+    +read()
+  }
+  Bridge <|-- MongoBridge
+  Bridge <|-- SheetsBridge`;
+
+const MERMAID_PIE = `pie title Questions by source
+  "MongoDB" : 58
+  "Google Sheets" : 27
+  "Documents" : 15`;
+
 const MERMAID_BAD = `flowchart TD
   A[Start --> B{{oops
   B -->|| C`;
@@ -364,7 +402,7 @@ export function RenderersGallery() {
       <header className="flex flex-col gap-2">
         <p className="text-[12px] font-medium uppercase tracking-[0.17em] text-tx-tertiary">Dev only</p>
         <h1 className="font-display text-[40px] font-display-medium leading-[1.1] tracking-heading text-tx">Answer renderers</h1>
-        <p className="text-[16px] leading-[1.6] text-tx-tertiary">Every edge case for charts, diagrams, tables, Mermaid and code.</p>
+        <p className="text-[16px] leading-[1.6] text-tx-tertiary">Every edge case for charts, diagrams (Excalidraw), tables, Mermaid and code.</p>
       </header>
       <Section id="charts" title="Charts">
         {CHARTS.map((c) => (
@@ -388,17 +426,26 @@ export function RenderersGallery() {
         ))}
       </Section>
       <Section id="mermaid" title="Mermaid">
-        <Case name="Valid flowchart">
+        <Case name="Mermaid flowchart">
           <MermaidBlock code={MERMAID_OK} />
         </Case>
-        <Case name="Valid sequence diagram">
+        <Case name="Mermaid sequence diagram">
           <MermaidBlock code={MERMAID_SEQ} />
+        </Case>
+        <Case name="Mermaid class diagram">
+          <MermaidBlock code={MERMAID_CLASS} />
+        </Case>
+        <Case name="Unsupported type (pie) falls back to an image">
+          <MermaidBlock code={MERMAID_PIE} />
         </Case>
         <Case name="Same flowchart again (served from cache)">
           <MermaidBlock code={MERMAID_OK} />
         </Case>
         <Case name="Invalid">
           <MermaidBlock code={MERMAID_BAD} />
+        </Case>
+        <Case name="Streaming (fence still open)">
+          <MermaidBlock code={"flowchart TD\n  A[Question] --> B"} streaming />
         </Case>
       </Section>
       <Section id="code" title="Code">
