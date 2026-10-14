@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { Chat, Connection } from "@wup/models";
 import {
+  UnsafeHostError,
+  assertPublicMongoUri,
   cryptoService,
   describeMongoError,
   detectSensitiveFields,
@@ -53,6 +55,22 @@ function toSchemaSummary(conn: any) {
 const PROBE_SAMPLE_COLLECTIONS = 30;
 
 /**
+ * SSRF guard: returns a user-facing error if the URI points at a private,
+ * loopback, link-local or otherwise internal host (or at wuup's own database),
+ * and null when it is safe to connect.
+ */
+async function checkPublicHost(uri: string): Promise<string | null> {
+  try {
+    await assertPublicMongoUri(uri);
+    return null;
+  } catch (err) {
+    if (err instanceof UnsafeHostError) return err.message;
+    // Unparseable URI and similar: the driver would fail anyway, so refuse here
+    return "That doesn't look like a valid MongoDB URL. Check the hosts in your connection string.";
+  }
+}
+
+/**
  * POST /connections/test
  * Connects without saving and returns databases, collections and detected sensitive fields.
  */
@@ -68,6 +86,8 @@ export const testConnection = async (req: Request, res: Response) => {
       error: "That doesn't look like a MongoDB URL. It should start with mongodb:// or mongodb+srv://",
     });
   }
+  const hostError = await checkPublicHost(config.trim());
+  if (hostError) return res.status(400).json({ ok: false, error: hostError });
 
   try {
     const result = await withTempClient(config.trim(), async (client) => {
@@ -104,6 +124,8 @@ export const createConnection = async (req: Request, res: Response) => {
           error: "That doesn't look like a MongoDB URL. It should start with mongodb:// or mongodb+srv://",
         });
       }
+      const hostError = await checkPublicHost(rawConfig);
+      if (hostError) return res.status(400).json({ error: hostError });
       try {
         await withTempClient(rawConfig, (client) => client.db().admin().ping());
       } catch (err) {

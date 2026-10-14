@@ -6,6 +6,20 @@ import { brain, CHAT_CONTEXT_MAX_MESSAGES, type ChatTurn } from "@wup/brain";
  * Controller for managing user chat sessions and messages.
  */
 
+const ALLOWED_VISUAL_TYPES = new Set(["none", "mermaid", "chart", "table", "diagram"]);
+const ALLOWED_CHART_TYPES = new Set(["bar", "line", "pie"]);
+
+function sanitizeVisualType(value: unknown): string {
+  return typeof value === "string" && ALLOWED_VISUAL_TYPES.has(value) ? value : "none";
+}
+
+function sanitizeChartData(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const chart = value as Record<string, unknown>;
+  const type = typeof chart.type === "string" && ALLOWED_CHART_TYPES.has(chart.type) ? chart.type : "bar";
+  return { ...chart, type };
+}
+
 export const createChat = async (req: Request, res: Response) => {
   const { title } = req.body;
   const userId = (req as any).user.id;
@@ -105,19 +119,33 @@ export const saveMessage = async (req: Request, res: Response) => {
     }
 
     // 3. Save Assistant Message (with citations if available)
-    const assistantMessage = await Message.create({
+    const baseAssistantDoc = {
       chatId,
       userId,
       role: "assistant",
       content: ((finalMetadata?.content ?? fullContent) || "No response received from model.").trim(),
       ragSources: finalMetadata?.ragSources ?? [],
       webSources: finalMetadata?.webSources ?? [],
-      visualType: finalMetadata?.visualType ?? "none",
-      chartData: finalMetadata?.chartData ?? null,
-      tableData: finalMetadata?.tableData ?? null,
-      diagramData: finalMetadata?.diagramData ?? null,
       queries: finalMetadata?.queries ?? [],
-    });
+    };
+
+    let assistantMessage;
+    try {
+      assistantMessage = await Message.create({
+        ...baseAssistantDoc,
+        visualType: sanitizeVisualType(finalMetadata?.visualType),
+        chartData: sanitizeChartData(finalMetadata?.chartData),
+        tableData: finalMetadata?.tableData ?? null,
+        diagramData: finalMetadata?.diagramData ?? null,
+      });
+    } catch (persistErr: any) {
+      // Never lose the answer because of malformed visual metadata from the model.
+      console.error(
+        "[WUP API] Failed to save assistant message with visuals, retrying without them:",
+        persistErr?.message ?? persistErr
+      );
+      assistantMessage = await Message.create(baseAssistantDoc);
+    }
 
     // 4. Update chat timestamp
     chat.lastMessageAt = new Date();

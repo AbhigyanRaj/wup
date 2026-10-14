@@ -60,6 +60,32 @@ export class EncryptionService {
   }
 }
 
-// Singleton instance with default check (should be initialized via env)
-const DEFAULT_KEY = process.env.ENCRYPTION_KEY || "wup_internal_default_secret_2026_do_not_use_in_prod";
-export const cryptoService = new EncryptionService(DEFAULT_KEY);
+// Legacy development fallback. Never acceptable in production.
+const LEGACY_DEFAULT_KEY = "wup_internal_default_secret_2026_do_not_use_in_prod";
+
+/**
+ * Resolves the encryption key. In production a missing key, or the legacy
+ * default key, is a fatal misconfiguration (fail fast at module load) because
+ * it would mean every stored credential is encrypted with a public key.
+ */
+export function resolveEncryptionKey(env: NodeJS.ProcessEnv = process.env): string {
+  const key = env.ENCRYPTION_KEY;
+  if (env.NODE_ENV === "production") {
+    if (!key || key === LEGACY_DEFAULT_KEY) {
+      throw new Error(
+        "ENCRYPTION_KEY must be set to a non-default value in production"
+      );
+    }
+    return key;
+  }
+  if (!key) {
+    console.warn(
+      "[WUP Crypto] ENCRYPTION_KEY is not set; using the insecure development default."
+    );
+    return LEGACY_DEFAULT_KEY;
+  }
+  return key;
+}
+
+// Singleton instance (initialized from env)
+export const cryptoService = new EncryptionService(resolveEncryptionKey());

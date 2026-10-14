@@ -16,20 +16,27 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/wup";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
-const allowedOrigins = CORS_ORIGIN.includes(",") ? CORS_ORIGIN.split(",").map(o => o.trim()) : CORS_ORIGIN;
+const allowedOrigins = CORS_ORIGIN.split(",").map(o => o.trim()).filter(Boolean);
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// Render (and most PaaS hosts) sit behind one reverse proxy. Trusting exactly
+// one hop makes req.ip the real client IP so per-IP rate limits work.
+app.set("trust proxy", 1);
 
 // Middleware
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    if (Array.isArray(allowedOrigins) ? allowedOrigins.includes(origin) : allowedOrigins === origin) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    // Allow any localhost origin for development convenience
-    if (origin.startsWith("http://localhost:")) {
+    // Allow any localhost origin for development convenience (never in production)
+    if (!IS_PRODUCTION && origin.startsWith("http://localhost:")) {
       return callback(null, true);
     }
-    callback(new Error("Not allowed by CORS"));
+    // Reject without raising an error: the browser blocks the response because
+    // no CORS headers are sent, and the server does not turn it into a 500.
+    callback(null, false);
   },
   credentials: true 
 }));
@@ -40,20 +47,6 @@ mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log("[WUP API] Connected to MongoDB");
     
-    // Migration: update all users to have freeTierLimit: 50 if they have less
-    try {
-      const collection = mongoose.connection.db!.collection("users");
-      const result = await collection.updateMany(
-        { $or: [{ freeTierLimit: { $lt: 50 } }, { freeTierLimit: { $exists: false } }] },
-        { $set: { freeTierLimit: 50 } }
-      );
-      if (result.modifiedCount > 0) {
-        console.log(`[WUP API] Migrated ${result.modifiedCount} users to 50 free limit.`);
-      }
-    } catch (err) {
-      console.error("[WUP API] Migration failed:", err);
-    }
-
     // Maintenance: ensure indexes are clean
     try {
       const collection = mongoose.connection.db!.collection("users");
@@ -706,8 +699,24 @@ app.get("/", (req, res) => {
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  // Malformed JSON body (from express.json / body-parser)
+  if (err?.type === "entity.parse.failed" || (err instanceof SyntaxError && (err as any).status === 400)) {
+    return res.status(400).json({ error: "Invalid JSON body" });
+  }
+  // Body larger than the configured limit
+  if (err?.type === "entity.too.large" || err?.status === 413 || err?.statusCode === 413) {
+    return res.status(413).json({ error: "Request body too large" });
+  }
+  // Other client errors raised by middleware that are marked safe to expose
+  const status = Number(err?.status ?? err?.statusCode);
+  if (status >= 400 && status < 500 && err?.expose) {
+    return res.status(status).json({ error: err.message || "Bad Request" });
+  }
   console.error("[WUP API] Unhandled Error:", err);
-  res.status(500).json({ error: "Internal Server Error", message: err.message });
+  res.status(500).json({ error: "Internal Server Error" });
 });
 
 app.listen(PORT, () => {

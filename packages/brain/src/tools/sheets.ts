@@ -1,7 +1,25 @@
 import { google } from "googleapis";
 import { cryptoService } from "../utils/crypto";
 import { Connection } from "@wup/models";
+import { isObjectIdOrHexString } from "mongoose";
 import type { ToolContext } from "./types";
+
+/**
+ * Returns a log/model-safe error message: never the full error object (which
+ * carries request URLs and config), and with any `key=...` query parameter
+ * (the API key fallback) redacted.
+ */
+export function safeSheetsErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "Google Sheets request failed";
+  return redactApiKeys(raw || "Google Sheets request failed");
+}
+
+function redactApiKeys(text: string): string {
+  let out = text.replace(/([?&;\s]key=)[^&\s"']*/gi, "$1[REDACTED]");
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey.length >= 8) out = out.split(apiKey).join("[REDACTED]");
+  return out;
+}
 
 /**
  * Reads data from a bridged Google Sheet.
@@ -60,10 +78,11 @@ export const read_sheets = async ({ connectionId, sheetName, range = "A1:Z100" }
       count: rows ? rows.length : 0
     };
   } catch (err: any) {
-    console.error("[WUP Brain Tool] Sheets EXECUTION ERROR:", err);
+    const message = safeSheetsErrorMessage(err);
+    console.error("[WUP Brain Tool] Sheets EXECUTION ERROR:", message);
     return {
       success: false,
-      error: err.message
+      error: message
     };
   }
 };
@@ -116,10 +135,11 @@ export const get_sheets_metadata = async ({ connectionId }: { connectionId: stri
       sheets: sheetsInfo
     };
   } catch (err: any) {
-    console.error("[WUP Brain Tool] Sheets Meta EXECUTION ERROR:", err);
+    const message = safeSheetsErrorMessage(err);
+    console.error("[WUP Brain Tool] Sheets Meta EXECUTION ERROR:", message);
     return {
       success: false,
-      error: err.message
+      error: message
     };
   }
 };
@@ -129,7 +149,12 @@ async function loadSheetsConnection(connectionId: string, ctx: ToolContext) {
   if (ctx.allowedConnectionIds?.length && !ctx.allowedConnectionIds.includes(String(connectionId))) {
     throw new Error("That bridge isn't enabled for this chat.");
   }
+  if (typeof connectionId !== "string" || !isObjectIdOrHexString(connectionId)) {
+    throw new Error("Connection not found");
+  }
   const conn = await Connection.findOne({ _id: connectionId, userId: ctx.userId }).catch(() => null);
-  if (!conn) throw new Error("Connection not found");
+  // Only Google Sheets bridges: never decrypt another bridge type's config
+  // (e.g. a MongoDB URI) and send it to Google as a spreadsheet id.
+  if (!conn || (conn as any).type !== "sheets") throw new Error("Connection not found");
   return conn;
 }

@@ -76,33 +76,48 @@ export function chunkText(
   const separators = ["\n\n", ".\n", ". ", "\n", " "];
 
   const rawChunks: string[] = [];
-  let remaining = cleaned;
+  const n = cleaned.length;
+  let start = 0;
 
-  while (remaining.length > chunkSize) {
-    // Find the best split point within the chunkSize window
+  // Hard iteration guard: every iteration advances `start` by at least 1,
+  // so this can never be reached, but it makes an infinite loop impossible
+  // even if the logic below is changed incorrectly later.
+  const maxIterations = n + 1;
+  let iterations = 0;
+
+  while (n - start > chunkSize && iterations++ < maxIterations) {
+    const windowEnd = start + chunkSize;
+    // A split point must leave more than `overlap` characters in this chunk,
+    // otherwise the next start (splitAt - overlap) would not move forward.
+    const minSplit = start + overlap;
     let splitAt = -1;
 
     for (const sep of separators) {
-      // Look for the last occurrence of `sep` before chunkSize
-      const idx = remaining.lastIndexOf(sep, chunkSize);
-      if (idx > 0) {
-        splitAt = idx + sep.length;
+      // Last occurrence of `sep` that ends inside the window
+      const idx = cleaned.lastIndexOf(sep, windowEnd - sep.length);
+      if (idx < start) continue;
+      const candidate = idx + sep.length;
+      if (candidate > minSplit && candidate <= windowEnd) {
+        splitAt = candidate;
         break;
       }
     }
 
     // Hard split if no good separator found
-    if (splitAt <= 0) {
-      splitAt = chunkSize;
+    if (splitAt <= start) {
+      splitAt = windowEnd;
     }
 
-    rawChunks.push(remaining.slice(0, splitAt).trim());
-    // Overlap: back up by `overlap` characters so the next chunk
-    // starts with some repeated context from the current one
-    remaining = remaining.slice(Math.max(0, splitAt - overlap)).trim();
+    const chunk = cleaned.slice(start, splitAt).trim();
+    if (chunk.length > 0) rawChunks.push(chunk);
+
+    // Overlap: back up by `overlap` characters so the next chunk starts with
+    // some repeated context from the current one, but always move forward.
+    start = Math.max(splitAt - overlap, start + 1);
   }
 
   // Remainder
+  const remaining = cleaned.slice(start).trim();
   if (remaining.length >= minChunkSize) {
     rawChunks.push(remaining);
   }

@@ -4,10 +4,30 @@ import { cryptoService } from "../../utils/crypto";
 import type { ToolContext } from "../../tools/types";
 import { getPooledClient } from "./clientPool";
 import { describeMongoError } from "./errors";
-import { GuardError, assertInScope, assertSafeQuery, isInScope, type ScopeEntry } from "./guard";
+import {
+  GuardError,
+  assertFieldPathAllowed,
+  assertInScope,
+  assertSafeQuery,
+  hiddenSegmentOf,
+  isInScope,
+  type ScopeEntry,
+} from "./guard";
 import { listSources } from "./introspect";
 import { hiddenLeavesForDb, redactValue, redactionKey, type RedactionMap } from "./redact";
 import { parseEjsonArg, toDisplayEjson, toPlain } from "./values";
+
+// SSRF guard for bridge URIs. Re-exported here so it is part of the public
+// @wup/brain surface (this module is re-exported by ./index).
+export {
+  UNREACHABLE_HOST_MESSAGE,
+  UNRESOLVABLE_HOST_MESSAGE,
+  UnsafeHostError,
+  assertPublicMongoUri,
+  extractMongoHosts,
+  isBlockedAddress,
+  type HostResolvers,
+} from "./net";
 
 /**
  * Read-only MongoDB tools exposed to the model.
@@ -68,11 +88,26 @@ export function capRows(rows: any[], maxBytes = MAX_RESULT_BYTES): { rows: any[]
   return { rows: kept, truncated: false };
 }
 
-const clampLimit = (limit: unknown) => {
+export const clampLimit = (limit: unknown) => {
   const n = Number(limit);
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_LIMIT;
-  return Math.min(Math.floor(n), MAX_LIMIT);
+  return Math.max(1, Math.min(Math.floor(n) || DEFAULT_LIMIT, MAX_LIMIT));
 };
+
+/** Parses a filter argument and insists on a plain object (not an array, string, number, ObjectId…). */
+export function parseFilterArg(value: unknown): Record<string, any> {
+  const filter = parseEjsonArg<unknown>(value, {});
+  const proto = filter !== null && typeof filter === "object" ? Object.getPrototypeOf(filter) : undefined;
+  if (
+    filter === null ||
+    typeof filter !== "object" ||
+    Array.isArray(filter) ||
+    (filter as any)._bsontype ||
+    (proto !== Object.prototype && proto !== null)
+  ) {
+    throw new GuardError('filter must be a JSON object, e.g. {"year":{"$gte":2000}}. Omit it to match all documents.');
+  }
+  return filter as Record<string, any>;
+}
 
 type Runner = (bridge: LoadedBridge, hidden: Set<string>) => Promise<{
   result: Record<string, any>;
@@ -191,7 +226,7 @@ export async function mongo_describe(args: any, ctx: ToolContext) {
     const samples = await coll.find({}, { limit: 3, maxTimeMS: QUERY_TIMEOUT_MS }).toArray();
 
     const fields = (cached?.fields ?? [])
-      .filter((f: any) => !hidden.has(f.path.split(".").pop()))
+      .filter((f: any) => hiddenSegmentOf(String(f.path), hidden) === undefined)
       .map((f: any) => ({ path: f.path, types: f.types, presentInPct: f.pct }));
 
     return {
@@ -211,13 +246,13 @@ export async function mongo_describe(args: any, ctx: ToolContext) {
 
 export async function mongo_find(args: any, ctx: ToolContext) {
   return runQuery("mongo_find", args, ctx, async (bridge, hidden) => {
-    const filter = parseEjsonArg<Record<string, any>>(args.filter, {});
+    const filter = parseFilterArg(args.filter);
     const projection = parseEjsonArg<Record<string, any> | undefined>(args.projection, undefined);
     const sort = parseEjsonArg<Record<string, any> | undefined>(args.sort, undefined);
     const limit = clampLimit(args.limit);
     const guardOpts = { hidden, scope: bridge.scope, db: args.db };
     assertSafeQuery(filter, guardOpts);
-    if (projection) assertSafeQuery(projection, guardOpts);
+    if (projection) assertSafeQuery(projection, { ...guardOpts, projection: true });
     if (sort) assertSafeQuery(sort, guardOpts);
 
     const coll = await collectionFor(bridge, args.db, args.collection);
@@ -239,7 +274,7 @@ export async function mongo_find(args: any, ctx: ToolContext) {
 
 export async function mongo_count(args: any, ctx: ToolContext) {
   return runQuery("mongo_count", args, ctx, async (bridge, hidden) => {
-    const filter = parseEjsonArg<Record<string, any>>(args.filter, {});
+    const filter = parseFilterArg(args.filter);
     assertSafeQuery(filter, { hidden, scope: bridge.scope, db: args.db });
     const coll = await collectionFor(bridge, args.db, args.collection);
     const count =
@@ -259,13 +294,15 @@ export async function mongo_distinct(args: any, ctx: ToolContext) {
   return runQuery("mongo_distinct", args, ctx, async (bridge, hidden) => {
     const field = String(args.field ?? "");
     if (!field) throw new GuardError("field is required.");
-    const filter = parseEjsonArg<Record<string, any>>(args.filter, {});
-    assertSafeQuery({ [field]: 1, ...filter }, { hidden, scope: bridge.scope, db: args.db });
+    assertFieldPathAllowed(field, hidden);
+    const filter = parseFilterArg(args.filter);
+    assertSafeQuery(filter, { hidden, scope: bridge.scope, db: args.db });
 
     const coll = await collectionFor(bridge, args.db, args.collection);
     const values = await coll.distinct(field, filter, { maxTimeMS: QUERY_TIMEOUT_MS });
     const truncated = values.length > MAX_DISTINCT_VALUES;
-    const plainValues = values.slice(0, MAX_DISTINCT_VALUES).map((v) => toPlain(v));
+    // Distinct values can be sub-documents that contain hidden fields
+    const plainValues = redactValue(values.slice(0, MAX_DISTINCT_VALUES).map((v) => toPlain(v)), hidden);
     return {
       result: { values: plainValues, totalDistinct: values.length, truncated },
       rows: plainValues.map((v) => ({ [field]: v })),
