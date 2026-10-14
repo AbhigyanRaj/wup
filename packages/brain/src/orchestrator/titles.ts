@@ -1,5 +1,5 @@
 import { createDriver, type DriverFactory } from "../ai/driver";
-import { LIGHT_MODELS } from "../ai/providers";
+import { resolveLightModel } from "../ai/providers";
 import { AUTO_MODEL, type LlmCredentials } from "../ai/common";
 
 export const MAX_TITLE_CHARS = 60;
@@ -7,7 +7,7 @@ export const TITLE_TIMEOUT_MS = 3000;
 
 /** A cheap model per provider for titles and suggestions. */
 export function lightModel(llm: LlmCredentials): string {
-  return llm.provider === "gemini" ? AUTO_MODEL : LIGHT_MODELS[llm.provider];
+  return llm.provider === "gemini" ? AUTO_MODEL : resolveLightModel(llm.provider, llm.availableModels);
 }
 
 /** Cleans a title: one line, collapsed whitespace, no quotes or trailing punctuation, at most 60 chars on a word boundary. */

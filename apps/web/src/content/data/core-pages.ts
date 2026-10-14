@@ -28,7 +28,7 @@ export const corePages: CorePage[] = [
     path: "/pricing",
     title: "Pricing: Free, or Bring Your Own AI Key",
     description:
-      "wuup is free for your first 50 questions on Gemini. After that, bring your own OpenAI, Anthropic, OpenRouter or Gemini key and pay the provider directly.",
+      "wuup is free for your first 50 questions on Gemini. Then bring your own OpenAI, Anthropic, OpenRouter, Gemini or Groq key and pay the provider directly.",
     h1: "Free to start.\nYour key to scale.",
     primaryKeyword: "wuup pricing",
     secondaryKeywords: ["ai data analyst pricing", "bring your own key", "free ai sql tool"],
@@ -60,7 +60,7 @@ export const corePages: CorePage[] = [
     path: "/byok",
     title: "Bring Your Own Key: OpenAI, Claude, Gemini",
     description:
-      "Use your own OpenAI, Anthropic, OpenRouter or Gemini API key in wuup. Pick the model, pay the provider directly, and remove the key at any time.",
+      "Use your own OpenAI, Anthropic, OpenRouter, Gemini or Groq API key in wuup. Pick the model, pay the provider directly, and remove the key at any time.",
     h1: "Your key.\nYour model.",
     primaryKeyword: "bring your own api key",
     secondaryKeywords: ["byok ai", "use own openai key", "use claude api key"],
@@ -152,7 +152,7 @@ export const corePages: CorePage[] = [
     kind: "core",
     path: "/integrations",
     title: "Integrations: bring your own AI model key",
-    description: "Use wuup with your own OpenAI, Anthropic, OpenRouter or Gemini API key. Unlimited questions over MongoDB, Sheets and PDFs, billed by your provider.",
+    description: "Use wuup with your own OpenAI, Anthropic, OpenRouter, Gemini or Groq API key. Unlimited questions over MongoDB, Sheets and PDFs, billed by your provider.",
     h1: "Integrations",
     primaryKeyword: "integrations",
     secondaryKeywords: [],

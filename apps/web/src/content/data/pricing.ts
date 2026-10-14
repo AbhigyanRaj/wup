@@ -112,7 +112,7 @@ export const pricing: PricingContent = {
     },
     {
       q: "Which providers can I use?",
-      a: `${FACTS.byokProviders.join(", ")}. OpenRouter gives you access to many more models through a single key.`,
+      a: `${FACTS.byokProviders.join(", ")}. OpenRouter gives you access to many more models through a single key, and Groq runs open models very fast.`,
     },
     {
       q: "Are the query limits different on the free plan?",

@@ -76,6 +76,7 @@ const MODELS = [
   { logo: "/logos/openai.svg", name: "OpenAI", note: "With your key" },
   { logo: "/logos/anthropic.svg", name: "Anthropic", note: "With your key" },
   { logo: "/logos/openrouter.svg", name: "OpenRouter", note: "With your key" },
+  { logo: "/logos/groq.svg", name: "Groq", note: "Very fast, with your key" },
 ];
 
 function LogoCell({ logo, name, note }: { logo: string; name: string; note: string }) {
@@ -166,7 +167,7 @@ export default function FeaturesPage() {
               <p className="px-5 pt-5 text-label font-medium uppercase tracking-[0.17em] text-tx-tertiary md:self-center md:px-0 md:pt-0">
                 Models
               </p>
-              <ul className="m-0 grid list-none grid-cols-1 p-0 sm:grid-cols-2 lg:grid-cols-4 md:divide-x md:divide-st-secondary md:border-l md:border-st-secondary">
+              <ul className="m-0 grid list-none grid-cols-1 p-0 sm:grid-cols-2 lg:grid-cols-5 md:divide-x md:divide-st-secondary md:border-l md:border-st-secondary">
                 {MODELS.map((s) => (
                   <LogoCell key={s.name} {...s} />
                 ))}

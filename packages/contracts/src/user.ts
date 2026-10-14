@@ -3,7 +3,7 @@ import { ISODateSchema, IdSchema, LIMITS } from "./common";
 
 // ─── Plans and providers ──────────────────────────────────────────────────────
 
-export const LLM_PROVIDERS = ["gemini", "openai", "openrouter", "anthropic"] as const;
+export const LLM_PROVIDERS = ["gemini", "openai", "openrouter", "anthropic", "groq"] as const;
 export const LlmProviderSchema = z.enum(LLM_PROVIDERS);
 export type LlmProvider = z.infer<typeof LlmProviderSchema>;
 

@@ -48,6 +48,7 @@ const CREDENTIAL_PATTERNS: RegExp[] = [
   /(postgres(ql)?|mysql|redis|amqp):\/\/[^\s/]*:[^\s/]*@/i,
   /-----BEGIN/,
   /\bsk-(proj-|ant-|or-)?[A-Za-z0-9_-]{20,}/, // OpenAI, Anthropic, OpenRouter
+  /\bgsk_[A-Za-z0-9]{20,}/, // Groq
   /\bAIza[0-9A-Za-z_-]{35}\b/, // Google API key
   /\bAKIA[0-9A-Z]{16}\b/, // AWS access key id
   /\bgh[pousr]_[A-Za-z0-9]{30,}\b/, // GitHub token

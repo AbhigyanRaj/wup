@@ -14,6 +14,7 @@ const PROVIDERS = [
   { name: "Anthropic", logo: "/logos/anthropic.svg", tone: "badge--sky" },
   { name: "OpenRouter", logo: "/logos/openrouter.svg", tone: "badge--green" },
   { name: "Gemini", logo: "/logos/gemini.svg", tone: "badge--pink" },
+  { name: "Groq", logo: "/logos/groq.svg", tone: "badge--yellow" },
 ] as const;
 
 export function ModelsSection() {
@@ -44,7 +45,7 @@ export function ModelsSection() {
             <p className="body-muted mt-2.5">Add an API key and choose the model. Requests go to your provider, and wuup charges nothing on top.</p>
             <Checklist
               items={[
-                "OpenAI, Anthropic, OpenRouter or Gemini",
+                "OpenAI, Anthropic, OpenRouter, Gemini or Groq",
                 "Choose the model you want",
                 "Key masked in the app",
                 "Remove it at any time",
@@ -56,7 +57,7 @@ export function ModelsSection() {
           <div className="max-w-[512px]">
             <h3 className="h-card">Works with the models you already pay for</h3>
             <p className="body-muted mt-2.5">
-              Switch providers whenever you like. Your sources, chats and documents stay exactly where they are.
+              Switch providers whenever you like, for example to Groq when speed matters most. Your sources, chats and documents stay exactly where they are.
             </p>
           </div>
           <ul role="list" className="flex flex-wrap gap-2 md:max-w-[520px] md:justify-end lg:max-w-none lg:flex-nowrap">

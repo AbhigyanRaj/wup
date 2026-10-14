@@ -1,10 +1,10 @@
 /**
  * Meta routes:
- *   GET  /meta      -> MetaResponse (version, enabled features, client limits)
+ *   GET  /meta      -> MetaResponse (version, enabled features, client limits, BYOK providers)
  *   POST /waitlist  -> { ok: true }   body: WaitlistBody; auth optional, rate limited
  */
 import { Router } from "express";
-import { WaitlistBodySchema, type Feature, type MetaResponse } from "@wup/contracts";
+import { LLM_PROVIDERS, WaitlistBodySchema, type Feature, type MetaResponse } from "@wup/contracts";
 import { Waitlist, User } from "@wup/models";
 import { env, type Env } from "../config/env";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -33,6 +33,7 @@ export function buildMeta(e: Env = env): MetaResponse {
       maxPromptChars: e.MAX_PROMPT_CHARS,
       freeTierLimit: e.FREE_TIER_LIMIT,
     },
+    providers: [...LLM_PROVIDERS],
   };
 }
 

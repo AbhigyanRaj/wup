@@ -1,9 +1,9 @@
 export const metadata = {
   title: "Bring your own key (BYOK) for AI, explained",
-  description: "What bring your own key means for AI tools, how BYOK works in wuup with OpenAI, Anthropic, OpenRouter or Gemini, and what a month of data questions costs.",
+  description: "What bring your own key means for AI tools, how BYOK works in wuup with OpenAI, Anthropic, OpenRouter, Gemini or Groq, and what data questions cost.",
   h1: "Bring your own key (BYOK),\nexplained",
   date: "2026-10-14",
-  updated: "2026-10-14",
+  updated: "2026-10-15",
   author: "abhigyan-raj",
   tags: ["AI and data", "Pricing", "BYOK"],
   primaryKeyword: "bring your own key ai",
@@ -13,7 +13,7 @@ export const metadata = {
   og: { eyebrow: "Guide" },
 }
 
-Bring your own key (BYOK) means you paste an API key from an AI provider, such as OpenAI, Anthropic, OpenRouter or Google Gemini, into a tool, and the tool sends its model calls on your account. You pay the provider directly at their per-token prices, and the tool does not resell model usage to you. In wuup, BYOK works with all four of those providers and wuup charges nothing for it; without a key, you get 50 free questions on Gemini. This guide covers how BYOK works, what it really costs, and what to check before you paste a key anywhere.
+Bring your own key (BYOK) means you paste an API key from an AI provider, such as OpenAI, Anthropic, OpenRouter, Google Gemini or Groq, into a tool, and the tool sends its model calls on your account. You pay the provider directly at their per-token prices, and the tool does not resell model usage to you. In wuup, BYOK works with all four of those providers and wuup charges nothing for it; without a key, you get 50 free questions on Gemini. This guide covers how BYOK works, what it really costs, and what to check before you paste a key anywhere.
 
 ## How BYOK works
 
@@ -36,7 +36,7 @@ The tool still does all the work around the model: connecting to your data, writ
 
 **Cost transparency.** You see every request on your provider's usage dashboard. Heavy months cost more, light months cost less, and there is no seat fee for capacity you do not use.
 
-**Model choice.** You can pick a fast cheap model for routine counts and a stronger model for harder analysis. With OpenRouter, one key reaches models from many providers.
+**Model choice.** You can pick a fast cheap model for routine counts and a stronger model for harder analysis. With OpenRouter, one key reaches models from many providers, and Groq serves open models very fast.
 
 **Your provider terms.** Prompts and responses are governed by your own agreement with the provider. If your company already has an enterprise agreement with OpenAI, Anthropic or Google, BYOK keeps model traffic under that agreement.
 
@@ -50,7 +50,7 @@ The trade-off is a little setup, and you manage spend limits yourself. The [setu
 
 <Steps>
 
-1. **Create a key** in your provider's console: OpenAI, Anthropic, OpenRouter or Google AI Studio for Gemini.
+1. **Create a key** in your provider's console: OpenAI, Anthropic, OpenRouter, Google AI Studio for Gemini, or the GroqCloud console for Groq.
 2. **Paste it into wuup** under Settings and choose the provider.
 3. **wuup validates it** by listing the models your key can access, which costs no tokens. For Gemini, it also sends one tiny test request to confirm your key works from wuup's server region. Invalid keys are rejected with the provider's reason.
 4. **Pick a model** from the list your key returned, or leave it on automatic.
@@ -86,13 +86,15 @@ Your real numbers will differ. Questions over wide documents or large result set
 
 **OpenRouter** passes through the underlying providers' prices with no markup on inference, and charges a 5.5% fee (0.80 dollar minimum) when you buy credits, per its [FAQ](https://openrouter.ai/docs/faq). It is a convenient way to try several models with one key.
 
+**Groq** runs open models, such as Llama and GPT-OSS, on its own inference hardware, so answers come back very fast. It bills per token at the rates on its [pricing page](https://groq.com/pricing), and its free plan has rate limits. See [Groq in wuup](/integrations/groq).
+
 ## The free tier, and when to switch
 
 Without a key, every account gets **50 free questions on Gemini**. That is enough to connect a source, try real questions and see whether wuup fits. When the free questions run out, wuup tells you, and adding a key unlocks unlimited questions billed by your provider. See [pricing](/pricing) and the [BYOK overview](/byok).
 
 Switch earlier if you want a specific model, if your company requires model traffic under its own provider agreement, or if you plan to ask more than a few questions a day.
 
-<ToolCta href="/docs/byok-setup" title="Set up your own key in two minutes" description="Step-by-step instructions for OpenAI, Anthropic, OpenRouter and Gemini keys, including how to set a spending limit." />
+<ToolCta href="/docs/byok-setup" title="Set up your own key in two minutes" description="Step-by-step instructions for OpenAI, Anthropic, OpenRouter, Gemini and Groq keys, including how to set a spending limit." />
 
 ## What to check before pasting a key into any tool
 
@@ -112,7 +114,7 @@ No. With your own key, wuup charges nothing; you pay your provider directly for 
 
 ### Which providers does wuup support for BYOK?
 
-OpenAI, Anthropic, OpenRouter and Google Gemini. Through OpenRouter you can reach many more models with one key.
+OpenAI, Anthropic, OpenRouter, Google Gemini and Groq. Through OpenRouter you can reach many more models with one key, and Groq is the fast option for open models.
 
 ### Can I switch providers later?
 

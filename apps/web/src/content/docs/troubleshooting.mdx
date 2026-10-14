@@ -3,7 +3,7 @@ export const metadata = {
   description: "Fix common wuup errors: Atlas IP access list, failed authentication, SRV DNS lookups, unshared sheets, stuck PDFs, rejected API keys and the free limit.",
   h1: "Troubleshooting",
   date: "2026-10-14",
-  updated: "2026-10-14",
+  updated: "2026-10-15",
   author: "abhigyan-raj",
   tags: ["Docs", "Help"],
   primaryKeyword: "wuup troubleshooting",
@@ -85,6 +85,7 @@ wuup checks a key by listing the provider's models. The check failed.
 - Copy the key again without spaces or line breaks. Keys are shown in full only once at creation, so create a new one if needed.
 - Check that billing or credits are active. Some providers reject keys from accounts with no payment method.
 - For Gemini, the key must come from Google AI Studio and have the Generative Language API enabled.
+- For Groq, create the key in the GroqCloud console. Groq keys start with `gsk_`.
 
 See [Bring your own key](/docs/byok-setup).
 
@@ -92,7 +93,7 @@ See [Bring your own key](/docs/byok-setup).
 
 **Message:** "You have used all of your free messages. Add your own API key in Settings to keep chatting." (code `FREE_LIMIT_REACHED`, HTTP 429)
 
-The free tier includes 50 questions on Gemini. Research questions use more than one. To keep going, add your own key from OpenAI, Anthropic, OpenRouter or Gemini in **Settings**. wuup does not charge for questions asked with your key, and your existing chats and connections stay as they are.
+The free tier includes 50 questions on Gemini. Research questions use more than one. To keep going, add your own key from OpenAI, Anthropic, OpenRouter, Gemini or Groq in **Settings**. wuup does not charge for questions asked with your key, and your existing chats and connections stay as they are.
 
 ## Still stuck?
 

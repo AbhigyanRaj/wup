@@ -86,7 +86,7 @@ export const comparisons: ComparePageFull[] = [
         title: "Pricing model",
         rows: [
           { label: "Free usage", wuup: wuupPricing, them: { status: "yes", text: "Free plan" } },
-          { label: "Bring your own model key", wuup: { status: "yes", text: "OpenAI, Anthropic, OpenRouter, Gemini" }, them: { status: "unknown", text: "Not documented" } },
+          { label: "Bring your own model key", wuup: { status: "yes", text: "OpenAI, Anthropic, OpenRouter, Gemini, Groq" }, them: { status: "unknown", text: "Not documented" } },
         ],
       },
     ],
@@ -108,7 +108,7 @@ export const comparisons: ComparePageFull[] = [
       {
         heading: "Pricing",
         body: [
-          `wuup gives ${FACTS.freeQuestions} free questions on Gemini, and with your own OpenAI, Anthropic, OpenRouter or Gemini key there is no wuup charge. Julius offers a free plan and paid subscriptions; see their pricing page for current prices, which we could not verify on ${VERIFIED}.`,
+          `wuup gives ${FACTS.freeQuestions} free questions on Gemini, and with your own OpenAI, Anthropic, OpenRouter, Gemini or Groq key there is no wuup charge. Julius offers a free plan and paid subscriptions; see their pricing page for current prices, which we could not verify on ${VERIFIED}.`,
         ],
       },
     ],

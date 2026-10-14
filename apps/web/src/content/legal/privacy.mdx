@@ -34,7 +34,7 @@ This policy is maintained by the wuup team. Last reviewed October 2026.
 | Documents | The text extracted from files you upload, the passages (chunks) made from it and their embeddings, file name, size and a SHA-256 fingerprint | To search your documents and cite them in answers |
 | Chats | Your questions, wuup's answers, the queries wuup ran, the rows and passages shown in an answer, charts and tables, citations and your feedback | To show your chat history and let you continue a conversation |
 | Usage | Counts of questions asked, the model used and token counts per day | To apply the free tier and show you your usage |
-| Your API key | The key you add for OpenAI, Anthropic, OpenRouter or Gemini, the provider name and the models it can use | To call your chosen provider on your behalf. It is shown only in masked form after saving and you can delete it at any time |
+| Your API key | The key you add for OpenAI, Anthropic, OpenRouter, Gemini or Groq, the provider name and the models it can use | To call your chosen provider on your behalf. It is shown only in masked form after saving and you can delete it at any time |
 | Technical logs | IP address, request times, error messages and a request ID | To protect the service, apply rate limits and fix errors |
 
 **Original files are not kept.** An uploaded file is processed in memory and discarded. We keep the extracted text and the passages made from it, which is what the knowledge base needs.
@@ -61,7 +61,7 @@ wuup relies on a small number of service providers ("processors") that handle da
 | Processor | Purpose | Data involved |
 | --- | --- | --- |
 | Google (Gemini API) | Answers on the free tier, document embeddings, schema-based starter questions | Your question, relevant rows, passages and schema summaries |
-| Your chosen provider (OpenAI, Anthropic, OpenRouter or Google) | Answers when you add your own API key | Your question, relevant rows and passages, sent with your key |
+| Your chosen provider (OpenAI, Anthropic, OpenRouter, Google or Groq) | Answers when you add your own API key | Your question, relevant rows and passages, sent with your key |
 | MongoDB Atlas | Hosts wuup's own database | Everything in "What we collect and store" |
 | Vercel | Hosts the website and app front end; cookieless Web Analytics | Page requests, IP address, aggregate page views |
 | Render | Hosts the wuup API | API requests, IP address, logs |

@@ -168,7 +168,7 @@ export const connectors: ConnectorPageFull[] = [
       },
       {
         q: "Which AI model is used?",
-        a: `The free tier gives ${FACTS.freeQuestions} questions on Gemini. With your own key you can use OpenAI, Anthropic, OpenRouter or Gemini models, and wuup charges nothing extra.`,
+        a: `The free tier gives ${FACTS.freeQuestions} questions on Gemini. With your own key you can use OpenAI, Anthropic, OpenRouter, Gemini or Groq models, and wuup charges nothing extra.`,
       },
       {
         q: "Can I query several databases at once?",
@@ -209,7 +209,7 @@ export const connectors: ConnectorPageFull[] = [
     facts: [
       { value: `${FACTS.maxResultKb} KB`, label: "of rows read per request, so answers stay quick" },
       { value: `${FACTS.freeQuestions}`, label: "free questions to start, no card needed" },
-      { value: `${FACTS.byokProviders.length} providers`, label: "for your own key: OpenAI, Anthropic, OpenRouter, Gemini" },
+      { value: `${FACTS.byokProviders.length} providers`, label: "for your own key: OpenAI, Anthropic, OpenRouter, Gemini, Groq" },
     ],
     exampleQuestions: [
       "Which sales rep closed the most revenue this quarter?",
@@ -336,7 +336,7 @@ export const connectors: ConnectorPageFull[] = [
     facts: [
       { value: `${FACTS.sources.slice(2).join(" + ")}`, label: "file types today; Markdown, CSV and DOCX are being added" },
       { value: `${FACTS.freeQuestions}`, label: "free questions to start, no card needed" },
-      { value: `${FACTS.byokProviders.length} providers`, label: "for your own key: OpenAI, Anthropic, OpenRouter, Gemini" },
+      { value: `${FACTS.byokProviders.length} providers`, label: "for your own key: OpenAI, Anthropic, OpenRouter, Gemini, Groq" },
     ],
     exampleQuestions: [
       "What are the termination clauses in this contract?",

@@ -7,7 +7,7 @@
 
 import { brainLog } from "../utils/logger";
 
-export type LlmProvider = "gemini" | "openai" | "openrouter" | "anthropic";
+export type LlmProvider = "gemini" | "openai" | "openrouter" | "anthropic" | "groq";
 
 export interface LlmCredentials {
   provider: LlmProvider;
@@ -15,6 +15,8 @@ export interface LlmCredentials {
   apiKey: string | null;
   /** "server", or sha256(key).slice(0, 12) for a user's own key */
   keyId: string;
+  /** Model ids the key could use when it was saved. Lets "auto" pick a model that exists (Groq). */
+  availableModels?: string[];
 }
 
 /** One prior chat turn. */

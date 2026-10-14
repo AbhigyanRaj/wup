@@ -114,6 +114,89 @@ describe("PUT /user/api-key", () => {
     assert.doesNotMatch(res.body.error, /Singapore/);
   });
 
+  test("a Groq key is validated via GET /models and stores chat models only", async () => {
+    const GROQ_KEY = "gsk_TESTKEYabcdefghijklmnopqrstuvwxyz1234";
+    mockFetch((url) => {
+      assert.equal(url, "https://api.groq.com/openai/v1/models");
+      return {
+        status: 200,
+        body: {
+          object: "list",
+          data: [
+            { id: "openai/gpt-oss-120b", object: "model", owned_by: "OpenAI", active: true, context_window: 131072 },
+            { id: "llama-3.3-70b-versatile", object: "model", owned_by: "Meta", active: true, context_window: 131072 },
+            { id: "llama-3.1-8b-instant", object: "model", owned_by: "Meta", active: true, context_window: 131072 },
+            { id: "old-retired-model", object: "model", owned_by: "Meta", active: false, context_window: 8192 },
+            { id: "whisper-large-v3", object: "model", owned_by: "OpenAI", active: true },
+            { id: "canopylabs/orpheus-v1-english", object: "model", owned_by: "Canopy Labs", active: true },
+            { id: "meta-llama/llama-prompt-guard-2-86m", object: "model", owned_by: "Meta", active: true },
+            { id: "openai/gpt-oss-safeguard-20b", object: "model", owned_by: "OpenAI", active: true },
+          ],
+        },
+      };
+    });
+    const u = await signup(app);
+    const res = await request(app).put("/user/api-key").set(bearer(u.token)).send({ provider: "groq", apiKey: GROQ_KEY });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.provider, "groq");
+    assert.equal(res.body.maskedKey, "gsk_••••1234");
+    assert.deepEqual(res.body.availableModels, ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]);
+    assert.equal(calls.length, 1);
+    assert.equal((calls[0].init?.headers as any)?.Authorization, `Bearer ${GROQ_KEY}`);
+    assert.ok(calls[0].init?.signal, "fetch must have a timeout signal");
+
+    const doc = await rawUser(u.id);
+    assert.ok(!JSON.stringify(doc).includes(GROQ_KEY), "no plaintext key stored");
+    assert.equal(cryptoService.decrypt(doc!.customApiKeyEnc), GROQ_KEY);
+    assert.equal(doc!.customApiProvider, "groq");
+
+    const creds = await resolveLlmCredentials(await User.findById(u.id));
+    assert.equal(creds.provider, "groq");
+    assert.equal(creds.apiKey, GROQ_KEY);
+    assert.deepEqual(creds.availableModels, ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]);
+
+    const usage = await request(app).get("/user/usage").set(bearer(u.token));
+    assert.ok(UsageResponseSchema.safeParse(usage.body).success, JSON.stringify(usage.body));
+    assert.deepEqual(usage.body.apiKey, { provider: "groq", maskedKey: "gsk_••••1234" });
+    assert.equal(usage.body.plan.tier, "byok");
+
+    const models = await request(app).get("/user/models").set(bearer(u.token));
+    assert.ok(ModelsResponseSchema.safeParse(models.body).success, JSON.stringify(models.body));
+    assert.equal(models.body.provider, "groq");
+    assert.equal(models.body.usingOwnKey, true);
+    assert.deepEqual(
+      models.body.models.map((m: any) => m.id),
+      ["auto", "openai/gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    );
+    assert.ok(models.body.models.every((m: any) => m.provider === "groq"));
+  });
+
+  test("an invalid Groq key is a 400 PROVIDER_AUTH and stores nothing", async () => {
+    mockFetch(() => ({ status: 401, body: { error: { message: "Invalid API Key", type: "invalid_request_error", code: "invalid_api_key" } } }));
+    const u = await signup(app);
+    const res = await request(app).put("/user/api-key").set(bearer(u.token)).send({ provider: "groq", apiKey: "gsk_definitelynotavalidkey000" });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.code, "PROVIDER_AUTH");
+    assert.match(res.body.error, /Groq/);
+    const doc = await rawUser(u.id);
+    assert.equal(doc!.customApiKeyEnc, undefined);
+    assert.notEqual(doc!.customApiProvider, "groq");
+  });
+
+  test("a Groq key with no chat models is rejected", async () => {
+    mockFetch(() => ({ status: 200, body: { data: [{ id: "whisper-large-v3", active: true }] } }));
+    const u = await signup(app);
+    const res = await request(app).put("/user/api-key").set(bearer(u.token)).send({ provider: "groq", apiKey: "gsk_onlywhisperkey0000000000" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /no chat models/);
+  });
+
+  test("an unknown provider is a validation error", async () => {
+    const u = await signup(app);
+    const res = await request(app).put("/user/api-key").set(bearer(u.token)).send({ provider: "cohere", apiKey: "abcdefghijklmnop" });
+    assert.equal(res.status, 400);
+  });
+
   test("DELETE /user/api-key is 204 and removes every key field", async () => {
     const u = await signup(app);
     await User.updateOne({ _id: u.id }, { $set: { customApiKeyEnc: cryptoService.encrypt(GEMINI_KEY), customApiKeyHint: "x", customApiProvider: "openai" } });

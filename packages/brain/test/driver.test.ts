@@ -11,6 +11,13 @@ describe("createDriver", () => {
     assert.equal(createDriver({ provider: "openai", apiKey: "k", keyId: "a" }).provider, "openai");
     assert.equal(createDriver({ provider: "openrouter", apiKey: "k", keyId: "a" }).provider, "openrouter");
     assert.equal(createDriver({ provider: "anthropic", apiKey: "k", keyId: "a" }).model, "claude-opus-5-5");
+    assert.equal(createDriver({ provider: "groq", apiKey: "k", keyId: "a" }).provider, "groq");
+    assert.equal(createDriver({ provider: "groq", apiKey: "k", keyId: "a" }, "auto").model, "openai/gpt-oss-120b");
+    assert.equal(
+      createDriver({ provider: "groq", apiKey: "k", keyId: "a", availableModels: ["llama-3.1-8b-instant", "whisper-large-v3"] }, "auto").model,
+      "llama-3.1-8b-instant"
+    );
+    assert.throws(() => createDriver({ provider: "groq", apiKey: null, keyId: "a" }), (e: any) => e.code === "PROVIDER_AUTH");
     assert.throws(() => createDriver({ provider: "cohere" as any, apiKey: "k", keyId: "a" }), /Unknown AI provider/);
   });
 

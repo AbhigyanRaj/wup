@@ -17,6 +17,7 @@ export const WORKS_WITH: MarqueeLogo[] = [
   { name: "OpenAI", src: "/logos/openai.svg" },
   { name: "Anthropic", src: "/logos/anthropic.svg" },
   { name: "OpenRouter", src: "/logos/openrouter.svg" },
+  { name: "Groq", src: "/logos/groq.svg" },
 ];
 
 function Row({ logos, hidden }: { logos: MarqueeLogo[]; hidden?: boolean }) {

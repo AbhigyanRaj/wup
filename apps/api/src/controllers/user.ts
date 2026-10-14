@@ -24,6 +24,12 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { clearSession } from "../lib/session";
 
 export const PROVIDER_TIMEOUT_MS = 8000;
+export const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
+
+/** Mirrors the brain's Groq chat filter (kept local so an older brain build still validates keys). */
+const GROQ_NON_CHAT = /(whisper|tts|orpheus|playai|guard|safeguard|embed|compound)/i;
+const isGroqChatModel = (id: string): boolean =>
+  typeof (brain as any).isGroqChatModel === "function" ? (brain as any).isGroqChatModel(id) : !!id && !GROQ_NON_CHAT.test(id);
 const MAX_STORED_MODELS = 500;
 
 // ─── BYOK key validation ──────────────────────────────────────────────────────
@@ -94,6 +100,26 @@ export async function listProviderModels(provider: LlmProvider, apiKey: string):
     if (keyRes && keyRes.status === 401) throw invalidKey("OpenRouter");
     const data: any = await res.json().catch(() => ({}));
     return data.data?.map((m: any) => String(m.id)) ?? [];
+  }
+
+  if (provider === "groq") {
+    const res = await providerFetch(GROQ_MODELS_URL, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) throw new HttpError(400, "PROVIDER_AUTH", "Invalid Groq API key");
+      const err: any = await res.json().catch(() => ({}));
+      const msg = typeof err?.error?.message === "string" ? err.error.message.slice(0, 200) : undefined;
+      throw invalidKey("Groq", msg);
+    }
+    const data: any = await res.json().catch(() => ({}));
+    // Chat models only: Groq also lists speech, TTS and safety models that can't answer chats.
+    const chat: string[] = (Array.isArray(data?.data) ? data.data : [])
+      .filter((m: any) => m && m.active !== false)
+      .map((m: any) => String(m.id))
+      .filter(isGroqChatModel);
+    if (chat.length === 0) {
+      throw new HttpError(400, "PROVIDER_ERROR", "This Groq key works, but it has no chat models available. Check your Groq console.");
+    }
+    return chat;
   }
 
   if (provider === "openai") {

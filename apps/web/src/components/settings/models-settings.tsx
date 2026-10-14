@@ -19,7 +19,17 @@ import { SettingsCard, SettingsHeader } from "./settings-ui";
 
 export const PROVIDERS: Record<
   LlmProvider,
-  { name: string; maker: string; console: string; consoleLabel: string; placeholder: string; tile: string; glyph: string }
+  {
+    name: string;
+    maker: string;
+    console: string;
+    consoleLabel: string;
+    placeholder: string;
+    tile: string;
+    glyph: string;
+    /** One short line under the provider name. */
+    note?: string;
+  }
 > = {
   gemini: {
     name: "Gemini",
@@ -57,9 +67,19 @@ export const PROVIDERS: Record<
     tile: "linear-gradient(160deg, #556adc 0%, #c7d2fe 100%)",
     glyph: "R",
   },
+  groq: {
+    name: "Groq",
+    maker: "Groq",
+    console: "https://console.groq.com/keys",
+    consoleLabel: "GroqCloud",
+    placeholder: "gsk_...",
+    tile: "linear-gradient(160deg, #e0573c 0%, #f8c3b4 100%)",
+    glyph: "Q",
+    note: "Very fast open models",
+  },
 };
 
-const ORDER: LlmProvider[] = ["gemini", "openai", "anthropic", "openrouter"];
+const ORDER: LlmProvider[] = ["gemini", "openai", "anthropic", "openrouter", "groq"];
 
 function ProviderTile({ provider, size = "md" }: { provider: LlmProvider; size?: "md" | "sm" }) {
   const p = PROVIDERS[provider];
@@ -217,11 +237,11 @@ function ProviderCard({
             ) : null}
           </div>
           <p className="text-[13px] text-tx-tertiary">
-            {connected ? <code className="font-mono text-tx-secondary">{active.maskedKey || "Key saved"}</code> : p.maker}
+            {connected ? <code className="font-mono text-tx-secondary">{active.maskedKey || "Key saved"}</code> : (p.note ?? p.maker)}
           </p>
         </div>
       </div>
-      <div className="mt-auto flex gap-2">
+      <div className="mt-auto flex flex-wrap items-center gap-2">
         {connected ? (
           <>
             <Button variant="soft" size="sm" onClick={onAdd} disabled={disabled}>
@@ -241,6 +261,18 @@ function ProviderCard({
           >
             Add key
           </Button>
+        )}
+        {connected ? null : (
+          <a
+            href={p.console}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Get a ${p.name} key from ${p.consoleLabel} (opens in a new tab)`}
+            className="ml-auto inline-flex items-center gap-0.5 rounded-md text-[13px] text-tx-tertiary underline decoration-st underline-offset-2 transition-colors hover:text-tx hover:decoration-tx-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+          >
+            Get a key
+            <ArrowUpRight className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+          </a>
         )}
       </div>
     </li>

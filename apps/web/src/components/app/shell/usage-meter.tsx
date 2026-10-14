@@ -15,6 +15,7 @@ export const PROVIDER_LABEL: Record<LlmProvider, string> = {
   anthropic: "Anthropic",
   openrouter: "OpenRouter",
   gemini: "Gemini",
+  groq: "Groq",
 };
 
 /** Sidebar footer card: free answers left, or the BYOK provider. */

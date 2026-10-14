@@ -1,6 +1,6 @@
 /**
  * Bring-your-own-key drivers over the providers' raw HTTP APIs:
- * OpenAI-compatible (OpenAI, OpenRouter) and Anthropic.
+ * OpenAI-compatible (OpenAI, OpenRouter, Groq) and Anthropic.
  *
  * Raw fetch is kept on purpose (rather than @anthropic-ai/sdk): the streaming
  * tool loop, the server-side fallback beta and the echo rules below are all
@@ -12,6 +12,8 @@ import {
   LlmError,
   RequestGuard,
   isAutoModel,
+  isRotatable,
+  log,
   postJson,
   readSse,
   resolveTimeouts,
@@ -29,18 +31,55 @@ import {
   type ToolLoopResult,
 } from "./common";
 
-export type CustomProvider = "openai" | "openrouter" | "anthropic";
+export type CustomProvider = "openai" | "openrouter" | "anthropic" | "groq";
+export type OpenAICompatibleProvider = "openai" | "openrouter" | "groq";
 
-const ENDPOINTS: Record<CustomProvider, string> = {
+export const ENDPOINTS: Record<CustomProvider, string> = {
   openai: "https://api.openai.com/v1/chat/completions",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   anthropic: "https://api.anthropic.com/v1/messages",
+  groq: "https://api.groq.com/openai/v1/chat/completions",
 };
+
+export const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
+
+/**
+ * Groq chat models in order of preference for the tool loop: the strongest
+ * production tool callers first, then preview models, then small ones.
+ * "auto" picks the first one the user's key can see (from GET /models).
+ */
+export const GROQ_TOOL_MODELS = [
+  "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile",
+  "qwen/qwen3.8-27b",
+  "minimaxai/minimax-m2.7",
+  "openai/gpt-oss-20b",
+  "llama-3.1-8b-instant",
+];
+
+/** Small, fast Groq models for titles and suggestions (non-reasoning first, so a 30-token title is never eaten by reasoning). */
+export const GROQ_LIGHT_MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "openai/gpt-oss-120b"];
+
+/** Groq also hosts speech, TTS, safety and agentic-system models that can't run the chat tool loop. */
+const GROQ_NON_CHAT = /(whisper|tts|orpheus|playai|guard|safeguard|embed|compound)/i;
+
+/** True for Groq model ids that can serve chat completions with tools. */
+export function isGroqChatModel(id: unknown): id is string {
+  return typeof id === "string" && id.length > 0 && id.length <= 200 && !GROQ_NON_CHAT.test(id);
+}
+
+/** The first preferred model the key can use; the head of the list when the key's models are unknown. */
+export function pickPreferred(preferred: string[], available?: string[] | null): string {
+  if (!available || available.length === 0) return preferred[0];
+  const set = new Set(available);
+  return preferred.find((m) => set.has(m)) ?? available.find(isGroqChatModel) ?? preferred[0];
+}
 
 export const DEFAULT_MODELS: Record<CustomProvider, string> = {
   openai: "gpt-4o-mini",
   openrouter: "google/gemini-2.5-flash",
   anthropic: "claude-opus-5-5",
+  groq: GROQ_TOOL_MODELS[0],
 };
 
 /** Small, cheap models for titles and suggestions. */
@@ -48,6 +87,7 @@ export const LIGHT_MODELS: Record<CustomProvider, string> = {
   openai: "gpt-4o-mini",
   openrouter: "google/gemini-2.5-flash",
   anthropic: "claude-haiku-5-5",
+  groq: GROQ_LIGHT_MODELS[0],
 };
 
 /**
@@ -65,8 +105,34 @@ export function anthropicMaxTokens(model: string): number {
   return MODERN_ANTHROPIC.test(model) ? 64000 : 8192;
 }
 
-export function resolveModel(provider: CustomProvider, model?: string): string {
-  return isAutoModel(model) ? DEFAULT_MODELS[provider] : model!;
+/** "auto" resolves to the provider default (for Groq, the best tool model the key can see). */
+export function resolveModel(provider: CustomProvider, model?: string, availableModels?: string[] | null): string {
+  if (!isAutoModel(model)) return model!;
+  if (provider === "groq") return pickPreferred(GROQ_TOOL_MODELS, availableModels);
+  return DEFAULT_MODELS[provider];
+}
+
+/** A small, fast model for titles and suggestions. */
+export function resolveLightModel(provider: CustomProvider, availableModels?: string[] | null): string {
+  if (provider === "groq") return pickPreferred(GROQ_LIGHT_MODELS, availableModels);
+  return LIGHT_MODELS[provider];
+}
+
+/** Groq answers a malformed tool call with 400 "tool_use_failed"; a fresh sample usually succeeds. */
+export function isGroqToolUseFailed(err: LlmError): boolean {
+  return err.status === 400 && /tool_use_failed|failed to call a function/i.test(err.message);
+}
+
+const GPT_OSS = /(^|\/)gpt-oss/;
+
+/** Groq "auto": the preferred tool models this key can see, cooled-down ones last. */
+export function groqAutoCandidates(llm: Pick<LlmCredentials, "keyId" | "availableModels">): string[] {
+  const available = (llm.availableModels ?? []).filter(isGroqChatModel);
+  const set = new Set(available);
+  const ordered = available.length > 0 ? GROQ_TOOL_MODELS.filter((m) => set.has(m)) : [...GROQ_TOOL_MODELS];
+  if (ordered.length === 0) ordered.push(available[0] ?? GROQ_TOOL_MODELS[0]);
+  const ready = ordered.filter((m) => modelHealth.isAvailable(llm.keyId, m));
+  return [...ready, ...ordered.filter((m) => !ready.includes(m))];
 }
 
 /** Converts Gemini schema types ("OBJECT", "STRING", ...) to JSON Schema ("object", "string", ...). */
@@ -107,16 +173,50 @@ function noteRateLimit(llm: LlmCredentials, model: string, err: LlmError): LlmEr
 
 const usableHistory = (history: ChatTurn[]) => history.filter((t) => t.role !== "system" && t.content?.trim());
 
-// ─── OpenAI / OpenRouter ──────────────────────────────────────────────────────
+// ─── OpenAI / OpenRouter / Groq ───────────────────────────────────────────────
 
 export class OpenAICompatibleDriver implements LlmDriver {
   readonly usingOwnKey = true;
   readonly model: string;
   private readonly timeouts: { connectMs: number; idleMs: number };
+  /** Models to try in order. More than one only for Groq "auto", which skips to the next model on a rate limit. */
+  private readonly candidates: string[];
+  private active: string;
 
-  constructor(readonly provider: "openai" | "openrouter", private readonly llm: LlmCredentials, model?: string, opts?: DriverOptions) {
-    this.model = resolveModel(provider, model);
+  constructor(readonly provider: OpenAICompatibleProvider, private readonly llm: LlmCredentials, model?: string, opts?: DriverOptions) {
+    this.candidates = provider === "groq" && isAutoModel(model) ? groqAutoCandidates(llm) : [resolveModel(provider, model, llm.availableModels)];
+    this.model = this.candidates[0];
+    this.active = this.model;
     this.timeouts = resolveTimeouts(opts);
+  }
+
+  /**
+   * Opens one streamed turn. Groq only: a 400 tool_use_failed is re-sampled once,
+   * and in "auto" a rate limit, 404 or 5xx moves on to the next candidate model
+   * (nothing of this turn has streamed yet, so switching is invisible to the user).
+   */
+  private async openTurn(payload: any, signal: AbortSignal): Promise<{ response: Response; guard: RequestGuard }> {
+    let resampled = false;
+    for (;;) {
+      payload.model = this.active;
+      const guard = new RequestGuard(signal, this.timeouts.connectMs, this.timeouts.idleMs);
+      try {
+        return { response: await postJson(ENDPOINTS[this.provider], this.headers(), payload, guard), guard };
+      } catch (err) {
+        guard.dispose();
+        const e = toLlmError(err, signal);
+        if (this.provider !== "groq" || e.code === "ABORTED") throw e;
+        if (!resampled && isGroqToolUseFailed(e)) {
+          resampled = true;
+          continue;
+        }
+        const next = this.candidates[this.candidates.indexOf(this.active) + 1];
+        if (!next || !isRotatable(e)) throw e;
+        noteRateLimit(this.llm, this.active, e);
+        log().warn("groq model unavailable; trying the next one", { from: this.active, to: next, status: e.status });
+        this.active = next;
+      }
+    }
   }
 
   private headers(): Record<string, string> {
@@ -144,23 +244,29 @@ export class OpenAICompatibleDriver implements LlmDriver {
     ];
     const usage = { tokensIn: 0, tokensOut: 0 };
     let fullText = "";
-    let model = this.model;
+    let model = this.active;
 
     for (let turn = 0; turn < maxTurns; turn++) {
       const last = turn === maxTurns - 1;
-      // No temperature: newer reasoning models reject non-default values.
-      const payload: any = { model: this.model, stream: true, stream_options: { include_usage: true }, messages };
+      // No temperature: newer reasoning models reject non-default values (Groq's default of 1 is fine too).
+      // No parallel_tool_calls: Groq's gpt-oss models don't support parallel calls, and the default is right elsewhere.
+      const payload: any = { model: this.active, stream: true, stream_options: { include_usage: true }, messages };
       if (tools.length > 0) {
         payload.tools = tools;
         if (last) payload.tool_choice = "none";
       }
 
-      const guard = new RequestGuard(p.signal, this.timeouts.connectMs, this.timeouts.idleMs);
+      let guard: RequestGuard | undefined;
       let text = "";
       const calls: Array<{ id: string; name: string; arguments: string }> = [];
+      // Per turn: the `usage` chunk (stream_options.include_usage), else Groq's x_groq.usage.
+      let turnUsage: any = null;
+      let groqUsage: any = null;
       try {
-        const response = await postJson(ENDPOINTS[this.provider], this.headers(), payload, guard);
-        for await (const { data } of readSse(response, guard)) {
+        const opened = await this.openTurn(payload, p.signal);
+        guard = opened.guard;
+        model = this.active;
+        for await (const { data } of readSse(opened.response, guard)) {
           if (data === "[DONE]") continue;
           let parsed: any;
           try {
@@ -170,10 +276,8 @@ export class OpenAICompatibleDriver implements LlmDriver {
           }
           if (parsed.error?.message) throw new LlmError("PROVIDER_ERROR", parsed.error.message);
           if (typeof parsed.model === "string" && parsed.model) model = parsed.model;
-          if (parsed.usage) {
-            usage.tokensIn += Number(parsed.usage.prompt_tokens) || 0;
-            usage.tokensOut += Number(parsed.usage.completion_tokens) || 0;
-          }
+          if (parsed.usage) turnUsage = parsed.usage;
+          if (parsed.x_groq?.usage) groqUsage = parsed.x_groq.usage;
           const delta = parsed.choices?.[0]?.delta;
           if (typeof delta?.content === "string" && delta.content) {
             text += delta.content;
@@ -189,9 +293,14 @@ export class OpenAICompatibleDriver implements LlmDriver {
           }
         }
       } catch (err) {
-        throw noteRateLimit(this.llm, this.model, toLlmError(err, p.signal));
+        throw noteRateLimit(this.llm, this.active, toLlmError(err, p.signal));
       } finally {
-        guard.dispose();
+        guard?.dispose();
+      }
+      const u = turnUsage ?? groqUsage;
+      if (u) {
+        usage.tokensIn += Number(u.prompt_tokens) || 0;
+        usage.tokensOut += Number(u.completion_tokens) || 0;
       }
 
       const toolCalls = calls.filter(Boolean);
@@ -215,13 +324,15 @@ export class OpenAICompatibleDriver implements LlmDriver {
 
   async complete(p: CompleteParams): Promise<CompleteResult> {
     const payload: any = {
-      model: this.model,
+      model: this.active,
       messages: [...(p.system ? [{ role: "system", content: p.system }] : []), { role: "user", content: p.prompt }],
     };
-    // OpenAI's newer models only accept max_completion_tokens; OpenRouter documents max_tokens.
-    if (this.provider === "openai") payload.max_completion_tokens = p.maxTokens;
-    else payload.max_tokens = p.maxTokens;
+    // OpenAI's newer models only accept max_completion_tokens (Groq deprecates max_tokens too); OpenRouter documents max_tokens.
+    if (this.provider === "openrouter") payload.max_tokens = p.maxTokens;
+    else payload.max_completion_tokens = p.maxTokens;
     if (p.json && this.provider === "openai") payload.response_format = { type: "json_object" };
+    // gpt-oss reasons by default (medium); keep short completions short so reasoning can't eat the budget.
+    if (this.provider === "groq" && GPT_OSS.test(this.active)) payload.reasoning_effort = "low";
 
     const guard = new RequestGuard(p.signal, Math.max(this.timeouts.connectMs, this.timeouts.idleMs), this.timeouts.idleMs);
     try {
@@ -232,7 +343,7 @@ export class OpenAICompatibleDriver implements LlmDriver {
         usage: { tokensIn: Number(body?.usage?.prompt_tokens) || 0, tokensOut: Number(body?.usage?.completion_tokens) || 0 },
       };
     } catch (err) {
-      throw toLlmError(err, p.signal);
+      throw noteRateLimit(this.llm, this.active, toLlmError(err, p.signal));
     } finally {
       guard.dispose();
     }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EmailSchema } from "./auth";
 import { ISODateSchema } from "./common";
+import { LlmProviderSchema } from "./user";
 
 export const FEATURES = [
   "research",
@@ -23,6 +24,8 @@ export const MetaResponseSchema = z.object({
     maxPromptChars: z.number(),
     freeTierLimit: z.number(),
   }),
+  /** Providers a user can bring their own key for (older servers omit this). */
+  providers: z.array(LlmProviderSchema).optional(),
 });
 export type MetaResponse = z.infer<typeof MetaResponseSchema>;
 

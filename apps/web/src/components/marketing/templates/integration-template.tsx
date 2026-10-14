@@ -17,6 +17,7 @@ export const PROVIDER_LOGO: Record<IntegrationPageFull["provider"], string> = {
   anthropic: "/logos/anthropic.svg",
   openrouter: "/logos/openrouter.svg",
   gemini: "/logos/gemini.svg",
+  groq: "/logos/groq.svg",
 };
 
 export function IntegrationTemplate({ page }: { page: IntegrationPageFull }) {
@@ -72,6 +73,9 @@ export function IntegrationTemplate({ page }: { page: IntegrationPageFull }) {
                 </ButtonLink>
                 <a href={page.partner.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center justify-center gap-1 text-caption text-tx-tertiary hover:text-tx">
                   {page.partner.name} website <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </a>
+                <a href={page.pricingUrl} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center justify-center gap-1 text-caption text-tx-tertiary hover:text-tx">
+                  {page.partner.name} pricing <ArrowUpRight className="size-3.5" aria-hidden="true" />
                 </a>
               </div>
             </aside>

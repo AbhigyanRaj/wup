@@ -63,7 +63,7 @@ export const PRICING = {
     name: "Bring your own key",
     price: 0,
     currency: "INR",
-    providers: ["OpenAI", "Anthropic", "OpenRouter", "Gemini"],
+    providers: ["OpenAI", "Anthropic", "OpenRouter", "Gemini", "Groq"],
     summary: "Unlimited questions. You pay your AI provider directly.",
   },
 } as const;
@@ -120,6 +120,6 @@ export const FACTS = {
     "credit_card",
   ],
   redactsBinaryFields: true,
-  byokProviders: ["OpenAI", "Anthropic", "OpenRouter", "Gemini"],
+  byokProviders: ["OpenAI", "Anthropic", "OpenRouter", "Gemini", "Groq"],
   sources: ["MongoDB", "Google Sheets", "PDF", "TXT"],
 } as const;

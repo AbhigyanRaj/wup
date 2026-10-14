@@ -2,12 +2,17 @@ import { test, describe, afterEach, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   ANTHROPIC_FALLBACK_BETA,
+  GROQ_TOOL_MODELS,
   anthropicEchoContent,
   anthropicMaxTokens,
+  isGroqChatModel,
   parseToolInput,
+  resolveLightModel,
   resolveModel,
   toJsonSchema,
 } from "../src/ai/providers";
+import { lightModel } from "../src/orchestrator/titles";
+import { Brain } from "../src/orchestrator";
 import { createDriver, LlmError, type LlmCredentials, type RunToolLoopParams } from "../src/ai/driver";
 import { MODEL_ROTATION } from "../src/ai/gemini";
 import { modelHealth, nextQuotaReset } from "../src/ai/modelHealth";
@@ -572,5 +577,165 @@ describe("Gemini driver", () => {
       assert.doesNotMatch(e.message, /Singapore/);
       return true;
     });
+  });
+});
+
+// ─── Groq ─────────────────────────────────────────────────────────────────────
+
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_KEY_MODELS = [
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "llama-3.1-8b-instant",
+  "whisper-large-v3",
+  "canopylabs/orpheus-v1-english",
+  "meta-llama/llama-prompt-guard-2-86m",
+  "openai/gpt-oss-safeguard-20b",
+];
+const groqKey = (availableModels?: string[]): LlmCredentials => ({ provider: "groq", apiKey: "gsk_test", keyId: "groq_k", availableModels });
+const groqToolTurn = (id = "call_g1") =>
+  sse([
+    { data: { model: "openai/gpt-oss-120b", choices: [{ delta: { tool_calls: [{ index: 0, id, function: { name: "mongo_count", arguments: "" } }] } }] } },
+    { data: { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"connectionId":"c","db":"d","collection":"x"}' } }] } }] } },
+    { data: { choices: [{ delta: {}, finish_reason: "tool_calls" }], x_groq: { usage: { prompt_tokens: 80, completion_tokens: 12 } } } },
+    { data: "[DONE]" },
+  ]);
+const groqError = (status: number, message: string, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify({ error: { message, type: "invalid_request_error" } }), { status, headers });
+
+describe("Groq", () => {
+  test("model choice: auto picks the best tool model the key has; light picks a small fast one; chat filter", () => {
+    assert.equal(resolveModel("groq", "auto"), GROQ_TOOL_MODELS[0]);
+    assert.equal(resolveModel("groq", "auto", ["llama-3.3-70b-versatile", "whisper-large-v3"]), "llama-3.3-70b-versatile");
+    assert.equal(resolveModel("groq", "auto", GROQ_KEY_MODELS), "openai/gpt-oss-120b");
+    assert.equal(resolveModel("groq", "llama-3.1-8b-instant"), "llama-3.1-8b-instant");
+    assert.equal(resolveLightModel("groq", GROQ_KEY_MODELS), "llama-3.1-8b-instant");
+    assert.equal(resolveLightModel("groq", ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]), "openai/gpt-oss-20b");
+    assert.equal(lightModel(groqKey(["openai/gpt-oss-120b"])), "openai/gpt-oss-120b");
+    assert.equal(lightModel(groqKey()), "llama-3.1-8b-instant");
+    assert.deepEqual(GROQ_KEY_MODELS.filter(isGroqChatModel), ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"]);
+    assert.equal(createDriver(groqKey(["llama-3.3-70b-versatile"])).model, "llama-3.3-70b-versatile");
+  });
+
+  test("streams a tool loop over the OpenAI-compatible endpoint", async () => {
+    const calls = mockFetch([
+      groqToolTurn(),
+      sse([
+        { data: { model: "openai/gpt-oss-120b", choices: [{ delta: { reasoning: "thinking..." } }] } },
+        { data: { choices: [{ delta: { content: "There are " } }] } },
+        { data: { choices: [{ delta: { content: "42 rows." } }] } },
+        { data: { choices: [], usage: { prompt_tokens: 120, completion_tokens: 6 } } },
+        { data: "[DONE]" },
+      ]),
+    ]);
+    const executed: any[] = [];
+    const p = loopParams({
+      executeTool: async (name, args) => {
+        executed.push({ name, args });
+        return { success: true, count: 42 };
+      },
+    });
+    const res = await createDriver(groqKey(GROQ_KEY_MODELS), "auto").runToolLoop(p);
+
+    assert.equal(p.out(), "There are 42 rows.");
+    assert.equal(res.model, "openai/gpt-oss-120b");
+    assert.equal(res.turns, 2);
+    assert.deepEqual(res.usage, { tokensIn: 200, tokensOut: 18 });
+    assert.deepEqual(executed, [{ name: "mongo_count", args: { connectionId: "c", db: "d", collection: "x" } }]);
+    assert.equal(calls[0].url, GROQ_URL);
+    assert.equal(calls[0].headers.Authorization, "Bearer gsk_test");
+    assert.equal(calls[0].headers["X-Title"], undefined);
+    assert.equal(calls[0].body.model, "openai/gpt-oss-120b");
+    assert.equal(calls[0].body.stream, true);
+    assert.deepEqual(calls[0].body.stream_options, { include_usage: true });
+    assert.equal("temperature" in calls[0].body, false);
+    assert.equal("parallel_tool_calls" in calls[0].body, false);
+    assert.equal(calls[0].body.tool_choice, undefined);
+    assert.equal(calls[1].body.messages.at(-2).tool_calls[0].id, "call_g1");
+    assert.equal(calls[1].body.messages.at(-1).role, "tool");
+  });
+
+  test("forces a final answer with tool_choice none on the last turn", async () => {
+    const calls = mockFetch([groqToolTurn(), sse([{ data: { choices: [{ delta: { content: "done" } }] } }])]);
+    const res = await createDriver(groqKey(), "llama-3.3-70b-versatile").runToolLoop(loopParams({ maxTurns: 2 }));
+    assert.equal(res.text, "done");
+    assert.equal(calls[0].body.tool_choice, undefined);
+    assert.equal(calls[1].body.tool_choice, "none");
+    assert.equal(calls[1].body.model, "llama-3.3-70b-versatile");
+  });
+
+  test("a 401 surfaces PROVIDER_AUTH", async () => {
+    mockFetch([groqError(401, "Invalid API Key")]);
+    await assert.rejects(
+      createDriver(groqKey(), "auto").runToolLoop(loopParams()),
+      (e: any) => e instanceof LlmError && e.code === "PROVIDER_AUTH" && e.status === 401 && /Invalid API Key/.test(e.message)
+    );
+  });
+
+  test("a 429 cools the model down for retry-after seconds", async () => {
+    mockFetch([groqError(429, "Rate limit reached for model llama-3.3-70b-versatile", { "retry-after": "17" })]);
+    const before = Date.now();
+    await assert.rejects(
+      createDriver(groqKey(), "llama-3.3-70b-versatile").runToolLoop(loopParams()),
+      (e: any) => e.code === "MODEL_UNAVAILABLE" && e.status === 429
+    );
+    const until = modelHealth.cooldownUntil("groq_k", "llama-3.3-70b-versatile")!;
+    assert.ok(until >= before + 17_000 && until <= Date.now() + 17_000, String(until - before));
+    assert.ok(modelHealth.isAvailable("other_key", "llama-3.3-70b-versatile"));
+  });
+
+  test("auto moves to the next model on a 429 and skips cooled-down models next time", async () => {
+    const calls = mockFetch([
+      groqError(429, "Rate limit reached", { "retry-after": "30" }),
+      sse([{ data: { model: "llama-3.3-70b-versatile", choices: [{ delta: { content: "hi" } }] } }]),
+    ]);
+    const res = await createDriver(groqKey(GROQ_KEY_MODELS), "auto").runToolLoop(loopParams());
+    assert.equal(res.text, "hi");
+    assert.equal(res.model, "llama-3.3-70b-versatile");
+    assert.deepEqual(calls.map((c) => c.body.model), ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]);
+    assert.equal(modelHealth.isAvailable("groq_k", "openai/gpt-oss-120b"), false);
+    assert.equal(createDriver(groqKey(GROQ_KEY_MODELS), "auto").model, "llama-3.3-70b-versatile");
+  });
+
+  test("a 400 tool_use_failed is re-sampled once", async () => {
+    const calls = mockFetch([
+      groqError(400, "Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details."),
+      sse([{ data: { choices: [{ delta: { content: "ok" } }] } }]),
+    ]);
+    const res = await createDriver(groqKey(), "openai/gpt-oss-120b").runToolLoop(loopParams());
+    assert.equal(res.text, "ok");
+    assert.equal(calls.length, 2);
+  });
+
+  test("complete uses max_completion_tokens and low reasoning for gpt-oss", async () => {
+    const calls = mockFetch([
+      new Response(JSON.stringify({ choices: [{ message: { content: "Sales by region" } }], usage: { prompt_tokens: 9, completion_tokens: 3 } }), { status: 200 }),
+      new Response(JSON.stringify({ choices: [{ message: { content: "x" } }] }), { status: 200 }),
+    ]);
+    const out = await createDriver(groqKey(), "openai/gpt-oss-20b").complete({ prompt: "p", maxTokens: 30 });
+    assert.equal(out.text, "Sales by region");
+    assert.deepEqual(out.usage, { tokensIn: 9, tokensOut: 3 });
+    assert.equal(calls[0].url, GROQ_URL);
+    assert.equal(calls[0].body.max_completion_tokens, 30);
+    assert.equal(calls[0].body.max_tokens, undefined);
+    assert.equal(calls[0].body.reasoning_effort, "low");
+    await createDriver(groqKey(), "llama-3.1-8b-instant").complete({ prompt: "p", maxTokens: 30, json: true });
+    assert.equal(calls[1].body.reasoning_effort, undefined);
+    assert.equal(calls[1].body.response_format, undefined);
+  });
+
+  test("listModels shows the key's chat models only, best tool models first", () => {
+    const brain = new Brain();
+    const models = brain.listModels(groqKey(), { availableModels: [...GROQ_KEY_MODELS, "qwen/qwen3.8-27b"] });
+    assert.deepEqual(
+      models.map((m) => m.id),
+      ["auto", "openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b", "llama-3.1-8b-instant"]
+    );
+    assert.ok(models.every((m) => m.provider === "groq"));
+    assert.equal(models.find((m) => m.id === "llama-3.3-70b-versatile")!.label, "Llama 3.3 70B");
+    modelHealth.markExhausted("groq_k", "openai/gpt-oss-120b", { retryAfterMs: 30_000 });
+    const after = brain.listModels(groqKey(), { availableModels: GROQ_KEY_MODELS });
+    assert.equal(after[0].available, true, "auto still works through the other models");
+    assert.equal(after.find((m) => m.id === "openai/gpt-oss-120b")!.available, false);
   });
 });

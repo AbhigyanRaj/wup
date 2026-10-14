@@ -8,6 +8,7 @@ import { TooltipContent, TooltipRoot, TooltipTrigger } from "@/components/ui/too
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useAppUI } from "@/components/app/app-ui-provider";
+import { PROVIDER_LABEL } from "@/components/app/shell/usage-meter";
 import { useBridges } from "@/hooks/data/useBridges";
 import type { BridgeSummary, ModelOption } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -150,6 +151,17 @@ export function ScopePicker({ value, onChange }: { value: string[]; onChange: (i
 
 // ─── Model ───────────────────────────────────────────────────────────────────
 
+/** The API labels models; older servers send the raw id ("meta-llama/llama-4-scout"), so tidy those. */
+function modelLabel(m: ModelOption) {
+  if (m.label && m.label !== m.id) return m.label;
+  const base = m.id.split("/").pop() ?? m.id;
+  return base
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 function isExhausted(m: ModelOption) {
   if (!m.available) return true;
   return !!m.cooldownUntil && Date.parse(m.cooldownUntil) > Date.now();
@@ -165,7 +177,8 @@ export function ModelPicker({
   onChange: (id: string) => void;
 }) {
   const current = models.find((m) => m.id === value);
-  const label = value === "auto" || !current ? "Auto" : current.label;
+  const label = value === "auto" || !current ? "Auto" : modelLabel(current);
+  const provider = models.find((m) => m.id !== "auto")?.provider ?? models[0]?.provider;
   return (
     <MenuRoot>
       <MenuTrigger asChild>
@@ -180,7 +193,10 @@ export function ModelPicker({
         </button>
       </MenuTrigger>
       <MenuContent side="top" align="end" className="min-w-[240px]">
-        <MenuLabel>Model</MenuLabel>
+        <MenuLabel className="flex items-center justify-between gap-3">
+          <span>Model</span>
+          {provider ? <span className="normal-case tracking-normal text-tx-muted">{PROVIDER_LABEL[provider]}</span> : null}
+        </MenuLabel>
         {(models.length ? models : [{ id: "auto", label: "Auto", provider: "gemini", available: true, cooldownUntil: null } as ModelOption]).map(
           (m, i) => {
             const exhausted = m.id !== "auto" && isExhausted(m);
@@ -191,7 +207,7 @@ export function ModelPicker({
                 <MenuItem disabled={exhausted} onSelect={() => onChange(m.id)}>
                   <span className="flex w-full items-center gap-2">
                     <span className="min-w-0 flex-1 truncate">
-                      {m.id === "auto" ? "Auto" : m.label}
+                      {m.id === "auto" ? "Auto" : modelLabel(m)}
                       {m.id === "auto" ? (
                         <span className="ml-1.5 text-[12px] text-tx-muted">best available</span>
                       ) : null}

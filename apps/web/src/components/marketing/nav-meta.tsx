@@ -34,7 +34,7 @@ const META: Record<string, { icon: Icon; short?: string }> = {
   "/features": { icon: LayoutGrid, short: "Everything wuup does, in one tour" },
   "/security": { icon: ShieldCheck, short: "Read-only guard, redaction, encryption" },
   "/pricing": { icon: Wallet, short: "Free to start, then your own key" },
-  "/byok": { icon: KeyRound, short: "Use OpenAI, Anthropic, OpenRouter or Gemini" },
+  "/byok": { icon: KeyRound, short: "Use OpenAI, Anthropic, OpenRouter, Gemini or Groq" },
   "/changelog": { icon: History, short: "What shipped, week by week" },
   "/chat-with-mongodb": { icon: Database, short: "Read-only, schema-aware MongoDB answers" },
   "/chat-with-google-sheets": { icon: Sheet, short: "Ask across tabs like tables" },

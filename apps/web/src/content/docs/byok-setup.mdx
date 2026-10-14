@@ -1,9 +1,9 @@
 export const metadata = {
   title: "Bring your own key: set up OpenAI, Claude and more",
-  description: "Add your own OpenAI, Anthropic, OpenRouter or Gemini API key to wuup for unlimited questions. wuup charges nothing; you pay your AI provider directly.",
+  description: "Add your own OpenAI, Anthropic, OpenRouter, Gemini or Groq API key to wuup for unlimited questions. wuup charges nothing; you pay your provider directly.",
   h1: "Bring your own key",
   date: "2026-10-14",
-  updated: "2026-10-14",
+  updated: "2026-10-15",
   author: "abhigyan-raj",
   tags: ["Docs", "Models"],
   primaryKeyword: "wuup bring your own key",
@@ -12,11 +12,11 @@ export const metadata = {
   group: "Models",
   order: 20,
   navLabel: "Bring your own key",
-  related: ["/guides/byok-explained", "/pricing", "/docs/troubleshooting"],
+  related: ["/guides/byok-explained", "/integrations/groq", "/pricing", "/docs/troubleshooting"],
   og: { eyebrow: "Docs" },
 }
 
-wuup's free tier gives you 50 questions on Gemini. To keep going, or to use a different model, add your own API key from OpenAI, Anthropic, OpenRouter or Google Gemini in **Settings**. With your key, questions are unlimited on the wuup side and wuup charges nothing: your provider bills you directly for the tokens you use. wuup checks the key when you save it, shows it masked afterwards, and you can remove it at any time.
+wuup's free tier gives you 50 questions on Gemini. To keep going, or to use a different model, add your own API key from OpenAI, Anthropic, OpenRouter, Google Gemini or Groq in **Settings**. With your key, questions are unlimited on the wuup side and wuup charges nothing: your provider bills you directly for the tokens you use. wuup checks the key when you save it, shows it masked afterwards, and you can remove it at any time.
 
 ## Supported providers
 
@@ -26,6 +26,7 @@ wuup's free tier gives you 50 questions on Gemini. To keep going, or to use a di
 | Anthropic | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | Claude models, billed by Anthropic |
 | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | One key for many model vendors, prepaid credits |
 | Gemini | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Google AI Studio key |
+| Groq | [console.groq.com/keys](https://console.groq.com/keys) | Very fast open models, keys start with `gsk_` |
 
 Each provider shows the full secret only once, when you create it. Copy it straight into wuup or a password manager.
 
@@ -55,8 +56,24 @@ After you save a key, the model picker lists the models your key can access. Pic
 - Anthropic defaults to a current Claude model.
 - OpenRouter defaults to `google/gemini-2.5-flash`.
 - Gemini uses wuup's rotation of current Gemini models.
+- Groq picks the strongest tool-calling model your key can use (see [Groq](#groq) below).
 
 Every answer records which model produced it and whether your own key was used.
+
+## Groq
+
+[Groq](/integrations/groq) serves open models, such as Llama and GPT-OSS, on its own inference hardware, so answers stream back very fast. To use it:
+
+<Steps>
+
+1. Sign in to the [GroqCloud console](https://console.groq.com/keys) and create an API key. It starts with `gsk_`.
+2. In wuup, open **Settings**, then **API key**, choose **Groq** and paste the key.
+
+</Steps>
+
+When you save the key, wuup lists Groq's models with it and keeps only the chat models. Speech, text to speech and safety models are left out, because they can't answer questions about your data. **Auto** then uses the strongest tool-calling model your key can see, and a small, fast model for chat titles.
+
+Groq applies rate limits per model, and the limits on its free plan are low. If a model is rate limited, Auto moves on to the next model and the model picker shows when the limited one is free again. If you pick a specific model and it hits its limit, wait for the time shown or switch back to Auto. Groq bills by tokens at the rates on [groq.com/pricing](https://groq.com/pricing); wuup adds nothing.
 
 ## How your key is used
 
@@ -73,7 +90,7 @@ Open **Settings**, then **API key**, and choose **Remove**. wuup deletes the sto
 
 ### Which provider should I pick?
 
-For data questions, any current mid-size model works well. OpenRouter is useful if you want to try several vendors with one key. Our guide [BYOK explained](/guides/byok-explained) compares the trade-offs.
+For data questions, any current mid-size model works well. OpenRouter is useful if you want to try several vendors with one key, and Groq is the pick when you want answers back as fast as possible. Our guide [BYOK explained](/guides/byok-explained) compares the trade-offs.
 
 ### Do I still need a wuup account?
 

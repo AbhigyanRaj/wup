@@ -48,7 +48,7 @@ graph TD
 ## Key Capabilities
 
 ### 1. Multi-Provider Intelligence Routing
-WUP supports four production AI providers with automatic fallback and quota management. The orchestrator tries providers in priority order — if one fails due to rate limits or regional blocks, it seamlessly rotates to the next without interrupting the user session.
+WUP supports five production AI providers with automatic fallback and quota management. The orchestrator tries providers in priority order — if one fails due to rate limits or regional blocks, it seamlessly rotates to the next without interrupting the user session.
 
 | Provider | Mode | Model Examples |
 | :--- | :--- | :--- |
@@ -56,6 +56,7 @@ WUP supports four production AI providers with automatic fallback and quota mana
 | **Anthropic Claude** | User API key | claude-3-5-sonnet, claude-3-opus |
 | **OpenAI GPT** | User API key | gpt-4o, gpt-4o-mini |
 | **OpenRouter** | User API key | deepseek/deepseek-r1, meta-llama/llama-3.1-70b, and 100+ models |
+| **Groq** | User API key | openai/gpt-oss-120b, llama-3.3-70b-versatile, llama-3.1-8b-instant (very fast open models) |
 
 ### 2. Live Data Bridges
 WUP maintains secure, read-only connections to structured data sources.

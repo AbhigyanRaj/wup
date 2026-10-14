@@ -63,6 +63,14 @@ const PROVIDERS = [
     keys: "https://aistudio.google.com/apikey",
     pricing: "https://ai.google.dev/gemini-api/docs/pricing",
   },
+  {
+    name: "Groq",
+    logo: "/logos/groq.svg",
+    blurb: "Very fast open models, like Llama and GPT-OSS, for answers that stream almost instantly.",
+    prefix: "gsk_",
+    keys: "https://console.groq.com/keys",
+    pricing: "https://groq.com/pricing",
+  },
 ];
 
 const STEPS = [
@@ -112,10 +120,10 @@ export default function ByokPage() {
 
         <section className="container section -mt-8 md:-mt-16" aria-label="Supported providers">
           <SectionHead
-            title={"Four providers,\none setting"}
+            title={"Five providers,\none setting"}
             intro="Use the account you already have. Each card links to the provider's key page and its own price list."
           />
-          <ul className="m-0 grid w-full list-none gap-2 p-0 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="m-0 grid w-full list-none gap-2 p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {PROVIDERS.map((p) => (
               <li key={p.name} className="group relative flex flex-col overflow-hidden rounded-card border border-st-secondary bg-sf-white transition-[border-color,box-shadow] duration-300 hover:border-indigo-200 hover:shadow-card-hover">
                 <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[radial-gradient(circle,rgba(125,211,252,.5),rgba(165,187,252,.3)_40%,transparent_70%)] opacity-0 blur-lg transition-opacity duration-300 group-hover:opacity-100" />

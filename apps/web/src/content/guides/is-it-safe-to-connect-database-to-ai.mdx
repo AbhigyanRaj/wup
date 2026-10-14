@@ -70,7 +70,7 @@ wuup is an AI analyst for MongoDB, Google Sheets and documents, and it is ours. 
 | 8 | Internal hosts | Connection strings that resolve to loopback, private, carrier-grade NAT or link-local ranges (including the cloud metadata address), or to wuup's own database, are refused. Every socket is checked again at connect time, including SRV member hosts | In place |
 | 9 | Untrusted data | The model has no write tools and cannot send data anywhere except its answer. Web search is off unless you turn it on for a message. wuup cannot stop text inside a row from influencing the wording of an answer | Partial |
 | 10 | Query transparency | Every answer has a "queries used" panel with the exact filter or pipeline, row count and duration. Charts and tables are built from those rows, not from numbers the model typed. There is no organisation-wide audit log export yet | Partial |
-| 11 | Model provider | The free tier runs on Google Gemini. With your own key, requests go to OpenAI, Anthropic, OpenRouter or Gemini under your account. The model receives a schema summary and the redacted rows of each query, not whole collections | In place |
+| 11 | Model provider | The free tier runs on Google Gemini. With your own key, requests go to OpenAI, Anthropic, OpenRouter, Gemini or Groq under your account. The model receives a schema summary and the redacted rows of each query, not whole collections | In place |
 | 12 | Revocation | Deleting a connection removes it from every chat and closes its pooled database client. Disabling the database user in Atlas is the hard stop | In place |
 
 Details on scope and hidden fields are in the [scopes and redaction docs](/docs/scopes-and-redaction), and the broader picture is on the [security page](/security).
@@ -96,7 +96,7 @@ Two habits help on top of that:
 
 When you ask wuup a question about MongoDB, three things reach the model provider: your question, a summary of the scoped schema (field names, types and how often they appear, with sample values removed for hidden fields), and the redacted rows each query returned, capped at 100 rows and 50 KB per query. Whole collections are never sent.
 
-What happens next is governed by the provider. On the free tier that is Google's Gemini API. With [your own key](/docs/byok-setup) it is your agreement with OpenAI, Anthropic, OpenRouter or Google. If your data is regulated, check the provider's retention and training terms for API traffic before you connect, and prefer your own key so the contract is yours.
+What happens next is governed by the provider. On the free tier that is Google's Gemini API. With [your own key](/docs/byok-setup) it is your agreement with OpenAI, Anthropic, OpenRouter, Google or Groq. If your data is regulated, check the provider's retention and training terms for API traffic before you connect, and prefer your own key so the contract is yours.
 
 ## A ten-minute safety test
 

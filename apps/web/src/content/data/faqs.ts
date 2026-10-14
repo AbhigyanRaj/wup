@@ -31,7 +31,7 @@ export const faqGroups: FaqGroup[] = [
     items: [
       {
         q: "Where do I get an API key?",
-        a: "From your provider's console: OpenAI, Anthropic, OpenRouter or Google AI Studio for Gemini. Create a key, then paste it into wuup under Settings.",
+        a: "From your provider's console: OpenAI, Anthropic, OpenRouter, Google AI Studio for Gemini, or the GroqCloud console for Groq. Create a key, then paste it into wuup under Settings.",
       },
       {
         q: "Who pays for the questions?",

@@ -382,6 +382,7 @@ describe("meta and waitlist", () => {
     }
     assert.ok(!res.body.features.includes("sample"));
     assert.deepEqual(res.body.limits, { maxPromptChars: 8000, freeTierLimit: 50 });
+    assert.deepEqual(res.body.providers, ["gemini", "openai", "openrouter", "anthropic", "groq"]);
   });
 
   test("POST /waitlist anonymous and signed in", async () => {

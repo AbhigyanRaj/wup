@@ -15,7 +15,12 @@ export interface LlmCredentials {
   apiKey: string | null;
   /** "server", or sha256(key).slice(0, 12) for a user's own key (cooldown / cache bucketing). */
   keyId: string;
+  /** The key's models from when it was saved; Groq "auto" and the light model pick from these. */
+  availableModels?: string[];
 }
+
+const storedModels = (user: any): string[] =>
+  Array.isArray(user?.availableModels) ? user.availableModels.filter((m: unknown): m is string => typeof m === "string") : [];
 
 const FALLBACK_ROTATION = [
   "gemini-2.5-flash",
@@ -88,7 +93,7 @@ export async function resolveLlmCredentials(user: any): Promise<LlmCredentials> 
         // Both present (half-migrated row): drop the plaintext copy.
         await User.updateOne({ _id: user._id, customApiKey: legacy }, { $unset: { customApiKey: 1 } }).catch(() => {});
       }
-      return { provider, apiKey, keyId: keyIdFor(apiKey) };
+      return { provider, apiKey, keyId: keyIdFor(apiKey), availableModels: storedModels(user) };
     } catch (err: any) {
       console.error(`[WUP API] Could not decrypt the stored API key for user ${String(user?._id)}`);
       if (!legacy) return { provider: "gemini", apiKey: null, keyId: "server" };
@@ -102,7 +107,7 @@ export async function resolveLlmCredentials(user: any): Promise<LlmCredentials> 
       // Migration is best effort; the plaintext key still works for this request.
       console.error("[WUP API] Lazy BYOK migration failed:", err?.message ?? err);
     }
-    return { provider, apiKey: legacy, keyId: keyIdFor(legacy) };
+    return { provider, apiKey: legacy, keyId: keyIdFor(legacy), availableModels: storedModels(user) };
   }
 
   return { provider: "gemini", apiKey: null, keyId: "server" };

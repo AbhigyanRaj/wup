@@ -30,7 +30,7 @@ export const home: HomeContent = {
     },
     {
       q: "Is wuup free?",
-      a: `Your first ${FACTS.freeQuestions} questions are free on Gemini, with no card. After that you can add your own OpenAI, Anthropic, OpenRouter or Gemini key and pay the provider directly. wuup does not charge for it.`,
+      a: `Your first ${FACTS.freeQuestions} questions are free on Gemini, with no card. After that you can add your own OpenAI, Anthropic, OpenRouter, Gemini or Groq key and pay the provider directly. wuup does not charge for it.`,
     },
     {
       q: "Do I need to sign up to try it?",

@@ -24,6 +24,7 @@ export function createDriver(llm: LlmCredentials, model?: string, opts?: DriverO
       return new GeminiDriver(llm, model, opts);
     case "openai":
     case "openrouter":
+    case "groq":
       if (!llm.apiKey) throw new LlmError("PROVIDER_AUTH", `An API key is required for ${provider}.`);
       return new OpenAICompatibleDriver(provider, llm, model, opts);
     case "anthropic":

@@ -26,6 +26,14 @@ export {
 } from "./ai/driver";
 export { modelHealth, ModelHealth, nextQuotaReset } from "./ai/modelHealth";
 export { MODEL_ROTATION } from "./ai/gemini";
+export {
+  GROQ_MODELS_URL,
+  GROQ_TOOL_MODELS,
+  GROQ_LIGHT_MODELS,
+  isGroqChatModel,
+  resolveLightModel,
+  groqAutoCandidates,
+} from "./ai/providers";
 
 // Citations
 export { SourceRegistry, MAX_SNIPPET_CHARS, type SourceInput } from "./citations/sourceRegistry";

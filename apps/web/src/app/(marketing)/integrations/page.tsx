@@ -8,7 +8,7 @@ const PATH = "/integrations";
 const FALLBACK = {
   title: "Integrations: bring your own AI model key",
   description:
-    "Use wuup with your own OpenAI, Anthropic, OpenRouter or Gemini API key. Unlimited questions over MongoDB, Sheets and PDFs, billed by your provider.",
+    "Use wuup with your own OpenAI, Anthropic, OpenRouter, Gemini or Groq API key. Unlimited questions over MongoDB, Sheets and PDFs, billed by your provider.",
 };
 export const metadata = pageMetadata(PATH, getPage(PATH) ? {} : FALLBACK);
 
@@ -28,7 +28,7 @@ export default function IntegrationsHub() {
       path={PATH}
       eyebrow="Integrations"
       title={"Bring the model\nyou already pay for"}
-      lead="wuup works with four model providers. Add your own key and every question runs on the model you choose, billed by the provider, with nothing added by wuup."
+      lead="wuup works with five model providers, including Groq for very fast answers. Add your own key and every question runs on the model you choose, billed by the provider, with nothing added by wuup."
       groups={[{ items }]}
       cta={{ title: "Your key, your model.\nYour data, read-only.", secondary: { label: "How BYOK works", href: "/byok" } }}
     />

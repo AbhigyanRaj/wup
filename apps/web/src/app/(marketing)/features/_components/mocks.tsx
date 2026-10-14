@@ -606,12 +606,13 @@ export function KeyInset() {
     <div aria-hidden="true" className="flex h-full flex-col text-left">
       <InsetHead icon={<KeyRound />} title="Settings / Model and key" />
       <div className="flex flex-1 flex-col gap-3.5 p-3 md:p-5">
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-sf-tertiary p-1 text-[12px] sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-sf-tertiary p-1 text-[12px] sm:grid-cols-5">
           {[
             ["/logos/openai.svg", "OpenAI"],
             ["/logos/anthropic.svg", "Anthropic"],
             ["/logos/openrouter.svg", "OpenRouter"],
             ["/logos/gemini.svg", "Gemini"],
+            ["/logos/groq.svg", "Groq"],
           ].map(([logo, name]) => (
             <span
               key={name}

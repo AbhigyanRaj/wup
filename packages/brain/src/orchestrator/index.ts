@@ -15,7 +15,7 @@ import {
   type LlmProvider,
 } from "../ai/common";
 import { MODEL_ROTATION } from "../ai/gemini";
-import { DEFAULT_MODELS } from "../ai/providers";
+import { DEFAULT_MODELS, GROQ_TOOL_MODELS, groqAutoCandidates, isGroqChatModel } from "../ai/providers";
 import { modelHealth as defaultHealth, type ModelHealth } from "../ai/modelHealth";
 import { SourceRegistry } from "../citations/sourceRegistry";
 import { buildBridgeDigest } from "../bridges/mongo/digest";
@@ -91,6 +91,7 @@ const PROVIDER_NAMES: Record<LlmProvider, string> = {
   openai: "OpenAI",
   openrouter: "OpenRouter",
   anthropic: "Anthropic",
+  groq: "Groq",
 };
 
 const GUARD_MESSAGES = new Set([
@@ -145,13 +146,31 @@ const MODEL_LABELS: Record<string, string> = {
   "gpt-4o-mini": "GPT-4o mini",
   "gpt-4o": "GPT-4o",
   "google/gemini-2.5-flash": "Gemini 2.5 Flash (OpenRouter)",
+  "openai/gpt-oss-120b": "GPT-OSS 120B",
+  "openai/gpt-oss-20b": "GPT-OSS 20B",
+  "llama-3.3-70b-versatile": "Llama 3.3 70B",
+  "llama-3.1-8b-instant": "Llama 3.1 8B Instant",
+  "qwen/qwen3.8-27b": "Qwen 3.8 27B",
+  "minimaxai/minimax-m2.7": "MiniMax M2.7",
 };
+
+/** "meta-llama/llama-4-scout-17b-16e-instruct" -> "Llama 4 Scout 17b 16e Instruct". */
+export function prettyModelLabel(id: string): string {
+  const base = id.split("/").pop() ?? id;
+  return base
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
 
 const CURATED: Record<LlmProvider, string[]> = {
   gemini: MODEL_ROTATION,
   anthropic: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
   openai: ["gpt-4o-mini", "gpt-4o"],
   openrouter: ["google/gemini-2.5-flash"],
+  // Groq lists the key's own models (validated at save time), best tool models first.
+  groq: [],
 };
 
 const LISTABLE: Record<LlmProvider, RegExp> = {
@@ -159,6 +178,7 @@ const LISTABLE: Record<LlmProvider, RegExp> = {
   anthropic: /^claude-/,
   openai: /^(gpt-|o\d|chatgpt-)/,
   openrouter: /^[\w.-]+\/[\w.:-]+$/,
+  groq: /^[\w.\-/:]{1,100}$/,
 };
 
 const SUGGEST_SYSTEM = `You suggest questions a user could ask wuup, a data assistant, about their own data.
@@ -215,7 +235,7 @@ export interface BrainResponse {
 const LIMIT_MSG =
   "You have reached your free tier limit. Please add your own Gemini API key in settings to continue chatting.";
 
-const LLM_PROVIDERS = new Set<LlmProvider>(["gemini", "openai", "openrouter", "anthropic"]);
+const LLM_PROVIDERS = new Set<LlmProvider>(["gemini", "openai", "openrouter", "anthropic", "groq"]);
 
 export class Brain {
   private readonly factory: DriverFactory;
@@ -517,8 +537,15 @@ export class Brain {
   listModels = (llm: LlmCredentials, opts: ListModelsOptions = {}): ModelOption[] => {
     const provider = llm.provider;
     const ids = [...(CURATED[provider] ?? [])];
+    let available = opts.availableModels ?? [];
+    if (provider === "groq") {
+      // Chat models only (no speech, TTS, guard or embedding models), preferred tool models first.
+      const chat = available.filter(isGroqChatModel);
+      const rank = (id: string) => (GROQ_TOOL_MODELS.includes(id) ? GROQ_TOOL_MODELS.indexOf(id) : GROQ_TOOL_MODELS.length);
+      available = chat.length > 0 ? [...chat].sort((a, b) => rank(a) - rank(b)) : [...GROQ_TOOL_MODELS];
+    }
     if (llm.apiKey && provider !== "gemini") {
-      for (const id of opts.availableModels ?? []) {
+      for (const id of available) {
         if (ids.length >= 30) break;
         if (typeof id === "string" && LISTABLE[provider]?.test(id) && !ids.includes(id)) ids.push(id);
       }
@@ -527,15 +554,20 @@ export class Brain {
       const until = this.health.cooldownUntil(llm.keyId, id);
       return {
         id,
-        label: MODEL_LABELS[id] ?? id,
+        label: MODEL_LABELS[id] ?? (provider === "groq" ? prettyModelLabel(id) : id),
         provider,
         available: until === null,
         cooldownUntil: until === null ? null : new Date(until).toISOString(),
       };
     };
     const models = ids.map(option);
-    const autoTarget = provider === "gemini" ? null : DEFAULT_MODELS[provider];
-    const autoAvailable = autoTarget ? this.health.isAvailable(llm.keyId, autoTarget) : models.some((m) => m.available);
+    const autoTarget = provider === "gemini" || provider === "groq" ? null : DEFAULT_MODELS[provider];
+    // Groq "auto" skips to the next model on a rate limit, so it is usable while any listed model is.
+    const autoAvailable = autoTarget
+      ? this.health.isAvailable(llm.keyId, autoTarget)
+      : provider === "groq"
+        ? groqAutoCandidates({ keyId: llm.keyId, availableModels: available }).some((m) => this.health.isAvailable(llm.keyId, m))
+        : models.some((m) => m.available);
     const cooldowns = models.map((m) => m.cooldownUntil).filter((x): x is string => !!x).sort();
     return [
       {
