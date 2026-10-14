@@ -303,7 +303,8 @@ async function runTurn(c: TurnContext): Promise<void> {
           mode: c.mode,
           history,
           model: c.model,
-          searchWeb: c.searchWeb,
+          // Research mode always searches the web (when web search is enabled server-side).
+          searchWeb: env.WEB_SEARCH_ENABLED && (c.mode === "research" || !!c.searchWeb),
           bridgeIds: (Array.isArray(c.chat.bridgeIds) ? c.chat.bridgeIds : []).map((b: unknown) => String(b)),
           llm: c.llm,
           preferences: brainPreferences(c.user?.preferences),

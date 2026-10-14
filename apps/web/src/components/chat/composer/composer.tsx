@@ -117,7 +117,11 @@ export function Composer({ autoFocus = false, placeholder }: { autoFocus?: boole
   React.useEffect(() => {
     const focus = () => taRef.current?.focus();
     const toggle = () => {
-      if (researchOn) setResearch(!research);
+      if (researchOn) {
+        const next = !research;
+        setResearch(next);
+        if (next && !prefs.searchWeb) prefs.setSearchWeb(true);
+      }
     };
     const restore = (e: Event) => {
       const d = (e as CustomEvent<RestoreDraftDetail>).detail;
@@ -131,7 +135,7 @@ export function Composer({ autoFocus = false, placeholder }: { autoFocus?: boole
       window.removeEventListener(TOGGLE_RESEARCH_EVENT, toggle);
       window.removeEventListener(RESTORE_DRAFT_EVENT, restore);
     };
-  }, [chatId, research, researchOn, setResearch]);
+  }, [chatId, research, researchOn, setResearch, prefs]);
 
   // Esc stops the running answer (unless a dialog or menu handled it).
   React.useEffect(() => {
@@ -217,9 +221,14 @@ export function Composer({ autoFocus = false, placeholder }: { autoFocus?: boole
               <ScopePicker value={scopeValue} onChange={setScope} />
               <button
                 type="button"
-                aria-pressed={prefs.searchWeb}
-                onClick={() => prefs.setSearchWeb(!prefs.searchWeb)}
-                className={cn(toolChip, prefs.searchWeb ? toolChipOn : toolChipOff)}
+                aria-pressed={research || prefs.searchWeb}
+                aria-disabled={research || undefined}
+                title={research ? "Research mode always searches the web" : undefined}
+                onClick={() => {
+                  if (research) return;
+                  prefs.setSearchWeb(!prefs.searchWeb);
+                }}
+                className={cn(toolChip, research || prefs.searchWeb ? toolChipOn : toolChipOff, research && "cursor-default")}
               >
                 <Globe className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
                 <span className="max-sm:sr-only">Web</span>
@@ -230,7 +239,11 @@ export function Composer({ autoFocus = false, placeholder }: { autoFocus?: boole
                     <button
                       type="button"
                       aria-pressed={research}
-                      onClick={() => setResearch(!research)}
+                      onClick={() => {
+                        const next = !research;
+                        setResearch(next);
+                        if (next && !prefs.searchWeb) prefs.setSearchWeb(true);
+                      }}
                       className={cn(toolChip, research ? toolChipOn : toolChipOff)}
                     >
                       <Telescope className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
