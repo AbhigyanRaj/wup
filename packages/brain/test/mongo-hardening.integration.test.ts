@@ -23,6 +23,8 @@ let connId: string;
 
 before(async () => {
   delete process.env.GEMINI_API_KEY;
+  // mongodb-memory-server listens on 127.0.0.1, which the SSRF guard blocks
+  process.env.BRIDGE_ALLOW_PRIVATE_HOSTS = "true";
   server = await MongoMemoryServer.create();
   uri = server.getUri();
   customer = await new MongoClient(uri).connect();
@@ -46,6 +48,7 @@ before(async () => {
 });
 
 after(async () => {
+  delete process.env.BRIDGE_ALLOW_PRIVATE_HOSTS;
   releasePooledClient(connId);
   await mongoose.disconnect();
   await customer?.close();

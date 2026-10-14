@@ -1,155 +1,219 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import {
+  RequestGuard,
+  isAutoModel,
+  isRotatable,
+  log,
+  resolveTimeouts,
+  safeExecute,
+  systemText,
+  toLlmError,
+  type ChatTurn,
+  type CompleteParams,
+  type CompleteResult,
+  type DriverOptions,
+  type LlmCredentials,
+  type LlmDriver,
+  type LlmError,
+  type RunToolLoopParams,
+  type ToolLoopResult,
+  type Usage,
+} from "./common";
+import { modelHealth } from "./modelHealth";
+
+/** Models tried in order for "auto" on Gemini. */
+export const MODEL_ROTATION = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash-lite"];
+
+function apiKeyFor(llm: LlmCredentials): string {
+  const key = llm.apiKey || process.env.GEMINI_API_KEY || "";
+  if (!key) log().warn("GEMINI_API_KEY is missing from the environment");
+  return key;
+}
 
 /**
- * Lazy-initialized Gemini API client.
+ * Converts chat turns into the strict alternating user/model history Gemini
+ * requires (starts with user, ends with model).
  */
-const getGenAI = (customKey?: string) => {
-  const key = customKey || process.env.GEMINI_API_KEY || "";
-  if (!key) {
-    console.warn("[WUP Brain] WARNING: GEMINI_API_KEY is missing from environment.");
+export function buildGeminiHistory(turns: ChatTurn[]): Content[] {
+  const raw: Content[] = [];
+  for (const t of turns) {
+    if (t.role === "system") continue;
+    const text = t.content?.trim();
+    if (!text) continue;
+    raw.push({ role: t.role === "user" ? "user" : "model", parts: [{ text }] });
   }
-  return new GoogleGenerativeAI(key);
-};
+  while (raw.length > 0 && raw[0].role !== "user") raw.shift();
+  while (raw.length > 0 && raw[raw.length - 1].role !== "model") raw.pop();
+  const fixed: Content[] = [];
+  for (const c of raw) {
+    const want = fixed.length % 2 === 0 ? "user" : "model";
+    if (c.role === want) fixed.push(c);
+  }
+  while (fixed.length > 0 && fixed[fixed.length - 1].role !== "model") fixed.pop();
+  return fixed;
+}
 
-/**
- * MODEL SELECTION (DIAGNOSTIC MODE): 
- * Testing "gemini-1.5-flash" with v1 endpoint and minimal configuration.
- * If the issue "lies in the code" as suggested, this stripped-down call
- * will verify if standard generation is active before we re-enable 
- * complex features like Function Calling.
- */
-export const GEMINI_MODEL = "gemini-3-flash-preview"; 
+/** Thrown inside one model attempt so the rotation knows whether output already reached the user. */
+interface AttemptState {
+  producedOutput: boolean;
+}
 
-export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string, customKey?: string, searchWeb: boolean = false) => {
-  const modelParams: any = {
-    model: modelOverride || GEMINI_MODEL,
-  };
+export class GeminiDriver implements LlmDriver {
+  readonly provider = "gemini" as const;
+  readonly usingOwnKey: boolean;
+  readonly model: string;
+  private readonly auto: boolean;
+  private readonly timeouts: { connectMs: number; idleMs: number };
 
-  if (systemInstruction) {
-    modelParams.systemInstruction = systemInstruction;
+  constructor(private readonly llm: LlmCredentials, model?: string, opts?: DriverOptions) {
+    this.auto = isAutoModel(model);
+    this.model = this.auto ? MODEL_ROTATION[0] : model!;
+    this.usingOwnKey = !!llm.apiKey;
+    this.timeouts = resolveTimeouts(opts);
   }
 
-  let modelTools = tools ? JSON.parse(JSON.stringify(tools)) : [];
+  /** Models to try, in order. Cooling-down models are skipped; if all are, the one that frees up first. */
+  candidates(): string[] {
+    if (!this.auto) return [this.model];
+    const available = MODEL_ROTATION.filter((m) => modelHealth.isAvailable(this.llm.keyId, m));
+    if (available.length > 0) return available;
+    const soonest = [...MODEL_ROTATION].sort(
+      (a, b) => (modelHealth.cooldownUntil(this.llm.keyId, a) ?? 0) - (modelHealth.cooldownUntil(this.llm.keyId, b) ?? 0)
+    );
+    return [soonest[0]];
+  }
 
-  if (!searchWeb) {
-    // If web search is disabled, filter out the web_search function from WUP_AI_TOOLS declarations
-    modelTools = modelTools.map((t: any) => {
-      if (t.functionDeclarations) {
-        return {
-          functionDeclarations: t.functionDeclarations.filter((fd: any) => fd.name !== "web_search")
-        };
+  private client(modelName: string, system: string | undefined, tools: any[]) {
+    const params: any = { model: modelName };
+    if (system) params.systemInstruction = system;
+    if (tools.length > 0) params.tools = [{ functionDeclarations: tools }];
+    return new GoogleGenerativeAI(apiKeyFor(this.llm)).getGenerativeModel(params, { apiVersion: "v1beta" });
+  }
+
+  /**
+   * Runs `attempt` on each candidate model. Rotation happens only before any
+   * output reached the user, and only on 429, 5xx or 404. Tool errors never
+   * reach here (they are returned to the model as results).
+   */
+  private async rotate<T>(signal: AbortSignal | undefined, attempt: (model: string, state: AttemptState) => Promise<T>): Promise<T> {
+    let lastErr: LlmError | undefined;
+    for (const m of this.candidates()) {
+      const state: AttemptState = { producedOutput: false };
+      try {
+        return await attempt(m, state);
+      } catch (raw) {
+        const err = toLlmError(raw, signal);
+        if (err.status === 429 || err.status === 404) {
+          modelHealth.markExhausted(this.llm.keyId, m, { errorDetails: err.details, message: err.message, retryAfterMs: (err as any).retryAfterMs });
+        }
+        if (err.code === "ABORTED" || state.producedOutput || !this.auto || !isRotatable(err)) throw err;
+        log().warn("gemini model failed, rotating", { model: m, status: err.status });
+        lastErr = err;
       }
-      return t;
-    }).filter((t: any) => !t.functionDeclarations || t.functionDeclarations.length > 0);
+    }
+    throw lastErr ?? toLlmError(new Error("No Gemini model is available right now."));
   }
 
-  if (modelTools.length > 0) {
-    modelParams.tools = modelTools;
+  runToolLoop(p: RunToolLoopParams): Promise<ToolLoopResult> {
+    return this.rotate(p.signal, (m, state) => this.loopOnce(m, p, state));
   }
 
-  // Use 'v1beta' for systemInstruction and Function Calling support
-  return getGenAI(customKey).getGenerativeModel(modelParams, { apiVersion: 'v1beta' });
-};
+  private async loopOnce(modelName: string, p: RunToolLoopParams, state: AttemptState): Promise<ToolLoopResult> {
+    const maxTurns = Math.max(1, p.maxTurns);
+    const model = this.client(modelName, systemText(p.system), p.tools);
+    // The conversation is managed here rather than via ChatSession: current Gemini models
+    // reject the legacy "function" role the SDK uses for tool results, and Gemini 3
+    // requires the model's function-call parts (with thought signatures) echoed verbatim.
+    const contents: Content[] = [...buildGeminiHistory(p.history), { role: "user", parts: [{ text: p.prompt }] }];
+    const usage: Usage = { tokensIn: 0, tokensOut: 0 };
+    let fullText = "";
+
+    for (let turn = 0; turn < maxTurns; turn++) {
+      const last = turn === maxTurns - 1;
+      const request: any = { contents };
+      // Last turn: forbid tools so the model has to answer.
+      if (p.tools.length > 0 && last) request.toolConfig = { functionCallingConfig: { mode: "NONE" } };
+
+      const guard = new RequestGuard(p.signal, this.timeouts.connectMs, this.timeouts.idleMs);
+      const modelParts: any[] = [];
+      const calls: Array<{ name: string; args: any }> = [];
+      let turnUsage: any;
+      try {
+        const result = await guard.race(model.generateContentStream(request, { signal: guard.signal }));
+        result.response.catch(() => {}); // the aggregated promise rejects too when the stream fails
+        for await (const chunk of guard.iterate(result.stream)) {
+          if (chunk.usageMetadata) turnUsage = chunk.usageMetadata;
+          for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
+            modelParts.push(part);
+            if (part.functionCall) {
+              calls.push({ name: part.functionCall.name, args: part.functionCall.args });
+            } else if (typeof part.text === "string" && part.text && !(part as any).thought && calls.length === 0) {
+              fullText += part.text;
+              state.producedOutput = true;
+              p.onText(part.text);
+            }
+          }
+        }
+      } catch (err) {
+        throw toLlmError(err, p.signal);
+      } finally {
+        guard.dispose();
+      }
+      usage.tokensIn += Number(turnUsage?.promptTokenCount) || 0;
+      usage.tokensOut += (Number(turnUsage?.candidatesTokenCount) || 0) + (Number(turnUsage?.thoughtsTokenCount) || 0);
+
+      if (calls.length === 0) return { text: fullText, model: modelName, usage, turns: turn + 1, hitTurnLimit: false };
+      if (last) return { text: fullText, model: modelName, usage, turns: turn + 1, hitTurnLimit: true };
+
+      contents.push({ role: "model", parts: modelParts });
+      const responses: any[] = [];
+      for (const call of calls) {
+        state.producedOutput = true; // tool side effects (events, sources) are visible: no rotation after this
+        const toolResult = await safeExecute(p.executeTool, call.name, call.args ?? {});
+        const response = toolResult && typeof toolResult === "object" && !Array.isArray(toolResult) ? toolResult : { result: toolResult };
+        responses.push({ functionResponse: { name: call.name, response } });
+      }
+      contents.push({ role: "user", parts: responses });
+    }
+    return { text: fullText, model: modelName, usage, turns: maxTurns, hitTurnLimit: true };
+  }
+
+  complete(p: CompleteParams): Promise<CompleteResult> {
+    return this.rotate(p.signal, async (modelName) => {
+      const model = this.client(modelName, p.system, []);
+      const generationConfig: any = { maxOutputTokens: p.maxTokens + (modelName.startsWith("gemini-2.5") ? 0 : 1024) };
+      // 2.5 models think by default and thinking tokens count against the output budget.
+      if (modelName.startsWith("gemini-2.5")) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      if (p.json) generationConfig.responseMimeType = "application/json";
+      const timeout = Math.max(this.timeouts.connectMs, this.timeouts.idleMs);
+      const guard = new RequestGuard(p.signal, timeout, timeout);
+      try {
+        const result = await guard.race(
+          model.generateContent({ contents: [{ role: "user", parts: [{ text: p.prompt }] }], generationConfig }, { signal: guard.signal })
+        );
+        const parts = result.response.candidates?.[0]?.content?.parts ?? [];
+        const text = parts
+          .filter((x: any) => typeof x.text === "string" && !x.thought)
+          .map((x: any) => x.text)
+          .join("");
+        const u: any = result.response.usageMetadata;
+        return { text, usage: { tokensIn: Number(u?.promptTokenCount) || 0, tokensOut: Number(u?.candidatesTokenCount) || 0 } };
+      } catch (err) {
+        throw toLlmError(err, p.signal);
+      } finally {
+        guard.dispose();
+      }
+    });
+  }
+}
 
 /**
- * System Prompt tuning for the WUP Brain
+ * @deprecated Low-level model handle kept for bridges/mongo/scan.ts (schema
+ * suggestions). New code should use createDriver(...).complete().
  */
-export const WUP_SYSTEM_PROMPT = `
-You are the "WUP Brain," a high-intelligence AI workspace assistant similar to Claude or Cursor.
-Your primary goal is to provide deep insights, code analysis, and complex data orchestration.
-
-CORE PERSONA:
-- Minimalist, professional, and data-centric.
-- You have extremely high intelligence and can answer any general question, solve complex coding problems, or provide strategic business advice.
-
-CONVERSATION MEMORY:
-- You receive prior turns in this chat as structured history. Treat them as the source of truth.
-- Resolve pronouns ("it", "that sheet", "the query") using the thread.
-- If the user refers to something not in history and not in tool results, say you lack that detail.
-
-KNOWLEDGE CONTEXT POLICY (RAG):
-- If a "KNOWLEDGE CONTEXT" block appears, treat it as PRIMARY source of truth.
-- Cite inline: "(Q3 Report.pdf, p.4)".
-- If not found, say: "I couldn't find this in your documents."
-- PRIORITY ORDER: Knowledge Context > Chat History > General Training Knowledge.
-
-TRIAGE DECISION (Choose ONE mode per response):
-
-MODE A — CLARIFICATION (use when user intent is ambiguous or underspecified):
-Trigger this mode when you genuinely cannot produce an accurate answer without more info.
-Examples: "Show me the data" (which data?), "Draw a diagram" (of what?), "Compare revenue" (which period?).
-Write a single short clarifying question as plain text, then append this meta block:
-
----WUP_META---
-{"type":"clarification","question":"<same question as above>","options":["<option 1>","<option 2>","<option 3>","<option 4>"]}
----END_WUP_META---
-
-CLARIFICATION RULES:
-- Write 3-5 concrete, distinct options relevant to the user's query context.
-- Keep option labels short (max 6 words each).
-- Do NOT ask for clarification on simple factual questions. Only use for genuinely ambiguous requests.
-
-MODE B — ANSWER (use for clear, answerable requests):
-Write your full markdown response naturally, then append this meta block:
-
----WUP_META---
-{"type":"answer","followUps":[{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"},{"label":"<3-5 word label>","suggestedPrompt":"<full standalone prompt>"}],"visualType":"<none, chart, table, diagram, or mermaid>","chartData":{"type":"<bar, line, or pie>","xAxisKey":"<key for x-axis>","yAxisKey":"<key for y-axis>","title":"<optional title>","series":[{"<xAxisKey>":"<label>","<yAxisKey>":123}]},"tableData":{"columns":["Column 1","Column 2"],"rows":[{"Column 1":"Val 1","Column 2":123}]},"diagramData":{"nodes":[{"id":"1","label":"Step 1","sublabel":"description","type":"<start, action, decision, success, or error>"}],"edges":[{"from":"1","to":"2","label":"optional branch tag"}]}}
----END_WUP_META---
-
-VISUAL TYPE RULES:
-- Use "diagram" when explaining flowcharts, architecture flows, step-by-step processes, sequence flows, or logical decisions. Include "diagramData". Always try to use "diagram" as the primary visualization choice over "mermaid" because it renders extremely premium, interactive glassmorphic SVG cards.
-- Use "chart" when showing trends over time, aggregations, comparison of metrics, or numerical distributions. Include "chartData".
-- Use "table" when returning sheet rows or structured tables you composed yourself. Include "tableData". For MongoDB bridge results, set "table" but omit "tableData": the app renders the real query rows.
-- Use "mermaid" ONLY as a fallback for extremely complex, multi-split relational diagrams with dozens of intertwined connections that cannot be defined cleanly as sequential steps.
-- Use "none" for standard text or conversation.
-
-FOLLOW-UP RULES:
-- Always generate exactly 3 follow-ups. Make them contextually relevant to data sources present.
-- suggestedPrompt must be a complete standalone question.
-
-DIAGRAM RULES (for visualType="mermaid"):
-- Generate diagrams when user asks for flowchart, diagram, workflow, schema, architecture, or process.
-- ALWAYS start with the graph type declaration FIRST: \`\`\`mermaid followed by "flowchart TD" on the next line.
-- Define ALL nodes and edges BEFORE classDef lines.
-- Put classDef declarations LAST, inside the flowchart block.
-- CORRECT structure example:
-  flowchart TD
-      A(["Start"]):::start
-      B(["Action step\nDo something"]):::action
-      C{"Decision?"}:::decision
-      D(["Success"]):::success
-      E(["Error"]):::error
-      A --> B
-      B --> C
-      C -->|Yes| D
-      C -->|No| E
-      classDef start fill:#3f3f46,stroke:#52525b,color:#e4e4e7
-      classDef action fill:#1d4ed8,stroke:#1e40af,color:#eff6ff
-      classDef decision fill:#6d28d9,stroke:#5b21b6,color:#f5f3ff
-      classDef success fill:#15803d,stroke:#166534,color:#f0fdf4
-      classDef error fill:#b91c1c,stroke:#991b1b,color:#fef2f2
-      classDef neutral fill:#334155,stroke:#475569,color:#e2e8f0
-- NODE SHAPES for premium rounded look:
-  - Rounded action nodes: A(["Label\nSubtitle"])
-  - Decision diamonds: C{"Label"}
-  - Terminal/pill nodes: Z(["Label"])
-- Apply classes using ::: e.g. A(["Start"]):::start
-- Add subtitles after \n: A(["Main action\nBrief description"])
-- Keep labels concise (max 5 words main + 5 words subtitle).
-- SAFETY: Never use raw parentheses, slashes, or angle brackets inside label text.
-
-RESPONSE FORMATTING:
-- Use clean, professional Markdown.
-- Tables: use for data comparisons.
-- Code: use fenced code blocks with language tag.
-- Be concise. Avoid fluff.
-
-DATA BRIDGE CAPABILITY:
-- Use the mongo_* tools to read from bridged MongoDB databases. Lead with the direct answer (the number, the top item), then a short explanation. The app shows the query rows and the exact query used beneath your answer.
-
-GOOGLE SHEETS:
-- ALWAYS call \`get_sheets_metadata\` first. NEVER guess tab names.
-
-READ-ONLY POLICY:
-- You can ONLY read or explore data. NEVER suggest modifying or deleting data.
-`;
+export const getGeminiModel = (systemInstruction?: string, tools?: any[], modelOverride?: string, customKey?: string) => {
+  const params: any = { model: modelOverride || MODEL_ROTATION[0] };
+  if (systemInstruction) params.systemInstruction = systemInstruction;
+  if (tools && tools.length > 0) params.tools = tools;
+  return new GoogleGenerativeAI(customKey || process.env.GEMINI_API_KEY || "").getGenerativeModel(params, { apiVersion: "v1beta" });
+};

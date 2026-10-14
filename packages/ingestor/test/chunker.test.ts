@@ -82,3 +82,48 @@ test("property: random texts terminate, respect chunkSize and keep every word", 
     }
   }
 });
+
+// ─── chunkCsv ────────────────────────────────────────────────────────────────
+
+import { chunkCsv, splitCsvRecords } from "../src/chunker";
+
+test("chunkCsv repeats the header at the top of every chunk and keeps every row", () => {
+  const header = "id,name,city,notes";
+  const rows = Array.from({ length: 400 }, (_, i) => `${i},Person ${i},City ${i % 7},"note, with comma ${i}"`);
+  const csv = [header, ...rows].join("\n");
+  const chunks = chunkCsv(csv);
+  assert.ok(chunks.length > 1);
+  const seen: string[] = [];
+  for (const c of chunks) {
+    assert.ok(c.length <= 1800, `chunk of ${c.length}`);
+    const lines = c.split("\n");
+    assert.equal(lines[0], header);
+    seen.push(...lines.slice(1));
+  }
+  assert.deepEqual(seen, rows);
+});
+
+test("chunkCsv keeps quoted multi-line values in one row", () => {
+  const csv = 'a,b\n1,"line one\nline two"\n2,x\r\n3,y\r\n';
+  assert.deepEqual(splitCsvRecords(csv), ["a,b", '1,"line one\nline two"', "2,x", "3,y"]);
+  const chunks = chunkCsv(csv);
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0], 'a,b\n1,"line one\nline two"\n2,x\n3,y');
+});
+
+test("chunkCsv hard-splits an oversized row and still prefixes the header", () => {
+  const csv = "h1,h2\n" + "x".repeat(5000) + "\nshort,row";
+  const chunks = chunkCsv(csv, { maxChars: 1000 });
+  assert.ok(chunks.length >= 6);
+  for (const c of chunks) {
+    assert.ok(c.startsWith("h1,h2\n"));
+    assert.ok(c.length <= 1000);
+  }
+  assert.ok(chunks[chunks.length - 1].endsWith("short,row"));
+});
+
+test("chunkCsv edge cases", () => {
+  assert.deepEqual(chunkCsv(""), []);
+  assert.deepEqual(chunkCsv("\n\n"), []);
+  assert.deepEqual(chunkCsv("only,header"), ["only,header"]);
+});

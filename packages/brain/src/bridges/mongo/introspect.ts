@@ -26,9 +26,11 @@ export interface FieldInfo {
 
 export interface CollectionSchema {
   name: string;
-  count: number;
+  /** null for views whose count timed out */
+  count: number | null;
   fields: FieldInfo[];
   indexes: string[];
+  type?: "collection" | "view";
 }
 
 const SAMPLE_SIZE = 100;
@@ -70,9 +72,23 @@ export async function listSources(client: MongoClient): Promise<SourceDb[]> {
   return result;
 }
 
-/** Samples a collection and infers field paths, types and presence. */
-export async function scanCollection(db: Db, name: string, count: number): Promise<CollectionSchema> {
+/**
+ * Samples a collection (or view) and infers field paths, types and presence.
+ * Views are read with a plain find().limit() (no $sample, no indexes) and
+ * counted with countDocuments, falling back to null when that times out.
+ */
+export async function scanCollection(
+  db: Db,
+  name: string,
+  count: number | null,
+  opts: { view?: boolean } = {}
+): Promise<CollectionSchema> {
   const coll = db.collection(name);
+  if (opts.view) {
+    const docs = await coll.find({}, { limit: SAMPLE_SIZE, maxTimeMS: SCAN_TIMEOUT_MS }).toArray();
+    const viewCount = await coll.countDocuments({}, { maxTimeMS: SCAN_TIMEOUT_MS }).catch(() => null);
+    return { name, count: viewCount, fields: inferFields(docs), indexes: [], type: "view" };
+  }
   const docs = await coll
     .aggregate([{ $sample: { size: SAMPLE_SIZE } }], { maxTimeMS: SCAN_TIMEOUT_MS })
     .toArray()
@@ -151,7 +167,10 @@ function isPlainObject(v: any): v is Record<string, any> {
   return v !== null && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date) && !v._bsontype;
 }
 
-/** Scans every in-scope collection. Views and system collections are listed without sampling. */
+/**
+ * Scans every in-scope collection and view (up to MAX_COLLECTIONS_PER_SCAN).
+ * Collections past the cap, and views that fail to sample, are listed with no fields.
+ */
 export async function scanScope(
   client: MongoClient,
   scope: ScopeEntry[] | undefined
@@ -166,12 +185,20 @@ export async function scanScope(
     const collections: CollectionSchema[] = [];
     for (const c of src.collections) {
       if (!isInScope(scope, src.name, c.name)) continue;
-      if (scanned >= MAX_COLLECTIONS_PER_SCAN || c.type === "view") {
-        collections.push({ name: c.name, count: c.count ?? 0, fields: [], indexes: [] });
+      const isView = c.type === "view";
+      if (scanned >= MAX_COLLECTIONS_PER_SCAN) {
+        collections.push({ name: c.name, count: isView ? null : c.count ?? 0, fields: [], indexes: [] });
         continue;
       }
       scanned++;
-      collections.push(await scanCollection(db, c.name, c.count ?? 0));
+      if (isView) {
+        const view = await scanCollection(db, c.name, null, { view: true }).catch(
+          (): CollectionSchema => ({ name: c.name, count: null, fields: [], indexes: [], type: "view" })
+        );
+        collections.push(view);
+      } else {
+        collections.push(await scanCollection(db, c.name, c.count ?? 0));
+      }
     }
     out.push({ name: src.name, collections });
   }

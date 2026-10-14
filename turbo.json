@@ -6,14 +6,19 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
     "lint": {
       "dependsOn": ["^lint"]
     },
-    "test": {
+    "typecheck": {
       "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["MONGOMS_*", "NODE_ENV"]
     }
   }
 }

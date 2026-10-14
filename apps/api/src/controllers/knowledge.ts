@@ -1,217 +1,265 @@
 import crypto from "crypto";
-import path from "path";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import mongoose from "mongoose";
-import { KnowledgeSource } from "@wup/models";
-import { KnowledgeChunk } from "@wup/models";
-import { ingestorService, type SupportedMimeType } from "@wup/ingestor";
+import { KnowledgeChunk, KnowledgeSource, KnowledgeSourceText } from "@wup/models";
+import {
+  activeIngestIds,
+  cancelIngest,
+  detectFileType,
+  enqueueIngest,
+  retryIngest,
+  type KnowledgeFileType,
+} from "@wup/ingestor";
+import { env } from "../config/env";
+import { HttpError } from "../lib/httpError";
+import { ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_SIZE_MB, UNSUPPORTED_FILE_MESSAGE } from "../middleware/upload";
+import { toKnowledgeConfig, toKnowledgeDTO, toLegacyStatus } from "../dto/knowledge";
 
-const MAX_SOURCES_PER_USER = parseInt(process.env.MAX_SOURCES_PER_USER ?? "20", 10);
-const MAX_CHUNKS_PER_USER = parseInt(process.env.MAX_CHUNKS_PER_USER ?? "5000", 10);
-const STALE_INDEXING_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes (I-11 watchdog)
+/** Indexing with no heartbeat for this long is considered stalled (I-11). */
+export const STALE_INDEXING_MS = 5 * 60 * 1000;
+/** Pending (never started) for this long is considered lost. */
+export const STALE_PENDING_MS = 15 * 60 * 1000;
+
+const ACTIVE_STATUSES = ["pending", "indexing", "indexed"];
+const FAILED_STATUSES = ["error", "error_quota"];
+
+const userIdOf = (req: Request): string => req.auth?.userId ?? (req as any).user.id;
+const oid = (id: string) => new mongoose.Types.ObjectId(id);
+
+/** Basename without path parts or control characters, at most 200 chars. */
+export function sanitizeFileName(name: string): string {
+  const base = (name ?? "").split(/[\\/]/).pop() ?? "";
+  // eslint-disable-next-line no-control-regex
+  const clean = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return (clean || "Untitled").slice(0, 200);
+}
+
+async function findOwnedSource(req: Request) {
+  const source = await KnowledgeSource.findOne({ _id: req.params.sourceId, userId: userIdOf(req) }).lean();
+  if (!source) throw HttpError.notFound("Knowledge source not found.");
+  return source;
+}
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 export const uploadKnowledge = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = userIdOf(req);
   const file = req.file;
 
-  // Guard: multer should have caught this, but be defensive
-  if (!file) {
-    res.status(400).json({ error: "No file uploaded. Send a file with field name 'file'." });
+  if (!file) throw HttpError.badRequest("No file uploaded. Send a file with field name 'file'.");
+  if (file.size === 0) throw HttpError.badRequest("File is empty."); // I-10
+
+  // The client's mimetype is never trusted: detect from the bytes.
+  const detected = detectFileType(file.buffer, file.originalname);
+  if (!detected) throw new HttpError(400, "UNSUPPORTED_FILE", UNSUPPORTED_FILE_MESSAGE);
+
+  const name = sanitizeFileName(file.originalname); // S-4
+  const fileHash = crypto.createHash("sha256").update(file.buffer).digest("hex"); // I-8
+
+  // Duplicates: only a live or indexed copy blocks the upload.
+  const duplicate = await KnowledgeSource.findOne({ userId, fileHash, status: { $in: ACTIVE_STATUSES } }).lean();
+  if (duplicate) {
+    const dto = toKnowledgeDTO(duplicate);
+    res.status(409).json({
+      error: duplicate.status === "indexed" ? "This document is already indexed." : "This document is already being indexed.",
+      code: "CONFLICT",
+      sourceId: dto.id,
+      status: dto.status,
+      source: dto,
+    });
     return;
   }
 
-  // I-10: Empty file check
-  if (file.size === 0) {
-    res.status(400).json({ error: "File is empty." });
-    return;
-  }
-
-  try {
-    // S-8: Enforce per-user source cap before we do anything
-    const existingCount = await KnowledgeSource.countDocuments({ userId });
-    if (existingCount >= MAX_SOURCES_PER_USER) {
-      res.status(429).json({
-        error: `You have reached the maximum of ${MAX_SOURCES_PER_USER} knowledge sources. Delete one before uploading.`,
-      });
-      return;
-    }
-
-    // S-8: Enforce per-user chunk cap
-    const chunkCount = await KnowledgeChunk.countDocuments({ userId });
-    if (chunkCount >= MAX_CHUNKS_PER_USER) {
-      res.status(429).json({
-        error: `Chunk limit of ${MAX_CHUNKS_PER_USER} reached. Remove some documents to free up space.`,
-      });
-      return;
-    }
-
-    // I-8: Duplicate detection via SHA-256 hash of the file buffer
-    const fileHash = crypto
-      .createHash("sha256")
-      .update(file.buffer)
-      .digest("hex");
-
-    const duplicate = await KnowledgeSource.findOne({ userId, fileHash });
-    if (duplicate) {
-      res.status(409).json({
-        error: "This document is already indexed.",
-        sourceId: duplicate._id,
-        status: duplicate.status,
-      });
-      return;
-    }
-
-    // S-4: Sanitize filename — prevent path traversal
-    const safeName = path.basename(file.originalname);
-
-    // Create the KnowledgeSource record (status: "pending")
-    const source = await KnowledgeSource.create({
-      userId,
-      name: safeName,
-      fileHash,
-      type: file.mimetype === "application/pdf" ? "pdf" : "txt",
-      status: "pending",
-      fileSize: file.size,
-      mimeType: file.mimetype,
-    });
-
-    // ADR-5: Return 202 immediately — ingestion runs in the background
-    res.status(202).json({
-      sourceId: source._id,
-      name: safeName,
-      status: "indexing",
-      message: "File received. Indexing in background. Poll /knowledge/:sourceId/status for updates.",
-    });
-
-    // Kick off async ingestion — do NOT await (non-blocking)
-    ingestorService
-      .ingest(
-        userId,
-        source._id.toString(),
-        file.buffer,
-        file.mimetype as SupportedMimeType,
-        safeName
-      )
-      .catch((err) => {
-        // This should never fire (ingestorService catches internally),
-        // but log if it somehow escapes
-        console.error("[WUP API] Unexpected ingestion escape:", err);
-      });
-  } catch (err) {
-    console.error("[WUP API] Upload handler error:", err);
-    res.status(500).json({ error: "Failed to initiate document indexing." });
-  }
-};
-
-// ─── List Sources ─────────────────────────────────────────────────────────────
-
-export const listKnowledge = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
-
-  try {
-    // Run stale watchdog on every list call (I-11)
-    await markStaleSources(userId);
-
-    // S-7: Never return embedding or chunk text to the frontend
-    const sources = await KnowledgeSource.find({ userId })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.json(sources);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch knowledge sources." });
-  }
-};
-
-// ─── Status Poll ──────────────────────────────────────────────────────────────
-
-export const getKnowledgeStatus = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
-  const { sourceId } = req.params;
-
-  try {
-    // I-11: Run stale watchdog before returning status
-    await markStaleSources(userId);
-
-    const source = await KnowledgeSource.findOne({ _id: sourceId, userId }).lean();
-    if (!source) {
-      res.status(404).json({ error: "Knowledge source not found." });
-      return;
-    }
-
-    res.json({
-      sourceId: source._id,
-      status: source.status,
-      chunkCount: source.chunkCount,
-      name: source.name,
-      errorMessage: source.metadata?.errorMessage,
-      truncated: source.metadata?.truncated,
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch indexing status." });
-  }
-};
-
-// ─── Delete Source ────────────────────────────────────────────────────────────
-
-export const deleteKnowledge = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
-  const { sourceId } = req.params;
-
-  try {
-    // S-6: Compound lookup — _id + userId — never just _id alone
-    const source = await KnowledgeSource.findOneAndDelete({
-      _id: sourceId,
-      userId,
-    });
-
-    if (!source) {
-      res.status(404).json({ error: "Knowledge source not found." });
-      return;
-    }
-
-    // Cascade: delete all chunks belonging to this source
-    const { deletedCount } = await KnowledgeChunk.deleteMany({
-      sourceId: new mongoose.Types.ObjectId(sourceId),
-      userId, // Belt-and-suspenders: also match userId
-    });
-
-    console.log(
-      `[WUP API] Deleted sourceId=${sourceId} + ${deletedCount} chunks for userId=${userId}`
+  // S-8: per-user chunk cap (applies to re-queues too)
+  const chunkCount = await KnowledgeChunk.countDocuments({ userId });
+  if (chunkCount >= env.MAX_CHUNKS_PER_USER) {
+    throw new HttpError(
+      429,
+      "RATE_LIMITED",
+      `Chunk limit of ${env.MAX_CHUNKS_PER_USER} reached. Remove some documents to free up space.`
     );
-
-    res.json({
-      message: "Knowledge source and all associated chunks removed.",
-      chunksDeleted: deletedCount,
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to delete knowledge source." });
   }
-};
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Stale ingestion watchdog (I-11).
- * Any source stuck in "indexing" for more than STALE_INDEXING_THRESHOLD_MS
- * is marked as "error" — this catches process crashes and unhandled failures.
- */
-async function markStaleSources(userId: string): Promise<void> {
-  const staleThreshold = new Date(Date.now() - STALE_INDEXING_THRESHOLD_MS);
-  await KnowledgeSource.updateMany(
-    {
-      userId,
-      status: "indexing",
-      updatedAt: { $lt: staleThreshold },
-    },
+  // A failed copy of the same file is reset and re-queued with the new bytes.
+  let source: any = await KnowledgeSource.findOneAndUpdate(
+    { userId, fileHash, status: { $in: FAILED_STATUSES } },
     {
       $set: {
-        status: "error",
-        "metadata.errorMessage":
-          "Indexing timed out. The process may have crashed. Please re-upload the file.",
+        name,
+        type: detected.type,
+        mimeType: detected.mime,
+        fileSize: file.size,
+        status: "pending",
+        chunksDone: 0,
+        chunksTotal: 0,
+        canRetry: false,
       },
+      $unset: { "metadata.errorMessage": "", "metadata.failedAtChunkIndex": "" },
+    },
+    { new: true, sort: { updatedAt: -1 } }
+  ).lean();
+
+  if (!source) {
+    // S-8: per-user source cap (new sources only)
+    const existingCount = await KnowledgeSource.countDocuments({ userId });
+    if (existingCount >= env.MAX_SOURCES_PER_USER) {
+      throw new HttpError(
+        429,
+        "RATE_LIMITED",
+        `You have reached the maximum of ${env.MAX_SOURCES_PER_USER} knowledge sources. Delete one before uploading.`
+      );
     }
+    const created = await KnowledgeSource.create({
+      userId,
+      name,
+      fileHash,
+      type: detected.type,
+      status: "pending",
+      fileSize: file.size,
+      mimeType: detected.mime,
+    });
+    source = created.toObject();
+  }
+
+  const dto = toKnowledgeDTO(source);
+  // ADR-5: 202 immediately; ingestion runs on the in-process queue
+  res.status(202).json({
+    source: dto,
+    sourceId: dto.id,
+    name: dto.name,
+    status: dto.status,
+    message: "File received. Indexing in background. Poll /knowledge/:sourceId/status for updates.",
+  });
+
+  void enqueueIngest({
+    userId,
+    sourceId: dto.id,
+    buffer: file.buffer,
+    fileName: dto.name,
+    type: detected.type as KnowledgeFileType,
+  });
+};
+
+// ─── Read ─────────────────────────────────────────────────────────────────────
+
+export const listKnowledge = async (req: Request, res: Response) => {
+  const userId = userIdOf(req);
+  await markStaleSources(userId); // I-11
+  // S-7: never return embeddings, chunk text or file hashes
+  const sources = await KnowledgeSource.find({ userId }).sort({ createdAt: -1 }).lean();
+  res.json(sources.map(toKnowledgeDTO));
+};
+
+export const getKnowledgeSource = async (req: Request, res: Response) => {
+  await markStaleSources(userIdOf(req));
+  res.json(toKnowledgeDTO(await findOwnedSource(req)));
+};
+
+/** Legacy poll endpoint: { sourceId, status, chunkCount, name, errorMessage, truncated } + progress. */
+export const getKnowledgeStatus = async (req: Request, res: Response) => {
+  await markStaleSources(userIdOf(req));
+  res.json(toLegacyStatus(await findOwnedSource(req)));
+};
+
+export const getKnowledgeConfig = async (_req: Request, res: Response) => {
+  res.json(
+    toKnowledgeConfig({
+      maxFileMb: MAX_UPLOAD_SIZE_MB,
+      allowedExtensions: ALLOWED_UPLOAD_EXTENSIONS,
+      maxSources: env.MAX_SOURCES_PER_USER,
+      maxChunks: env.MAX_CHUNKS_PER_USER,
+    })
   );
+};
+
+// ─── Retry ────────────────────────────────────────────────────────────────────
+
+export const retryKnowledge = async (req: Request, res: Response) => {
+  const userId = userIdOf(req);
+  await markStaleSources(userId);
+  const result = await retryIngest(req.params.sourceId, userId);
+  if (!result.ok) {
+    switch (result.reason) {
+      case "not_found":
+        throw HttpError.notFound("Knowledge source not found.");
+      case "busy":
+        throw HttpError.conflict("This document is already being indexed.");
+      case "not_retryable":
+        throw HttpError.conflict("This document is already indexed.");
+      default:
+        throw HttpError.conflict("This document cannot be retried. Please upload the file again.");
+    }
+  }
+  res.status(202).json({ source: toKnowledgeDTO(result.source) });
+};
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+export const deleteKnowledge = async (req: Request, res: Response) => {
+  const userId = userIdOf(req);
+  const { sourceId } = req.params;
+
+  // S-6: compound lookup, _id + userId
+  const source = await KnowledgeSource.findOneAndDelete({ _id: sourceId, userId });
+  if (!source) throw HttpError.notFound("Knowledge source not found.");
+
+  // Stop a running ingest; it also removes anything it wrote after this point.
+  cancelIngest(sourceId);
+  const { deletedCount } = await KnowledgeChunk.deleteMany({ sourceId: oid(sourceId), userId });
+  await KnowledgeSourceText.deleteMany({ sourceId: oid(sourceId) });
+
+  req.log?.info?.({ sourceId, chunksDeleted: deletedCount }, "knowledge source deleted");
+  res.json({
+    message: "Knowledge source and all associated chunks removed.",
+    chunksDeleted: deletedCount,
+  });
+};
+
+// ─── Watchdog ─────────────────────────────────────────────────────────────────
+
+/**
+ * Stale ingestion watchdog (I-11). Jobs queued or running in this process are
+ * skipped. Otherwise:
+ *   indexing with no heartbeat (updatedAt) for 5 min -> error "stalled"
+ *   pending for 15 min                              -> error
+ * Retryable when the extracted text was stored.
+ */
+export async function markStaleSources(userId: string, now = Date.now()): Promise<number> {
+  const active = activeIngestIds()
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map(oid);
+  const staleFilter = {
+    userId: oid(userId),
+    _id: { $nin: active },
+    $or: [
+      { status: "indexing", updatedAt: { $lt: new Date(now - STALE_INDEXING_MS) } },
+      { status: "pending", updatedAt: { $lt: new Date(now - STALE_PENDING_MS) } },
+    ],
+  };
+  const stale = await KnowledgeSource.find(staleFilter, { _id: 1, status: 1 }).lean();
+  if (stale.length === 0) return 0;
+
+  const ids = stale.map((s) => s._id);
+  const withText = await KnowledgeSourceText.find({ sourceId: { $in: ids } }, { sourceId: 1 }).lean();
+  const hasText = new Set(withText.map((t: any) => String(t.sourceId)));
+
+  for (const canRetry of [true, false]) {
+    const group = ids.filter((id) => hasText.has(String(id)) === canRetry);
+    if (group.length === 0) continue;
+    await KnowledgeSource.updateMany(
+      { ...staleFilter, _id: { $in: group } },
+      {
+        $set: {
+          status: "error",
+          canRetry,
+          chunksDone: 0,
+          "metadata.errorMessage": canRetry
+            ? "Indexing stalled. Click Retry to try again."
+            : "Indexing stalled. Please upload the file again.",
+        },
+      }
+    );
+  }
+  await KnowledgeChunk.deleteMany({ sourceId: { $in: ids } });
+  return ids.length;
 }

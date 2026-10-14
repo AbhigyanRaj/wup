@@ -7,6 +7,8 @@ import { hiddenLeavesForDb, leafOf, type RedactionMap } from "./redact";
  */
 
 const MAX_FIELDS_PER_COLLECTION = 15;
+const MAX_SHEET_TABS = 20;
+const MAX_SHEET_HEADERS = 20;
 export const MAX_DIGEST_CHARS = 3500;
 
 export interface DigestConnection {
@@ -19,21 +21,28 @@ export interface DigestConnection {
     scannedAt?: Date;
     dbs?: Array<{
       name: string;
-      collections: Array<{ name: string; count: number; fields: Array<{ path: string; types: string[] }> }>;
+      collections: Array<DigestCollection>;
     }>;
   };
+  /** Google Sheets bridges: spreadsheet title and tab shapes. */
+  sheetsCache?: {
+    title?: string;
+    tabs?: Array<{ name: string; rows?: number; cols?: number; headers?: string[] }>;
+  } | null;
   metadata?: { status?: string };
 }
 
-const fmtCount = (n: number) => n.toLocaleString("en-US");
+interface DigestCollection {
+  name: string;
+  count: number | null;
+  fields: Array<{ path: string; types: string[] }>;
+}
 
-function describeCollection(
-  db: string,
-  coll: { name: string; count: number; fields: Array<{ path: string; types: string[] }> },
-  hidden: Set<string>,
-  withFields: boolean
-): string {
-  const head = `  ${db}.${coll.name} (${fmtCount(coll.count)} docs)`;
+const fmtCount = (n: number | null | undefined) =>
+  typeof n === "number" ? `${n.toLocaleString("en-US")} docs` : "view";
+
+function describeCollection(db: string, coll: DigestCollection, hidden: Set<string>, withFields: boolean): string {
+  const head = `  ${db}.${coll.name} (${fmtCount(coll.count)})`;
   if (!withFields || coll.fields.length === 0) return head;
   const fields = coll.fields
     .filter((f) => f.path !== "_id" && !hidden.has(leafOf(f.path)))
@@ -45,6 +54,7 @@ function describeCollection(
 
 function describeConnection(c: DigestConnection, withFields: boolean): string {
   const header = `- Bridge: ${c.name} | Type: ${c.type} | connectionId: ${String(c._id)}`;
+  if (c.type === "sheets") return describeSheets(c, header, withFields);
   if (c.type !== "mongodb") return header;
 
   const dbs = c.schemaCache?.dbs ?? [];
@@ -62,6 +72,25 @@ function describeConnection(c: DigestConnection, withFields: boolean): string {
       lines.push(describeCollection(db.name, coll, hidden, withFields));
     }
   }
+  return lines.join("\n");
+}
+
+/** Sheets bridges: one line per tab with its size and header row. */
+function describeSheets(c: DigestConnection, header: string, withHeaders: boolean): string {
+  const cache = c.sheetsCache;
+  const tabs = cache?.tabs ?? [];
+  if (tabs.length === 0) return `${header}\n  (tabs not loaded yet; call get_sheets_metadata, then read_sheets)`;
+  const lines = [cache?.title ? `${header} | Spreadsheet: ${cache.title}` : header];
+  for (const tab of tabs.slice(0, MAX_SHEET_TABS)) {
+    const size = `${tab.rows ?? 0} rows x ${tab.cols ?? 0} cols`;
+    const headers = (tab.headers ?? []).filter((h) => h && h.trim()).slice(0, MAX_SHEET_HEADERS);
+    lines.push(
+      withHeaders && headers.length > 0
+        ? `  tab "${tab.name}" (${size}): ${headers.join(", ")}`
+        : `  tab "${tab.name}" (${size})`
+    );
+  }
+  if (tabs.length > MAX_SHEET_TABS) lines.push(`  ...and ${tabs.length - MAX_SHEET_TABS} more tabs (call get_sheets_metadata)`);
   return lines.join("\n");
 }
 

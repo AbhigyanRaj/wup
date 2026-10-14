@@ -4,9 +4,18 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\""
+    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
@@ -19,6 +28,11 @@
     "@wup/ingestor": "file:../ingestor",
     "@wup/models": "file:../models",
     "googleapis": "^129.0.0",
-    "mongodb": "^6.3.0"
+    "mongodb": "^6.3.0",
+    "@wup/contracts": "file:../contracts",
+    "zod": "^4.3.6",
+    "@anthropic-ai/sdk": "^0.133.0",
+    "mongoose": "^8.0.0",
+    "mongodb-connection-string-url": "^3.0.2"
   }
 }

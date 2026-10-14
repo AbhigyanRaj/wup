@@ -12,15 +12,17 @@
     "dev": "turbo dev --filter=@wup/web --filter=@wup/api",
     "build": "turbo build",
     "lint": "turbo lint",
-    "test": "turbo test"
+    "test": "turbo test",
+    "typecheck": "turbo typecheck"
   },
   "devDependencies": {
     "@kilocode/cli": "^7.3.0",
     "turbo": "^2.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "sharp": "^0.35.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22"
   },
   "packageManager": "npm@10.5.0"
 }

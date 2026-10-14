@@ -1,32 +1,35 @@
 /**
- * Streaming chat + tool calling for bring-your-own-key providers
- * (OpenAI, OpenRouter, Anthropic) over their raw HTTP APIs.
+ * Bring-your-own-key drivers over the providers' raw HTTP APIs:
+ * OpenAI-compatible (OpenAI, OpenRouter) and Anthropic.
  *
- * Yields text tokens as they arrive. When the model calls tools, runs them via
- * executeTool, appends the results, and continues, up to maxTurns rounds.
+ * Raw fetch is kept on purpose (rather than @anthropic-ai/sdk): the streaming
+ * tool loop, the server-side fallback beta and the echo rules below are all
+ * covered by fetch-level tests.
  */
 
+import { modelHealth } from "./modelHealth";
+import {
+  LlmError,
+  RequestGuard,
+  isAutoModel,
+  postJson,
+  readSse,
+  resolveTimeouts,
+  safeExecute,
+  systemText,
+  toLlmError,
+  type ChatTurn,
+  type CompleteParams,
+  type CompleteResult,
+  type DriverOptions,
+  type LlmCredentials,
+  type LlmDriver,
+  type RunToolLoopParams,
+  type ToolDeclaration,
+  type ToolLoopResult,
+} from "./common";
+
 export type CustomProvider = "openai" | "openrouter" | "anthropic";
-
-export interface ProviderTurn {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
-export type ToolExecutor = (name: string, args: any) => Promise<any>;
-
-export interface StreamWithToolsOptions {
-  provider: CustomProvider;
-  apiKey: string;
-  model: string;
-  systemInstruction: string;
-  history: ProviderTurn[];
-  prompt: string;
-  /** Gemini-style function declarations (uppercase types); converted per provider. */
-  declarations: any[];
-  executeTool: ToolExecutor;
-  maxTurns?: number;
-}
 
 const ENDPOINTS: Record<CustomProvider, string> = {
   openai: "https://api.openai.com/v1/chat/completions",
@@ -34,20 +37,39 @@ const ENDPOINTS: Record<CustomProvider, string> = {
   anthropic: "https://api.anthropic.com/v1/messages",
 };
 
-const DEFAULT_MODELS: Record<CustomProvider, string> = {
+export const DEFAULT_MODELS: Record<CustomProvider, string> = {
   openai: "gpt-4o-mini",
   openrouter: "google/gemini-2.5-flash",
-  anthropic: "claude-opus-5",
+  anthropic: "claude-opus-5-5",
 };
 
-/** Opus 5 can decline via safety classifiers; server-side fallbacks re-run the request on another model. */
-const ANTHROPIC_FALLBACK_MODELS = new Set(["claude-opus-5"]);
+/** Small, cheap models for titles and suggestions. */
+export const LIGHT_MODELS: Record<CustomProvider, string> = {
+  openai: "gpt-4o-mini",
+  openrouter: "google/gemini-2.5-flash",
+  anthropic: "claude-haiku-5-5",
+};
 
-export function resolveModel(provider: CustomProvider, model?: string): string {
-  return !model || model === "Auto-Rotate" ? DEFAULT_MODELS[provider] : model;
+/**
+ * Models that support server-side fallbacks (`fallbacks: "default"` plus the
+ * server-side-fallback beta): the request is re-run on another model when a
+ * safety classifier declines it.
+ */
+export const ANTHROPIC_FALLBACK_MODELS = new Set(["claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1"]);
+export const ANTHROPIC_FALLBACK_BETA = "server-side-fallback-2026-07-01";
+
+/** Families that accept 64k output tokens; everything else gets 8192. */
+const MODERN_ANTHROPIC = /^claude-(opus-4-([5-9]|\d\d)|opus-5|sonnet-4|sonnet-5|haiku-4-5|haiku-5|fable)/;
+
+export function anthropicMaxTokens(model: string): number {
+  return MODERN_ANTHROPIC.test(model) ? 64000 : 8192;
 }
 
-/** Converts Gemini schema types ("OBJECT", "STRING", …) to JSON Schema ("object", "string", …). */
+export function resolveModel(provider: CustomProvider, model?: string): string {
+  return isAutoModel(model) ? DEFAULT_MODELS[provider] : model!;
+}
+
+/** Converts Gemini schema types ("OBJECT", "STRING", ...) to JSON Schema ("object", "string", ...). */
 export function toJsonSchema(schema: any): any {
   if (Array.isArray(schema)) return schema.map(toJsonSchema);
   if (schema === null || typeof schema !== "object") return schema;
@@ -77,136 +99,142 @@ export function parseToolInput(raw: string, declaration: any): { args?: any; err
   return { args };
 }
 
-async function* readSse(response: Response): AsyncGenerator<{ event?: string; data: string }> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Response body is not readable");
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  let event: string | undefined;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        const clean = line.trim();
-        if (!clean) {
-          event = undefined;
-          continue;
-        }
-        if (clean.startsWith("event:")) event = clean.slice(6).trim();
-        else if (clean.startsWith("data:")) yield { event, data: clean.slice(5).trim() };
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
+/** Records a 429 so the model picker can show the cooldown for this key. */
+function noteRateLimit(llm: LlmCredentials, model: string, err: LlmError): LlmError {
+  if (err.status === 429) modelHealth.markExhausted(llm.keyId, model, { message: err.message, retryAfterMs: (err as any).retryAfterMs });
+  return err;
 }
 
-async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<Response> {
-  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-  if (!response.ok) {
-    const errorText = await response.text();
-    let parsedErr = errorText;
-    try {
-      const parsed = JSON.parse(errorText);
-      parsedErr = parsed.error?.message || parsed.message || errorText;
-    } catch {}
-    throw new Error(`API error: ${response.status} - ${parsedErr}`);
-  }
-  return response;
-}
-
-async function runTool(executeTool: ToolExecutor, name: string, args: any): Promise<any> {
-  try {
-    return await executeTool(name, args);
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export async function* streamWithTools(opts: StreamWithToolsOptions): AsyncGenerator<string, void, unknown> {
-  if (opts.provider === "anthropic") yield* streamAnthropic(opts);
-  else yield* streamOpenAICompatible(opts);
-}
+const usableHistory = (history: ChatTurn[]) => history.filter((t) => t.role !== "system" && t.content?.trim());
 
 // ─── OpenAI / OpenRouter ──────────────────────────────────────────────────────
 
-async function* streamOpenAICompatible(opts: StreamWithToolsOptions): AsyncGenerator<string, void, unknown> {
-  const maxTurns = opts.maxTurns ?? 5;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${opts.apiKey}`,
-  };
-  if (opts.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://wuup.ai";
-    headers["X-Title"] = "Wuup";
+export class OpenAICompatibleDriver implements LlmDriver {
+  readonly usingOwnKey = true;
+  readonly model: string;
+  private readonly timeouts: { connectMs: number; idleMs: number };
+
+  constructor(readonly provider: "openai" | "openrouter", private readonly llm: LlmCredentials, model?: string, opts?: DriverOptions) {
+    this.model = resolveModel(provider, model);
+    this.timeouts = resolveTimeouts(opts);
   }
 
-  const tools = opts.declarations.map((d) => ({
-    type: "function",
-    function: { name: d.name, description: d.description, parameters: toJsonSchema(d.parameters) },
-  }));
-  const messages: any[] = [
-    { role: "system", content: opts.systemInstruction },
-    ...opts.history
-      .filter((t) => t.role !== "system" && t.content?.trim())
-      .map((t) => ({ role: t.role === "assistant" ? "assistant" : "user", content: t.content })),
-    { role: "user", content: opts.prompt },
-  ];
-
-  for (let turn = 0; turn < maxTurns; turn++) {
-    const payload: any = { model: resolveModel(opts.provider, opts.model), stream: true, temperature: 0.2, messages };
-    if (tools.length > 0) {
-      payload.tools = tools;
-      // Last round: force a final answer
-      if (turn === maxTurns - 1) payload.tool_choice = "none";
+  private headers(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.llm.apiKey ?? ""}`,
+    };
+    if (this.provider === "openrouter") {
+      headers["HTTP-Referer"] = "https://wuup.ai";
+      headers["X-Title"] = "Wuup";
     }
+    return headers;
+  }
 
-    const response = await postJson(ENDPOINTS[opts.provider], headers, payload);
-    let text = "";
-    const calls: Array<{ id: string; name: string; arguments: string }> = [];
+  async runToolLoop(p: RunToolLoopParams): Promise<ToolLoopResult> {
+    const maxTurns = Math.max(1, p.maxTurns);
+    const tools = p.tools.map((d) => ({
+      type: "function",
+      function: { name: d.name, description: d.description, parameters: toJsonSchema(d.parameters) },
+    }));
+    const messages: any[] = [
+      { role: "system", content: systemText(p.system) },
+      ...usableHistory(p.history).map((t) => ({ role: t.role === "assistant" ? "assistant" : "user", content: t.content })),
+      { role: "user", content: p.prompt },
+    ];
+    const usage = { tokensIn: 0, tokensOut: 0 };
+    let fullText = "";
+    let model = this.model;
 
-    for await (const { data } of readSse(response)) {
-      if (data === "[DONE]") continue;
-      let parsed: any;
+    for (let turn = 0; turn < maxTurns; turn++) {
+      const last = turn === maxTurns - 1;
+      // No temperature: newer reasoning models reject non-default values.
+      const payload: any = { model: this.model, stream: true, stream_options: { include_usage: true }, messages };
+      if (tools.length > 0) {
+        payload.tools = tools;
+        if (last) payload.tool_choice = "none";
+      }
+
+      const guard = new RequestGuard(p.signal, this.timeouts.connectMs, this.timeouts.idleMs);
+      let text = "";
+      const calls: Array<{ id: string; name: string; arguments: string }> = [];
       try {
-        parsed = JSON.parse(data);
-      } catch {
-        continue;
+        const response = await postJson(ENDPOINTS[this.provider], this.headers(), payload, guard);
+        for await (const { data } of readSse(response, guard)) {
+          if (data === "[DONE]") continue;
+          let parsed: any;
+          try {
+            parsed = JSON.parse(data);
+          } catch {
+            continue;
+          }
+          if (parsed.error?.message) throw new LlmError("PROVIDER_ERROR", parsed.error.message);
+          if (typeof parsed.model === "string" && parsed.model) model = parsed.model;
+          if (parsed.usage) {
+            usage.tokensIn += Number(parsed.usage.prompt_tokens) || 0;
+            usage.tokensOut += Number(parsed.usage.completion_tokens) || 0;
+          }
+          const delta = parsed.choices?.[0]?.delta;
+          if (typeof delta?.content === "string" && delta.content) {
+            text += delta.content;
+            fullText += delta.content;
+            p.onText(delta.content);
+          }
+          for (const tc of delta?.tool_calls ?? []) {
+            const idx = tc.index ?? 0;
+            calls[idx] ??= { id: "", name: "", arguments: "" };
+            if (tc.id) calls[idx].id = tc.id;
+            if (tc.function?.name) calls[idx].name += tc.function.name;
+            if (tc.function?.arguments) calls[idx].arguments += tc.function.arguments;
+          }
+        }
+      } catch (err) {
+        throw noteRateLimit(this.llm, this.model, toLlmError(err, p.signal));
+      } finally {
+        guard.dispose();
       }
-      if (parsed.error?.message) throw new Error(parsed.error.message);
-      const delta = parsed.choices?.[0]?.delta;
-      if (delta?.content) {
-        text += delta.content;
-        yield delta.content;
-      }
-      for (const tc of delta?.tool_calls ?? []) {
-        const idx = tc.index ?? 0;
-        calls[idx] ??= { id: "", name: "", arguments: "" };
-        if (tc.id) calls[idx].id = tc.id;
-        if (tc.function?.name) calls[idx].name += tc.function.name;
-        if (tc.function?.arguments) calls[idx].arguments += tc.function.arguments;
+
+      const toolCalls = calls.filter(Boolean);
+      if (toolCalls.length === 0) return { text: fullText, model, usage, turns: turn + 1, hitTurnLimit: false };
+      if (last) return { text: fullText, model, usage, turns: turn + 1, hitTurnLimit: true };
+
+      messages.push({
+        role: "assistant",
+        content: text || null,
+        tool_calls: toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
+      });
+      for (const call of toolCalls) {
+        const declaration = p.tools.find((d) => d.name === call.name);
+        const input = parseToolInput(call.arguments, declaration);
+        const result = input.error ? { success: false, error: input.error } : await safeExecute(p.executeTool, call.name, input.args);
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
       }
     }
+    return { text: fullText, model, usage, turns: maxTurns, hitTurnLimit: true };
+  }
 
-    const toolCalls = calls.filter(Boolean);
-    if (toolCalls.length === 0) return;
+  async complete(p: CompleteParams): Promise<CompleteResult> {
+    const payload: any = {
+      model: this.model,
+      messages: [...(p.system ? [{ role: "system", content: p.system }] : []), { role: "user", content: p.prompt }],
+    };
+    // OpenAI's newer models only accept max_completion_tokens; OpenRouter documents max_tokens.
+    if (this.provider === "openai") payload.max_completion_tokens = p.maxTokens;
+    else payload.max_tokens = p.maxTokens;
+    if (p.json && this.provider === "openai") payload.response_format = { type: "json_object" };
 
-    messages.push({
-      role: "assistant",
-      content: text || null,
-      tool_calls: toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
-    });
-    for (const call of toolCalls) {
-      const declaration = opts.declarations.find((d) => d.name === call.name);
-      const input = parseToolInput(call.arguments, declaration);
-      const result = input.error
-        ? { success: false, error: input.error }
-        : await runTool(opts.executeTool, call.name, input.args);
-      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+    const guard = new RequestGuard(p.signal, Math.max(this.timeouts.connectMs, this.timeouts.idleMs), this.timeouts.idleMs);
+    try {
+      const response = await postJson(ENDPOINTS[this.provider], this.headers(), payload, guard);
+      const body: any = await guard.race(response.json());
+      return {
+        text: String(body?.choices?.[0]?.message?.content ?? ""),
+        usage: { tokensIn: Number(body?.usage?.prompt_tokens) || 0, tokensOut: Number(body?.usage?.completion_tokens) || 0 },
+      };
+    } catch (err) {
+      throw toLlmError(err, p.signal);
+    } finally {
+      guard.dispose();
     }
   }
 }
@@ -260,28 +288,13 @@ export function anthropicEchoContent(blocks: AnthropicBlock[]): any[] {
   return out;
 }
 
-async function* streamAnthropic(opts: StreamWithToolsOptions): AsyncGenerator<string, void, unknown> {
-  const maxTurns = opts.maxTurns ?? 5;
-  const model = resolveModel("anthropic", opts.model);
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-    "x-api-key": opts.apiKey,
-    "anthropic-version": "2023-06-01",
-  };
-  const useFallbacks = ANTHROPIC_FALLBACK_MODELS.has(model);
-  if (useFallbacks) headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
+export const ANTHROPIC_REFUSAL_TEXT = "\n\nThe model declined to answer this request.";
+export const ANTHROPIC_CUTOFF_TEXT = "\n\n(Response was cut off at the length limit.)";
 
-  const tools = opts.declarations.map((d) => ({
-    name: d.name,
-    description: d.description,
-    input_schema: toJsonSchema(d.parameters),
-    eager_input_streaming: true,
-  }));
-
-  // Anthropic requires alternating turns starting with the user
+/** Anthropic requires alternating turns starting with the user; the prompt merges into a trailing user turn. */
+function anthropicMessages(history: ChatTurn[], prompt: string): any[] {
   const messages: any[] = [];
-  for (const t of opts.history) {
-    if (t.role === "system" || !t.content?.trim()) continue;
+  for (const t of usableHistory(history)) {
     const role = t.role === "assistant" ? "assistant" : "user";
     if (messages.length === 0 && role !== "user") continue;
     const last = messages[messages.length - 1];
@@ -289,89 +302,218 @@ async function* streamAnthropic(opts: StreamWithToolsOptions): AsyncGenerator<st
     else messages.push({ role, content: t.content });
   }
   const last = messages[messages.length - 1];
-  if (last?.role === "user") last.content += `\n\n${opts.prompt}`;
-  else messages.push({ role: "user", content: opts.prompt });
+  if (last?.role === "user") last.content += `\n\n${prompt}`;
+  else messages.push({ role: "user", content: prompt });
+  return messages;
+}
 
-  for (let turn = 0; turn < maxTurns; turn++) {
-    const payload: any = {
-      model,
-      max_tokens: 64000,
-      stream: true,
-      system: opts.systemInstruction,
-      messages,
+/** System blocks with the first (static) block marked for prompt caching. */
+function anthropicSystem(system: string | string[] | undefined): any {
+  const blocks = (Array.isArray(system) ? system : [system ?? ""]).filter((s) => s && s.trim());
+  if (blocks.length === 0) return undefined;
+  return blocks.map((text, i) => (i === 0 ? { type: "text", text, cache_control: { type: "ephemeral" } } : { type: "text", text }));
+}
+
+const mentionsMaxTokens = (err: LlmError) => err.status === 400 && /max_tokens/i.test(err.message);
+
+export class AnthropicDriver implements LlmDriver {
+  readonly provider = "anthropic" as const;
+  readonly usingOwnKey = true;
+  readonly model: string;
+  private readonly timeouts: { connectMs: number; idleMs: number };
+  private maxTokensCap: number;
+
+  constructor(private readonly llm: LlmCredentials, model?: string, opts?: DriverOptions) {
+    this.model = resolveModel("anthropic", model);
+    this.timeouts = resolveTimeouts(opts);
+    this.maxTokensCap = anthropicMaxTokens(this.model);
+  }
+
+  private get useFallbacks() {
+    return ANTHROPIC_FALLBACK_MODELS.has(this.model);
+  }
+
+  private headers(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-api-key": this.llm.apiKey ?? "",
+      "anthropic-version": "2023-06-01",
     };
-    if (useFallbacks) payload.fallbacks = "default";
-    if (tools.length > 0) {
-      payload.tools = tools;
-      if (turn === maxTurns - 1) payload.tool_choice = { type: "none" };
-    }
+    if (this.useFallbacks) headers["anthropic-beta"] = ANTHROPIC_FALLBACK_BETA;
+    return headers;
+  }
 
-    const response = await postJson(ENDPOINTS.anthropic, headers, payload);
-    const blocks: AnthropicBlock[] = [];
-    let stopReason: string | undefined;
-
-    for await (const { data } of readSse(response)) {
-      let ev: any;
+  /** POSTs, retrying once at 8192 output tokens when the model rejects the larger max_tokens. */
+  private async post(payload: any, makeGuard: () => RequestGuard): Promise<{ response: Response; guard: RequestGuard }> {
+    const attempt = async () => {
+      const g = makeGuard();
       try {
-        ev = JSON.parse(data);
-      } catch {
-        continue;
+        return { response: await postJson(ENDPOINTS.anthropic, this.headers(), payload, g), guard: g };
+      } catch (err) {
+        g.dispose();
+        throw err;
       }
-      switch (ev.type) {
-        case "error":
-          throw new Error(ev.error?.message ?? "Anthropic stream error");
-        case "content_block_start": {
-          const cb = ev.content_block ?? {};
-          blocks[ev.index] = { ...cb, partialJson: "" };
-          if (cb.type === "text" && cb.text) yield cb.text;
-          break;
+    };
+    try {
+      return await attempt();
+    } catch (err) {
+      const e = toLlmError(err);
+      if (!mentionsMaxTokens(e) || payload.max_tokens <= 8192) throw err;
+      this.maxTokensCap = 8192;
+      payload.max_tokens = 8192;
+      return attempt();
+    }
+  }
+
+  async runToolLoop(p: RunToolLoopParams): Promise<ToolLoopResult> {
+    const maxTurns = Math.max(1, p.maxTurns);
+    const tools = p.tools.map((d: ToolDeclaration) => ({
+      name: d.name,
+      description: d.description,
+      input_schema: toJsonSchema(d.parameters),
+      eager_input_streaming: true,
+    }));
+    const messages = anthropicMessages(p.history, p.prompt);
+    const usage = { tokensIn: 0, tokensOut: 0 };
+    let fullText = "";
+    let model = this.model;
+    const emit = (t: string) => {
+      fullText += t;
+      p.onText(t);
+    };
+
+    for (let turn = 0; turn < maxTurns; turn++) {
+      const last = turn === maxTurns - 1;
+      // No temperature: Opus 5.x rejects it and 5.5 models reject non-default values.
+      const payload: any = { model: this.model, max_tokens: this.maxTokensCap, stream: true, messages };
+      const system = anthropicSystem(p.system);
+      if (system) payload.system = system;
+      if (this.useFallbacks) payload.fallbacks = "default";
+      if (tools.length > 0) {
+        payload.tools = tools;
+        // Forced tool_choice (any/tool) is rejected on 5.5 models; "none" is fine.
+        if (last) payload.tool_choice = { type: "none" };
+      }
+
+      const blocks: AnthropicBlock[] = [];
+      let stopReason: string | undefined;
+      let guard: RequestGuard | undefined;
+      try {
+        const posted = await this.post(payload, () => new RequestGuard(p.signal, this.timeouts.connectMs, this.timeouts.idleMs));
+        guard = posted.guard;
+        for await (const { data } of readSse(posted.response, guard)) {
+          let ev: any;
+          try {
+            ev = JSON.parse(data);
+          } catch {
+            continue;
+          }
+          switch (ev.type) {
+            case "error":
+              throw new LlmError(
+                ev.error?.type === "rate_limit_error" ? "MODEL_UNAVAILABLE" : "PROVIDER_ERROR",
+                ev.error?.message ?? "Anthropic stream error"
+              );
+            case "message_start": {
+              const u = ev.message?.usage ?? {};
+              usage.tokensIn +=
+                (Number(u.input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0);
+              if (typeof ev.message?.model === "string" && ev.message.model) model = ev.message.model;
+              break;
+            }
+            case "content_block_start": {
+              const cb = ev.content_block ?? {};
+              blocks[ev.index] = { ...cb, partialJson: "" };
+              if (cb.type === "text" && cb.text) emit(cb.text);
+              break;
+            }
+            case "content_block_delta": {
+              const b = blocks[ev.index];
+              const d = ev.delta ?? {};
+              if (!b) break;
+              if (d.type === "text_delta") {
+                b.text = (b.text ?? "") + d.text;
+                emit(d.text);
+              } else if (d.type === "thinking_delta") b.thinking = (b.thinking ?? "") + d.thinking;
+              else if (d.type === "signature_delta") b.signature = d.signature;
+              else if (d.type === "input_json_delta") b.partialJson = (b.partialJson ?? "") + d.partial_json;
+              break;
+            }
+            case "message_delta":
+              if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+              if (ev.usage?.output_tokens) usage.tokensOut += Number(ev.usage.output_tokens) || 0;
+              break;
+          }
         }
-        case "content_block_delta": {
-          const b = blocks[ev.index];
-          const d = ev.delta ?? {};
-          if (!b) break;
-          if (d.type === "text_delta") {
-            b.text = (b.text ?? "") + d.text;
-            yield d.text;
-          } else if (d.type === "thinking_delta") b.thinking = (b.thinking ?? "") + d.thinking;
-          else if (d.type === "signature_delta") b.signature = d.signature;
-          else if (d.type === "input_json_delta") b.partialJson = (b.partialJson ?? "") + d.partial_json;
-          break;
+      } catch (err) {
+        throw noteRateLimit(this.llm, this.model, toLlmError(err, p.signal));
+      } finally {
+        guard?.dispose();
+      }
+
+      if (stopReason === "refusal") {
+        emit(ANTHROPIC_REFUSAL_TEXT);
+        return { text: fullText, model, usage, turns: turn + 1, hitTurnLimit: false };
+      }
+
+      const content = anthropicEchoContent(blocks.filter(Boolean));
+      const toolUses = content.filter((b) => b.type === "tool_use");
+      if (stopReason !== "tool_use" || toolUses.length === 0) {
+        if (stopReason === "max_tokens") emit(ANTHROPIC_CUTOFF_TEXT);
+        return { text: fullText, model, usage, turns: turn + 1, hitTurnLimit: false };
+      }
+      if (last) return { text: fullText, model, usage, turns: turn + 1, hitTurnLimit: true };
+
+      messages.push({ role: "assistant", content });
+
+      // Re-parse from the raw stream text so invalid JSON is reported, not silently emptied
+      const rawById = new Map(blocks.filter((b) => b?.type === "tool_use").map((b) => [b.id, b.partialJson ?? ""]));
+      const results: any[] = [];
+      for (const use of toolUses) {
+        const declaration = p.tools.find((d) => d.name === use.name);
+        const input = parseToolInput(rawById.get(use.id) ?? "", declaration);
+        if (input.error) {
+          results.push({ type: "tool_result", tool_use_id: use.id, is_error: true, content: input.error });
+          continue;
         }
-        case "message_delta":
-          if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
-          break;
+        const result = await safeExecute(p.executeTool, use.name, input.args);
+        results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(result) });
       }
+      // All results for one assistant turn go back in a single user message
+      messages.push({ role: "user", content: results });
     }
+    return { text: fullText, model, usage, turns: maxTurns, hitTurnLimit: true };
+  }
 
-    if (stopReason === "refusal") {
-      yield "\n\nThe model declined to answer this request.";
-      return;
+  async complete(p: CompleteParams): Promise<CompleteResult> {
+    const payload: any = {
+      model: this.model,
+      max_tokens: Math.min(p.maxTokens, this.maxTokensCap),
+      messages: [{ role: "user", content: p.json ? `${p.prompt}\n\nRespond with a single JSON object only.` : p.prompt }],
+    };
+    if (p.system) payload.system = p.system;
+    if (this.useFallbacks) payload.fallbacks = "default";
+
+    const timeout = Math.max(this.timeouts.connectMs, this.timeouts.idleMs);
+    let guard: RequestGuard | undefined;
+    try {
+      const posted = await this.post(payload, () => new RequestGuard(p.signal, timeout, timeout));
+      guard = posted.guard;
+      const body: any = await guard.race(posted.response.json());
+      if (body?.stop_reason === "refusal") return { text: "", usage: { tokensIn: 0, tokensOut: 0 } };
+      const text = (Array.isArray(body?.content) ? body.content : [])
+        .filter((b: any) => b?.type === "text")
+        .map((b: any) => b.text)
+        .join("");
+      return {
+        text,
+        usage: { tokensIn: Number(body?.usage?.input_tokens) || 0, tokensOut: Number(body?.usage?.output_tokens) || 0 },
+      };
+    } catch (err) {
+      throw toLlmError(err, p.signal);
+    } finally {
+      guard?.dispose();
     }
-
-    const content = anthropicEchoContent(blocks.filter(Boolean));
-    const toolUses = content.filter((b) => b.type === "tool_use");
-    if (stopReason !== "tool_use" || toolUses.length === 0) {
-      if (stopReason === "max_tokens") yield "\n\n(Response was cut off at the length limit.)";
-      return;
-    }
-
-    messages.push({ role: "assistant", content });
-
-    // Re-parse from the raw stream text so invalid JSON is reported, not silently emptied
-    const rawById = new Map(blocks.filter((b) => b?.type === "tool_use").map((b) => [b.id, b.partialJson ?? ""]));
-    const results = [];
-    for (const use of toolUses) {
-      const declaration = opts.declarations.find((d) => d.name === use.name);
-      const input = parseToolInput(rawById.get(use.id) ?? "", declaration);
-      if (input.error) {
-        results.push({ type: "tool_result", tool_use_id: use.id, is_error: true, content: input.error });
-        continue;
-      }
-      const result = await runTool(opts.executeTool, use.name, input.args);
-      results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(result) });
-    }
-    // All results for one assistant turn go back in a single user message
-    messages.push({ role: "user", content: results });
   }
 }
+

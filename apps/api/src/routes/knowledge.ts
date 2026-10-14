@@ -1,11 +1,16 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import { authenticate } from "../middleware/auth";
 import { handleUpload } from "../middleware/upload";
+import { uploadLimiter } from "../middleware/rateLimits";
+import { asyncHandler } from "../lib/asyncHandler";
+import { objectIdParam } from "../lib/objectId";
 import {
   uploadKnowledge,
   listKnowledge,
+  getKnowledgeSource,
   getKnowledgeStatus,
+  getKnowledgeConfig,
+  retryKnowledge,
   deleteKnowledge,
 } from "../controllers/knowledge";
 
@@ -13,29 +18,29 @@ const router = Router();
 
 // All knowledge routes require authentication
 router.use(authenticate);
+// 400 for a malformed :sourceId
+objectIdParam(router, "sourceId");
 
-// S-8: Rate limiter — max 10 uploads per user per 15 minutes
-const uploadRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.UPLOAD_RATE_LIMIT_PER_HOUR ?? "10", 10),
-  keyGenerator: (req) => (req as any).user?.id ?? req.ip,
-  message: {
-    error: "Too many uploads. Maximum 10 per 15 minutes. Please wait and try again.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// POST   /knowledge/upload             receive file, queue ingestion (202)
+// S-8: UPLOAD_RATE_LIMIT_PER_HOUR per user, shared with retry
+router.post("/upload", uploadLimiter, handleUpload, asyncHandler(uploadKnowledge));
 
-// POST   /knowledge/upload     → receive file → kick off ingestion (202 Accepted)
-router.post("/upload", uploadRateLimiter, handleUpload, uploadKnowledge);
+// GET    /knowledge                    list all sources (KnowledgeSourceDTO[])
+router.get("/", asyncHandler(listKnowledge));
 
-// GET    /knowledge             → list all sources for the user
-router.get("/", listKnowledge);
+// GET    /knowledge/config             upload limits (KnowledgeConfig)
+router.get("/config", asyncHandler(getKnowledgeConfig));
 
-// GET    /knowledge/:sourceId/status  → poll indexing status
-router.get("/:sourceId/status", getKnowledgeStatus);
+// GET    /knowledge/:sourceId/status   legacy poll shape (+ progress)
+router.get("/:sourceId/status", asyncHandler(getKnowledgeStatus));
 
-// DELETE /knowledge/:sourceId   → delete source + all its chunks
-router.delete("/:sourceId", deleteKnowledge);
+// POST   /knowledge/:sourceId/retry    re-queue a failed source from its stored text (202)
+router.post("/:sourceId/retry", uploadLimiter, asyncHandler(retryKnowledge));
+
+// GET    /knowledge/:sourceId          one source (KnowledgeSourceDTO)
+router.get("/:sourceId", asyncHandler(getKnowledgeSource));
+
+// DELETE /knowledge/:sourceId          delete source, chunks and stored text
+router.delete("/:sourceId", asyncHandler(deleteKnowledge));
 
 export default router;

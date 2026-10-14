@@ -1,18 +1,58 @@
 import { Router } from "express";
-import * as chatController from "../controllers/chat";
+import {
+  CreateChatBodySchema,
+  FeedbackBodySchema,
+  ListChatsQuerySchema,
+  RegenerateBodySchema,
+  SendMessageBodySchema,
+  UpdateChatBodySchema,
+} from "@wup/contracts";
+import * as chat from "../controllers/chat";
+import { chatLimiter, objectIdParam, validate } from "../controllers/chat/deps";
 import { authenticate } from "../middleware/auth";
-import { validate } from "../middleware/validate";
-import { saveMessageSchema, updateChatSchema } from "../validation/schemas";
 
+/**
+ * /chats
+ *
+ *   GET    /                                       list (legacy array) | Page with ?limit|cursor|q
+ *   POST   /                                       create {title?, bridgeIds?}
+ *   DELETE /                                       delete every chat of the user
+ *   GET    /:chatId                                ChatSummary
+ *   PATCH  /:chatId                                {title?, pinned?, bridgeIds?}
+ *   DELETE /:chatId
+ *   GET    /:chatId/messages                       legacy array | Page with ?limit|before
+ *   POST   /:chatId/messages                       send (SSE)
+ *   POST   /:chatId/messages/:messageId/regenerate (SSE)
+ *   PUT    /:chatId/messages/:messageId/feedback   {rating, note?}
+ *   POST   /:chatId/stop                           202 {stopped}
+ *   GET    /:chatId/export?format=md
+ *   GET    /:chatId/messages/:messageId/export?format=md
+ */
 const router = Router();
 
 router.use(authenticate);
+objectIdParam(router, "chatId", "messageId");
 
-router.post("/", chatController.createChat);
-router.get("/", chatController.getChats);
-router.get("/:chatId/messages", chatController.getMessages);
-router.post("/:chatId/messages", validate(saveMessageSchema), chatController.saveMessage);
-router.patch("/:chatId", validate(updateChatSchema), chatController.updateChat);
-router.delete("/:chatId", chatController.deleteChat);
+router.get("/", validate({ query: ListChatsQuerySchema }), chat.listChats);
+router.post("/", validate({ body: CreateChatBodySchema }), chat.createChat);
+router.delete("/", chat.deleteAllChats);
+
+router.get("/:chatId", chat.getChat);
+router.patch("/:chatId", validate({ body: UpdateChatBodySchema }), chat.updateChat);
+router.delete("/:chatId", chat.deleteChat);
+
+router.get("/:chatId/messages", validate({ query: chat.ListMessagesQuerySchema }), chat.getMessages);
+router.post("/:chatId/messages", chatLimiter, validate({ body: SendMessageBodySchema }), chat.sendMessage);
+router.post(
+  "/:chatId/messages/:messageId/regenerate",
+  chatLimiter,
+  validate({ body: RegenerateBodySchema }),
+  chat.regenerateMessage
+);
+router.put("/:chatId/messages/:messageId/feedback", validate({ body: FeedbackBodySchema }), chat.setFeedback);
+router.post("/:chatId/stop", chat.stopGeneration);
+
+router.get("/:chatId/export", validate({ query: chat.ExportQuerySchema }), chat.exportChat);
+router.get("/:chatId/messages/:messageId/export", validate({ query: chat.ExportQuerySchema }), chat.exportMessage);
 
 export default router;

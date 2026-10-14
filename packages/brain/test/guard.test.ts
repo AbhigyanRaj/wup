@@ -2,11 +2,18 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { BSON } from "mongodb";
 import {
+  ALLOWED_STAGES,
   GuardError,
+  MAX_PIPELINE_STAGES,
   assertFieldPathAllowed,
   assertInScope,
+  assertSafeFilter,
+  assertSafePipeline,
+  assertSafeProjection,
   assertSafeQuery,
+  assertSafeSort,
   hiddenSegmentOf,
+  hitsHidden,
   isInScope,
 } from "../src/bridges/mongo/guard";
 
@@ -163,22 +170,52 @@ describe("assertSafeQuery: every path segment is checked", () => {
 });
 
 describe("assertSafeQuery: dynamic-key operators", () => {
-  const dynamic = [
-    [{ $project: { p: { $getField: "password" } } }],
-    [{ $project: { p: { $getField: { field: { $concat: ["pass", "word"] }, input: "$$ROOT" } } } }],
-    [{ $replaceWith: { $setField: { field: "x", input: "$$ROOT", value: 1 } } }],
-    [{ $replaceWith: { $unsetField: { field: "x", input: "$$ROOT" } } }],
+  test("$getField naming a hidden field is rejected", () => {
+    assert.throws(() => assertSafeQuery([{ $project: { p: { $getField: "password" } } }], opts(["password"])), /hidden/);
+    assert.throws(
+      () => assertSafeQuery([{ $project: { p: { $getField: { field: "password", input: "$$ROOT" } } } }], opts(["password"])),
+      /hidden/
+    );
+  });
+
+  test("a computed $getField / $setField name is rejected when fields are hidden", () => {
+    assert.throws(
+      () =>
+        assertSafeQuery(
+          [{ $project: { p: { $getField: { field: { $concat: ["pass", "word"] }, input: "$$ROOT" } } } }],
+          opts(["password"])
+        ),
+      /literal field name/
+    );
+    assert.throws(
+      () => assertSafeQuery([{ $replaceWith: { $setField: { field: { $literal: "password" }, input: "$$ROOT", value: 1 } } }], opts(["password"])),
+      /literal field name/
+    );
+  });
+
+  test("$setField / $unsetField / $getField on visible literal fields are allowed", () => {
+    assert.doesNotThrow(() => assertSafeQuery([{ $replaceWith: { $setField: { field: "x", input: "$$ROOT", value: 1 } } }], opts(["password"])));
+    assert.doesNotThrow(() => assertSafeQuery([{ $replaceWith: { $unsetField: { field: "x", input: "$$ROOT" } } }], opts(["password"])));
+    assert.doesNotThrow(() => assertSafeQuery([{ $project: { n: { $getField: "name" } } }], opts(["password"])));
+  });
+
+  const enumerating = [
     [{ $project: { kv: { $objectToArray: "$$ROOT" } } }],
     [{ $replaceWith: { $arrayToObject: [[["k", "v"]]] } }],
   ];
-  for (const q of dynamic) {
+  for (const q of enumerating) {
     test(`rejects ${JSON.stringify(q).slice(0, 60)} when fields are hidden`, () => {
       assert.throws(() => assertSafeQuery(q, opts(["password"])), /not allowed/);
     });
   }
 
   test("are allowed when nothing is hidden", () => {
-    for (const q of dynamic) assert.doesNotThrow(() => assertSafeQuery(q, opts()));
+    const all = [
+      ...enumerating,
+      [{ $project: { p: { $getField: "password" } } }],
+      [{ $project: { p: { $getField: { field: { $concat: ["pass", "word"] }, input: "$$ROOT" } } } }],
+    ];
+    for (const q of all) assert.doesNotThrow(() => assertSafeQuery(q, opts()));
   });
 });
 
@@ -221,8 +258,8 @@ describe("assertSafeQuery: $lookup / $graphLookup field names", () => {
 });
 
 describe("assertSafeQuery: prototype keys", () => {
-  test("__proto__ / constructor / toString keys don't crash or misfire", () => {
-    for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+  test("constructor / toString / hasOwnProperty keys don't crash or misfire", () => {
+    for (const key of ["constructor", "toString", "hasOwnProperty"]) {
       const q = JSON.parse(`[{"$match":{"${key}":1}},{"$project":{"${key}":1}}]`);
       assert.doesNotThrow(() => assertSafeQuery(q, opts(["password"])), key);
       const filter = JSON.parse(`{"${key}":{"from":"salaries"}}`);
@@ -230,9 +267,14 @@ describe("assertSafeQuery: prototype keys", () => {
     }
   });
 
-  test("$-prefixed prototype-like keys are not treated as stages", () => {
+  test("__proto__ keys are a GuardError, not a TypeError", () => {
+    assert.throws(() => assertSafeQuery(JSON.parse('{"__proto__":{"x":1}}'), opts()), GuardError);
+    assert.throws(() => assertSafeQuery(JSON.parse('[{"$match":{"__proto__":1}}]'), opts()), GuardError);
+  });
+
+  test("$-prefixed prototype-like keys are not allowed stages", () => {
     const q = JSON.parse('[{"$constructor":{"from":"salaries"}}]');
-    assert.doesNotThrow(() => assertSafeQuery(q, opts()));
+    assert.throws(() => assertSafeQuery(q, opts()), (e: any) => e instanceof GuardError && /not allowed/.test(e.message));
   });
 });
 
@@ -287,5 +329,251 @@ describe("assertSafeQuery: exclusion projections", () => {
     assert.throws(() => assertSafeQuery({ password: 0 }, opts(["password"])), /hidden/);
     assert.throws(() => assertSafeQuery([{ $match: { password: 0 } }], opts(["password"])), /hidden/);
     assert.throws(() => assertSafeQuery([{ $addFields: { password: 0 } }], opts(["password"])), /hidden/);
+  });
+});
+
+// ─── Allowlist guard: bypass matrix ──────────────────────────────────────────
+
+const H = (hidden: string[] = ["password", "tokens"]) => ({ hidden: new Set(hidden), scope, db: "shop" });
+const isGuardError = (re?: RegExp) => (e: any) => e instanceof GuardError && (!re || re.test(e.message));
+const rejectsPipeline = (p: unknown, re?: RegExp, o = H()) => assert.throws(() => assertSafePipeline(p, o), isGuardError(re));
+const allowsPipeline = (p: unknown, o = H()) => assert.doesNotThrow(() => assertSafePipeline(p, o));
+
+describe("guard bypass matrix: variable paths", () => {
+  test("$$ROOT / $$CURRENT paths to hidden fields", () => {
+    rejectsPipeline([{ $project: { p: "$$ROOT.password" } }], /hidden/);
+    rejectsPipeline([{ $project: { p: "$$CURRENT.auth.password" } }], /hidden/);
+    rejectsPipeline([{ $match: { $expr: { $eq: ["$$ROOT.password", "x"] } } }], /hidden/);
+  });
+
+  test("$map with $$i.password", () => {
+    rejectsPipeline([{ $project: { p: { $map: { input: "$items", as: "i", in: "$$i.password" } } } }], /hidden/);
+  });
+
+  test("$regexMatch on $$CURRENT.password", () => {
+    rejectsPipeline(
+      [{ $match: { $expr: { $regexMatch: { input: "$$CURRENT.password", regex: "^a" } } } }],
+      /hidden/
+    );
+  });
+
+  test("bare $$ROOT / $$CURRENT / $$NOW are allowed", () => {
+    allowsPipeline([{ $project: { r: "$$ROOT", c: "$$CURRENT", n: "$$NOW" } }]);
+  });
+
+  test("$$USER_ROLES is always rejected", () => {
+    rejectsPipeline([{ $project: { r: "$$USER_ROLES" } }], /USER_ROLES/, H([]));
+    rejectsPipeline([{ $project: { r: "$$USER_ROLES.role" } }], /USER_ROLES/, H([]));
+  });
+});
+
+describe("guard bypass matrix: $getField", () => {
+  test("string form", () => {
+    rejectsPipeline([{ $project: { p: { $getField: "password" } } }], /hidden/);
+  });
+  test("object form", () => {
+    rejectsPipeline([{ $project: { p: { $getField: { field: "password", input: "$$ROOT" } } } }], /hidden/);
+    rejectsPipeline([{ $project: { p: { $getField: { field: "tokens", input: "$auth" } } } }], /hidden/);
+  });
+  test("computed forms", () => {
+    rejectsPipeline([{ $project: { p: { $getField: { field: { $concat: ["pass", "word"] }, input: "$$ROOT" } } } }]);
+    rejectsPipeline([{ $project: { p: { $getField: { $literal: "password" } } } }]);
+    rejectsPipeline([{ $project: { p: { $getField: { $toLower: "PASSWORD" } } } }]);
+  });
+  test("visible literal names are fine", () => {
+    allowsPipeline([{ $project: { p: { $getField: { field: "price.usd", input: "$$ROOT" } } } }]);
+  });
+});
+
+describe("guard bypass matrix: dynamic-key operators", () => {
+  test("$objectToArray / $arrayToObject only when fields are hidden", () => {
+    rejectsPipeline([{ $project: { kv: { $objectToArray: "$$ROOT" } } }], /not allowed/);
+    rejectsPipeline([{ $replaceWith: { $arrayToObject: [[["k", "v"]]] } }], /not allowed/);
+    allowsPipeline([{ $project: { kv: { $objectToArray: "$$ROOT" } } }], H([]));
+    allowsPipeline([{ $replaceWith: { $arrayToObject: [[["k", "v"]]] } }], H([]));
+  });
+
+  test("$text only when fields are hidden", () => {
+    assert.throws(() => assertSafeFilter({ $text: { $search: "abc" } }, H()), isGuardError(/not allowed/));
+    assert.doesNotThrow(() => assertSafeFilter({ $text: { $search: "abc" } }, H([])));
+  });
+
+  test("$where / $function / $accumulator / $jsonSchema are always blocked", () => {
+    for (const o of [H(), H([])]) {
+      assert.throws(() => assertSafeFilter({ $where: "1" }, o), isGuardError(/not allowed/));
+      assert.throws(() => assertSafeFilter({ $jsonSchema: {} }, o), isGuardError(/not allowed/));
+      rejectsPipeline([{ $addFields: { x: { $function: { body: "", args: [], lang: "js" } } } }], /not allowed/, o);
+      rejectsPipeline([{ $group: { _id: null, x: { $accumulator: {} } } }], /not allowed/, o);
+    }
+  });
+});
+
+describe("guard bypass matrix: path segments", () => {
+  test("tokens.0 and tokens.0.value", () => {
+    assert.equal(hitsHidden("tokens.0", new Set(["tokens"])), "tokens");
+    assert.equal(hitsHidden("tokens.0.value", new Set(["tokens"])), "tokens");
+    assert.throws(() => assertSafeFilter({ "tokens.0": "x" }, H()), isGuardError(/hidden/));
+    assert.throws(() => assertSafeFilter({ "tokens.0.value": "x" }, H()), isGuardError(/hidden/));
+    rejectsPipeline([{ $project: { t: "$tokens.0.value" } }], /hidden/);
+  });
+
+  test("positional segments are skipped", () => {
+    assert.equal(hitsHidden("items.$.name", new Set(["password"])), undefined);
+    assert.equal(hitsHidden("items.$[].password", new Set(["password"])), "password");
+    assert.equal(hitsHidden("items.$[elem].name", new Set(["elem"])), undefined);
+  });
+});
+
+describe("guard bypass matrix: literal field arguments", () => {
+  test("$lookup localField / foreignField", () => {
+    rejectsPipeline([{ $lookup: { from: "orders", localField: "password", foreignField: "x", as: "o" } }], /hidden/);
+    rejectsPipeline([{ $lookup: { from: "orders", localField: "x", foreignField: "tokens.0", as: "o" } }], /hidden/);
+    rejectsPipeline([{ $lookup: { from: "orders", localField: { $concat: ["a"] }, foreignField: "x", as: "o" } }], /literal/);
+  });
+
+  test("$graphLookup connectFromField / connectToField", () => {
+    rejectsPipeline(
+      [{ $graphLookup: { from: "orders", startWith: "$a", connectFromField: "password", connectToField: "a", as: "g" } }],
+      /hidden/
+    );
+    rejectsPipeline(
+      [{ $graphLookup: { from: "orders", startWith: "$a", connectFromField: "a", connectToField: "auth.password", as: "g" } }],
+      /hidden/
+    );
+  });
+
+  test("$densify / $fill / $geoNear", () => {
+    rejectsPipeline([{ $densify: { field: "password", range: { step: 1, bounds: "full" } } }], /hidden/);
+    rejectsPipeline([{ $densify: { field: "ts", partitionByFields: ["tokens"], range: { step: 1, bounds: "full" } } }], /hidden/);
+    rejectsPipeline([{ $fill: { partitionByFields: ["password"], output: { x: { method: "locf" } } } }], /hidden/);
+    rejectsPipeline([{ $geoNear: { near: [0, 0], distanceField: "d", key: "password" } }], /hidden/);
+    allowsPipeline([{ $densify: { field: "ts", partitionByFields: ["region"], range: { step: 1, bounds: "full" } } }]);
+  });
+
+  test("$setField / $unsetField", () => {
+    rejectsPipeline([{ $replaceWith: { $setField: { field: "password", input: "$$ROOT", value: "x" } } }], /hidden/);
+    rejectsPipeline([{ $replaceWith: { $unsetField: { field: { $literal: "password" }, input: "$$ROOT" } } }], /literal/);
+  });
+});
+
+describe("guard bypass matrix: stage allowlist", () => {
+  const excluded = [
+    "$out",
+    "$merge",
+    "$currentOp",
+    "$collStats",
+    "$indexStats",
+    "$planCacheStats",
+    "$listSessions",
+    "$listLocalSessions",
+    "$listSearchIndexes",
+    "$listSampledQueries",
+    "$search",
+    "$searchMeta",
+    "$vectorSearch",
+    "$changeStream",
+    "$changeStreamSplitLargeEvent",
+    "$documents",
+    "$querySettings",
+    "$redact",
+    "$shardedDataDistribution",
+    "$listClusterCatalog",
+  ];
+  for (const stage of excluded) {
+    test(`rejects ${stage} and lists the allowed stages`, () => {
+      rejectsPipeline([{ [stage]: {} }], /not allowed.*\$match, \$project/, H([]));
+    });
+  }
+
+  test("excluded stages are rejected inside $facet, $lookup and $unionWith pipelines", () => {
+    rejectsPipeline([{ $facet: { a: [{ $merge: "x" }] } }], /not allowed/, H([]));
+    rejectsPipeline([{ $lookup: { from: "orders", pipeline: [{ $documents: [{ a: 1 }] }], as: "o" } }], /not allowed/, H([]));
+    rejectsPipeline([{ $unionWith: { coll: "orders", pipeline: [{ $out: "x" }] } }], /not allowed/, H([]));
+  });
+
+  test("$unionWith / $lookup scope is still enforced", () => {
+    const hr = { hidden: new Set<string>(), scope, db: "hr" };
+    rejectsPipeline([{ $unionWith: { coll: "salaries", pipeline: [] } }], /not enabled/, hr);
+    rejectsPipeline([{ $facet: { a: [{ $lookup: { from: "salaries", as: "s" } }] } }], /not enabled/, hr);
+  });
+
+  test("__proto__ stage and __proto__ key are GuardErrors", () => {
+    rejectsPipeline(JSON.parse('[{"__proto__":{"$match":{}}}]'), /not allowed/);
+    rejectsPipeline(JSON.parse('[{"$match":{"__proto__":{"a":1}}}]'), /__proto__/);
+    rejectsPipeline(JSON.parse('[{"$facet":{"__proto__":[]}}]'), /__proto__/);
+  });
+
+  test("multi-key and empty stages are rejected", () => {
+    rejectsPipeline([{ $match: {}, $limit: 5 }], /exactly one key/);
+    rejectsPipeline([{}], /exactly one key/);
+    rejectsPipeline(["$match"], /JSON object/);
+    rejectsPipeline({ $match: {} }, /array/);
+  });
+
+  test(`at most ${MAX_PIPELINE_STAGES} stages`, () => {
+    allowsPipeline(Array.from({ length: MAX_PIPELINE_STAGES }, () => ({ $match: {} })));
+    rejectsPipeline(Array.from({ length: MAX_PIPELINE_STAGES + 1 }, () => ({ $match: {} })), /at most/);
+  });
+
+  test("depth and node limits", () => {
+    let deep: any = { a: 1 };
+    for (let i = 0; i < 40; i++) deep = { $and: [deep] };
+    assert.throws(() => assertSafeFilter(deep, H()), isGuardError(/nested too deeply/));
+    const wide = { $or: Array.from({ length: 6000 }, (_, i) => ({ n: i })) };
+    assert.throws(() => assertSafeFilter(wide, H()), isGuardError(/too large/));
+  });
+
+  test("$setWindowFields, $bucket, $facet, $bucketAuto, $sortByCount and friends are allowed", () => {
+    allowsPipeline([
+      { $match: { year: { $gte: 2000 } } },
+      {
+        $setWindowFields: {
+          partitionBy: "$genre",
+          sortBy: { year: 1 },
+          output: { running: { $sum: "$sales", window: { documents: ["unbounded", "current"] } } },
+        },
+      },
+      { $bucket: { groupBy: "$year", boundaries: [1990, 2000, 2010], default: "other", output: { n: { $sum: 1 } } } },
+    ]);
+    allowsPipeline([
+      {
+        $facet: {
+          byGenre: [{ $sortByCount: "$genre" }],
+          byYear: [{ $bucketAuto: { groupBy: "$year", buckets: 4 } }],
+          total: [{ $count: "n" }],
+        },
+      },
+      { $unset: "password" },
+      { $sample: { size: 5 } },
+      { $skip: 1 },
+      { $limit: 3 },
+      { $replaceRoot: { newRoot: "$$ROOT" } },
+    ]);
+    assert.ok(ALLOWED_STAGES.has("$setWindowFields"));
+  });
+});
+
+describe("guard entry points", () => {
+  test("filters must be plain objects", () => {
+    for (const bad of [[], "x", 5, null, true, new Date()]) {
+      assert.throws(() => assertSafeFilter(bad, H()), isGuardError(/filter must be a JSON object/), String(bad));
+    }
+  });
+
+  test("projections: exclusion of hidden fields is allowed, inclusion is not", () => {
+    assert.doesNotThrow(() => assertSafeProjection({ password: 0 }, H()));
+    assert.doesNotThrow(() => assertSafeProjection({ password: false, tokens: 0, name: 1 }, H()));
+    assert.throws(() => assertSafeProjection({ password: 1 }, H()), isGuardError(/hidden/));
+    assert.throws(() => assertSafeProjection({ n: "$password" }, H()), isGuardError(/hidden/));
+    allowsPipeline([{ $project: { password: 0 } }]);
+    rejectsPipeline([{ $project: { password: 1 } }], /hidden/);
+  });
+
+  test("sorts accept 1, -1 and textScore only", () => {
+    assert.doesNotThrow(() => assertSafeSort({ year: -1, title: 1, score: { $meta: "textScore" } }, H()));
+    assert.throws(() => assertSafeSort({ year: "desc" }, H()), isGuardError(/Sort values/));
+    assert.throws(() => assertSafeSort({ year: { $meta: "searchScore" } }, H()), isGuardError(/Sort values/));
+    assert.throws(() => assertSafeSort({ password: 1 }, H()), isGuardError(/hidden/));
+    rejectsPipeline([{ $sort: { year: 2 } }], /Sort values/);
   });
 });

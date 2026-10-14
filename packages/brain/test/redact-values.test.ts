@@ -1,7 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { BSON } from "mongodb";
-import { detectSensitiveFields, hiddenLeavesForDb, redactValue } from "../src/bridges/mongo/redact";
+import {
+  detectSensitiveFields,
+  hiddenLeavesForDb,
+  isSensitiveFieldName,
+  redactValue,
+  tokenizeFieldName,
+} from "../src/bridges/mongo/redact";
 import { parseEjsonArg, rowsToTable, toDisplayEjson, toPlain } from "../src/bridges/mongo/values";
 import { describeMongoError, isMongoUri, maskUri } from "../src/bridges/mongo/errors";
 
@@ -18,6 +24,76 @@ describe("redaction", () => {
       { path: "year", types: ["number"] },
     ]);
     assert.deepEqual(found, ["password", "auth.jwt", "apiKey", "api_key", "plot_embedding"]);
+  });
+
+  test("tokenises camelCase, snake_case, kebab-case and digits", () => {
+    assert.deepEqual(tokenizeFieldName("apiKey2"), ["api", "key"]);
+    assert.deepEqual(tokenizeFieldName("refresh_token"), ["refresh", "token"]);
+    assert.deepEqual(tokenizeFieldName("client-secret"), ["client", "secret"]);
+    assert.deepEqual(tokenizeFieldName("HTTPAccessToken"), ["http", "access", "token"]);
+  });
+
+  const MUST_FLAG = [
+    "password",
+    "passwordHash",
+    "api_key",
+    "apiKey",
+    "accessToken",
+    "refreshToken",
+    "privateKey",
+    "cardNumber",
+    "ssn",
+    "otp",
+    "salt",
+    "clientSecret",
+    "card_number",
+    "creditCard",
+    "session-token",
+    "authHash",
+    "user_pwd",
+    "cvv2",
+  ];
+  const MUST_NOT_FLAG = [
+    "businessName",
+    "className",
+    "footprint",
+    "hashtags",
+    "tokensUsed",
+    "secretary",
+    "tokenCount",
+    "token",
+    "hash",
+    "key",
+    "primaryKey",
+    "keywords",
+    "email",
+    "name",
+  ];
+  for (const name of MUST_FLAG) {
+    test(`flags ${name}`, () => {
+      assert.equal(isSensitiveFieldName(name), true);
+      assert.deepEqual(detectSensitiveFields([{ path: `a.${name}`, types: ["string"] }]), [`a.${name}`]);
+    });
+  }
+  for (const name of MUST_NOT_FLAG) {
+    test(`does not flag ${name}`, () => {
+      assert.equal(isSensitiveFieldName(name), false);
+      assert.deepEqual(detectSensitiveFields([{ path: name, types: ["string"] }]), []);
+    });
+  }
+
+  test("skips fields that only hold bool, number or date values", () => {
+    assert.deepEqual(
+      detectSensitiveFields([
+        { path: "passwordChangedAt", types: ["date"] },
+        { path: "otpAttempts", types: ["number", "null"] },
+        { path: "hasPassword", types: ["bool"] },
+        { path: "password", types: ["string", "null"] },
+        { path: "blob", types: ["binary"] },
+        { path: "salt", types: ["null"] },
+      ]).sort(),
+      ["blob", "password", "salt"]
+    );
   });
 
   test("hidden leaves are scoped to one database", () => {

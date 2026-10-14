@@ -26,6 +26,8 @@ const GENRES = ["Drama", "Comedy", "Action"];
 
 before(async () => {
   delete process.env.GEMINI_API_KEY; // suggestions use templates, no network
+  // mongodb-memory-server listens on 127.0.0.1, which the SSRF guard blocks
+  process.env.BRIDGE_ALLOW_PRIVATE_HOSTS = "true";
   server = await MongoMemoryServer.create();
   const uri = server.getUri();
 
@@ -71,6 +73,7 @@ before(async () => {
 });
 
 after(async () => {
+  delete process.env.BRIDGE_ALLOW_PRIVATE_HOSTS;
   releasePooledClient(connId);
   releasePooledClient(scopedConnId);
   await mongoose.disconnect();

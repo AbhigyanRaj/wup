@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
+import { registerModel } from "./registerModel";
 
 /**
  * KnowledgeSource tracks every file a user has uploaded for RAG indexing.
- * One record per file — the actual content lives in KnowledgeChunk.
+ * One record per file: the chunks live in KnowledgeChunk, the extracted text
+ * (gzipped, for retries) in KnowledgeSourceText.
  */
 const knowledgeSourceSchema = new mongoose.Schema(
   {
@@ -24,7 +26,8 @@ const knowledgeSourceSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["pdf", "txt", "url"],
+      // "url" is legacy (never produced by the current upload flow)
+      enum: ["pdf", "txt", "md", "csv", "docx", "url"],
       required: true,
       default: "pdf",
     },
@@ -44,6 +47,25 @@ const knowledgeSourceSchema = new mongoose.Schema(
     chunkCount: {
       type: Number,
       default: 0,
+    },
+    // Indexing progress: chunks planned vs embedded so far
+    chunksTotal: {
+      type: Number,
+      default: 0,
+    },
+    chunksDone: {
+      type: Number,
+      default: 0,
+    },
+    // Ingestion attempts (first run + retries)
+    attempts: {
+      type: Number,
+      default: 0,
+    },
+    // true when a failed source can be retried from its stored text
+    canRetry: {
+      type: Boolean,
+      default: false,
     },
     fileSize: {
       type: Number, // bytes
@@ -71,7 +93,6 @@ knowledgeSourceSchema.index({ userId: 1, fileHash: 1 });
 // Stale watchdog query index (I-11)
 knowledgeSourceSchema.index({ status: 1, updatedAt: 1 });
 
-export const KnowledgeSource = mongoose.model(
-  "KnowledgeSource",
-  knowledgeSourceSchema
+export const KnowledgeSource = registerModel("KnowledgeSource", () =>
+  mongoose.model("KnowledgeSource", knowledgeSourceSchema)
 );

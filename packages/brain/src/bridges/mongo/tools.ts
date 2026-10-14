@@ -2,17 +2,22 @@ import mongoose from "mongoose";
 import { Connection } from "@wup/models";
 import { cryptoService } from "../../utils/crypto";
 import type { ToolContext } from "../../tools/types";
-import { getPooledClient } from "./clientPool";
+import type { MongoClient } from "mongodb";
+import { systemPoolKey, withPooledClient } from "./clientPool";
 import { describeMongoError } from "./errors";
 import {
   GuardError,
   assertFieldPathAllowed,
   assertInScope,
-  assertSafeQuery,
-  hiddenSegmentOf,
+  assertSafeFilter,
+  assertSafePipeline,
+  assertSafeProjection,
+  assertSafeSort,
+  hitsHidden,
   isInScope,
   type ScopeEntry,
 } from "./guard";
+import { recordDataQuery } from "../shared";
 import { listSources } from "./introspect";
 import { hiddenLeavesForDb, redactValue, redactionKey, type RedactionMap } from "./redact";
 import { parseEjsonArg, toDisplayEjson, toPlain } from "./values";
@@ -27,7 +32,7 @@ export {
   extractMongoHosts,
   isBlockedAddress,
   type HostResolvers,
-} from "./net";
+} from "../net/ssrf";
 
 /**
  * Read-only MongoDB tools exposed to the model.
@@ -46,6 +51,7 @@ interface LoadedBridge {
   id: string;
   name: string;
   uri: string;
+  isSystem: boolean;
   scope: ScopeEntry[];
   redactions: RedactionMap;
   schemaCache?: any;
@@ -69,6 +75,7 @@ export async function loadMongoBridge(ctx: ToolContext, connectionId: string): P
     id: String(conn._id),
     name: conn.name,
     uri: cryptoService.decrypt(conn.config),
+    isSystem: conn.isSystem === true,
     scope: (conn.scope ?? []).map((s: any) => ({ db: s.db, collections: s.collections ?? ["*"] })),
     redactions: conn.redactedFields ?? {},
     schemaCache: conn.schemaCache,
@@ -92,6 +99,12 @@ export const clampLimit = (limit: unknown) => {
   const n = Number(limit);
   return Math.max(1, Math.min(Math.floor(n) || DEFAULT_LIMIT, MAX_LIMIT));
 };
+
+/** Runs fn with this bridge's pooled client (system bridges share one client across users). */
+export function withBridgeClient<T>(bridge: LoadedBridge, fn: (client: MongoClient) => Promise<T>): Promise<T> {
+  const key = bridge.isSystem ? systemPoolKey(bridge.uri) : bridge.id;
+  return withPooledClient(key, bridge.uri, fn, { system: bridge.isSystem });
+}
 
 /** Parses a filter argument and insists on a plain object (not an array, string, number, ObjectId…). */
 export function parseFilterArg(value: unknown): Record<string, any> {
@@ -132,7 +145,8 @@ async function runQuery(tool: string, args: any, ctx: ToolContext, runner: Runne
     const hidden = hiddenLeavesForDb(bridge.redactions, db);
     const out = await runner(bridge, hidden);
 
-    ctx.onQuery?.(
+    const citation = recordDataQuery(
+      ctx,
       {
         tool,
         connectionName: bridge.name,
@@ -153,11 +167,12 @@ async function runQuery(tool: string, args: any, ctx: ToolContext, runner: Runne
       ...out.result,
       // Lets the model say "hidden for privacy" instead of "doesn't exist"
       ...(hiddenHere.length > 0 && { hiddenFields: hiddenHere }),
+      ...(citation !== undefined && { citation }),
     };
   } catch (err) {
     const message = err instanceof GuardError ? err.message : describeMongoError(err);
     if (bridge) {
-      ctx.onQuery?.({
+      recordDataQuery(ctx, {
         tool,
         connectionName: bridge.name,
         db,
@@ -173,9 +188,14 @@ async function runQuery(tool: string, args: any, ctx: ToolContext, runner: Runne
   }
 }
 
-async function collectionFor(bridge: LoadedBridge, db: string, collection: string) {
-  const client = await getPooledClient(bridge.id, bridge.uri);
-  return client.db(db).collection(collection);
+/** Runs fn against one collection through the bridge's pooled client. */
+function withCollection<T>(
+  bridge: LoadedBridge,
+  db: string,
+  collection: string,
+  fn: (coll: ReturnType<ReturnType<MongoClient["db"]>["collection"]>) => Promise<T>
+): Promise<T> {
+  return withBridgeClient(bridge, (client) => fn(client.db(db).collection(collection)));
 }
 
 // ─── Tools ────────────────────────────────────────────────────────────────────
@@ -197,8 +217,7 @@ export async function mongo_list_sources(args: any, ctx: ToolContext) {
           })),
       };
     }
-    const client = await getPooledClient(bridge.id, bridge.uri);
-    const sources = await listSources(client);
+    const sources = await withBridgeClient(bridge, (client) => listSources(client));
     return {
       success: true,
       databases: sources
@@ -222,11 +241,16 @@ export async function mongo_describe(args: any, ctx: ToolContext) {
     const cached = cachedDb?.collections?.find((c: any) => c.name === collection);
     const hiddenPaths: string[] = bridge.redactions[redactionKey(db, collection)] ?? [];
 
-    const coll = await collectionFor(bridge, db, collection);
-    const samples = await coll.find({}, { limit: 3, maxTimeMS: QUERY_TIMEOUT_MS }).toArray();
+    // Hidden top-level fields never leave the server, not even to be stripped here
+    const exclude: Record<string, 0> = {};
+    for (const leaf of hidden) if (leaf && !leaf.includes(".") && !leaf.startsWith("$")) exclude[leaf] = 0;
+    const projection = Object.keys(exclude).length > 0 ? exclude : undefined;
+    const samples = await withCollection(bridge, db, collection, (coll) =>
+      coll.find({}, { limit: 3, maxTimeMS: QUERY_TIMEOUT_MS, ...(projection && { projection }) }).toArray()
+    );
 
     const fields = (cached?.fields ?? [])
-      .filter((f: any) => hiddenSegmentOf(String(f.path), hidden) === undefined)
+      .filter((f: any) => hitsHidden(String(f.path), hidden) === undefined)
       .map((f: any) => ({ path: f.path, types: f.types, presentInPct: f.pct }));
 
     return {
@@ -251,14 +275,13 @@ export async function mongo_find(args: any, ctx: ToolContext) {
     const sort = parseEjsonArg<Record<string, any> | undefined>(args.sort, undefined);
     const limit = clampLimit(args.limit);
     const guardOpts = { hidden, scope: bridge.scope, db: args.db };
-    assertSafeQuery(filter, guardOpts);
-    if (projection) assertSafeQuery(projection, { ...guardOpts, projection: true });
-    if (sort) assertSafeQuery(sort, guardOpts);
+    assertSafeFilter(filter, guardOpts);
+    if (projection) assertSafeProjection(projection, guardOpts);
+    if (sort) assertSafeSort(sort, guardOpts);
 
-    const coll = await collectionFor(bridge, args.db, args.collection);
-    const docs = await coll
-      .find(filter, { projection, sort, limit, maxTimeMS: QUERY_TIMEOUT_MS })
-      .toArray();
+    const docs = await withCollection(bridge, args.db, args.collection, (coll) =>
+      coll.find(filter, { projection, sort, limit, maxTimeMS: QUERY_TIMEOUT_MS }).toArray()
+    );
 
     const plain = redactValue(docs.map((d) => toPlain(d)), hidden);
     const capped = capRows(plain);
@@ -275,12 +298,12 @@ export async function mongo_find(args: any, ctx: ToolContext) {
 export async function mongo_count(args: any, ctx: ToolContext) {
   return runQuery("mongo_count", args, ctx, async (bridge, hidden) => {
     const filter = parseFilterArg(args.filter);
-    assertSafeQuery(filter, { hidden, scope: bridge.scope, db: args.db });
-    const coll = await collectionFor(bridge, args.db, args.collection);
-    const count =
+    assertSafeFilter(filter, { hidden, scope: bridge.scope, db: args.db });
+    const count = await withCollection(bridge, args.db, args.collection, (coll) =>
       Object.keys(filter).length === 0
-        ? await coll.estimatedDocumentCount({ maxTimeMS: QUERY_TIMEOUT_MS })
-        : await coll.countDocuments(filter, { maxTimeMS: QUERY_TIMEOUT_MS });
+        ? coll.estimatedDocumentCount({ maxTimeMS: QUERY_TIMEOUT_MS })
+        : coll.countDocuments(filter, { maxTimeMS: QUERY_TIMEOUT_MS })
+    );
     return {
       result: { count },
       queryForDisplay: { count: args.collection, filter },
@@ -296,10 +319,11 @@ export async function mongo_distinct(args: any, ctx: ToolContext) {
     if (!field) throw new GuardError("field is required.");
     assertFieldPathAllowed(field, hidden);
     const filter = parseFilterArg(args.filter);
-    assertSafeQuery(filter, { hidden, scope: bridge.scope, db: args.db });
+    assertSafeFilter(filter, { hidden, scope: bridge.scope, db: args.db });
 
-    const coll = await collectionFor(bridge, args.db, args.collection);
-    const values = await coll.distinct(field, filter, { maxTimeMS: QUERY_TIMEOUT_MS });
+    const values = await withCollection(bridge, args.db, args.collection, (coll) =>
+      coll.distinct(field, filter, { maxTimeMS: QUERY_TIMEOUT_MS })
+    );
     const truncated = values.length > MAX_DISTINCT_VALUES;
     // Distinct values can be sub-documents that contain hidden fields
     const plainValues = redactValue(values.slice(0, MAX_DISTINCT_VALUES).map((v) => toPlain(v)), hidden);
@@ -317,13 +341,12 @@ export async function mongo_aggregate(args: any, ctx: ToolContext) {
   return runQuery("mongo_aggregate", args, ctx, async (bridge, hidden) => {
     const pipeline = parseEjsonArg<any[]>(args.pipeline, []);
     if (!Array.isArray(pipeline)) throw new GuardError("pipeline must be a JSON array of stages.");
-    assertSafeQuery(pipeline, { hidden, scope: bridge.scope, db: args.db });
+    assertSafePipeline(pipeline, { hidden, scope: bridge.scope, db: args.db });
     const limit = clampLimit(args.limit);
 
-    const coll = await collectionFor(bridge, args.db, args.collection);
-    const docs = await coll
-      .aggregate([...pipeline, { $limit: limit }], { maxTimeMS: QUERY_TIMEOUT_MS, allowDiskUse: false })
-      .toArray();
+    const docs = await withCollection(bridge, args.db, args.collection, (coll) =>
+      coll.aggregate([...pipeline, { $limit: limit }], { maxTimeMS: QUERY_TIMEOUT_MS, allowDiskUse: false }).toArray()
+    );
 
     const plain = redactValue(docs.map((d) => toPlain(d)), hidden);
     const capped = capRows(plain);
@@ -416,7 +439,7 @@ export const MONGO_TOOL_DECLARATIONS = [
   {
     name: "mongo_aggregate",
     description:
-      `Runs a read-only aggregation pipeline. Use for grouping, averages, top-N, joins ($lookup within the same database) and anything analytical. $out and $merge are blocked. Results are capped at ${MAX_LIMIT} rows.`,
+      `Runs a read-only aggregation pipeline. Use for grouping, averages, top-N, joins ($lookup within the same database) and anything analytical. Only read stages are allowed ($match, $group, $sort, $lookup, $facet, $setWindowFields and similar); $out and $merge are blocked. Results are capped at ${MAX_LIMIT} rows.`,
     parameters: {
       type: "OBJECT",
       properties: {

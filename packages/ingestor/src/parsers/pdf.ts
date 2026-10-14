@@ -1,13 +1,19 @@
 import pdfParse from "pdf-parse";
+import { parseText } from "./text";
 
 export interface ParsedDocument {
   text: string;
   pageCount: number;
   info: Record<string, unknown>;
+  /** true when the parser dropped part of the input (e.g. the CSV row cap). */
+  truncated?: boolean;
 }
 
 /**
  * Parses a PDF buffer and extracts all text content.
+ *
+ * pdf-parse is CPU heavy and runs inline on the event loop; the ingest queue
+ * bounds how many run at once (INGEST_CONCURRENCY).
  *
  * Failure modes handled:
  *   - I-1: Non-PDF bytes → pdf-parse throws → caller handles
@@ -17,9 +23,7 @@ export interface ParsedDocument {
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
   const data = await pdfParse(buffer, {
-    // Limit pages parsed in dev to avoid OOM on huge files.
-    // In production, lift this limit and rely on chunk cap instead.
-    max: 0, // 0 = no limit; chunk cap (I-9) handles size
+    max: 0, // 0 = no page limit; the chunk cap (I-9) bounds the work instead
   });
 
   return {
@@ -31,11 +35,8 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
 
 /**
  * Parses a plain-text file buffer.
+ * @deprecated use parseText from ./text
  */
 export async function parseTxt(buffer: Buffer): Promise<ParsedDocument> {
-  return {
-    text: buffer.toString("utf-8"),
-    pageCount: 1,
-    info: {},
-  };
+  return parseText(buffer);
 }

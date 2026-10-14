@@ -1,22 +1,41 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { ChangePasswordBodySchema, LoginBodySchema, SignupBodySchema } from "@wup/contracts";
 import * as authController from "../controllers/auth";
+import { authenticate } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import { demoLimiter, loginLimiter, signupLimiter } from "../middleware/rateLimits";
 
 const router = Router();
 
-// Brute-force / signup-spam protection: 20 login attempts per IP per 15 minutes.
-// Relies on `app.set("trust proxy", 1)` in server.ts so req.ip is the client IP.
-const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: {
-    error: "Too many login attempts. Please wait a few minutes and try again.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+router.post(
+  "/signup",
+  signupLimiter,
+  authController.normalizeEmailInput,
+  validate({ body: SignupBodySchema }),
+  authController.signup
+);
 
-router.post("/login", loginRateLimiter, authController.login);
-router.get("/verify", authController.verify);
+// Legacy demo login ({ email: "google-demo@wup.ai" } with no password) is handled
+// before validation; it has its own demo rate limit.
+router.post(
+  "/login",
+  loginLimiter,
+  authController.legacyDemoLogin,
+  authController.normalizeEmailInput,
+  validate({ body: LoginBodySchema }),
+  authController.login
+);
+
+router.post("/demo", demoLimiter, authController.demo);
+router.post("/logout", authController.logout);
+router.get("/me", authenticate, authController.me);
+router.get("/verify", authenticate, authController.verify);
+router.post(
+  "/change-password",
+  loginLimiter,
+  authenticate,
+  validate({ body: ChangePasswordBodySchema }),
+  authController.changePassword
+);
 
 export default router;
