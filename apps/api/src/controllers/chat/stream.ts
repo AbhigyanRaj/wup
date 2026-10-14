@@ -6,7 +6,7 @@ import { DEFAULT_CHAT_TITLES, isDefaultTitle } from "../../dto/chat";
 import { toMessageDTO } from "../../dto/message";
 import { acquireChat, stopChat } from "../../lib/inflight";
 import { openSse, type SseStream } from "../../lib/sse";
-import { persistAssistant } from "./persist";
+import { ensureAnswerContent, persistAssistant } from "./persist";
 import {
   HttpError,
   asyncHandler,
@@ -330,7 +330,9 @@ async function runTurn(c: TurnContext): Promise<void> {
     }
 
     const resultContent = typeof result?.content === "string" ? result.content : "";
-    const content = (status === "complete" ? resultContent : resultContent || partial).trim();
+    // Never store or send an empty complete answer (the brain guarantees it; this is the safety net).
+    const answer = ensureAnswerContent(status, status === "complete" ? resultContent : resultContent || partial, result);
+    const content = answer.content;
 
     const metrics = {
       latencyMs: Date.now() - c.startedAt,
@@ -372,8 +374,11 @@ async function runTurn(c: TurnContext): Promise<void> {
     }
 
     // ── Usage and quota ────────────────────────────────────────────────────
-    const producedOutput =
-      typeof result?.producedOutput === "boolean" ? result.producedOutput : status !== "error" && content.length > 0;
+    const producedOutput = answer.refund
+      ? false
+      : typeof result?.producedOutput === "boolean"
+        ? result.producedOutput
+        : status !== "error" && content.length > 0;
     if (result) {
       await recordUsage(c.userId, {
         mode: c.mode,

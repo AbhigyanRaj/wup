@@ -34,7 +34,8 @@ import {
   turnstile,
   type PublicToolGenerators,
 } from "../controllers/publicTools";
-import type { JsonCompleter } from "../../../../packages/brain/dist/public-tools";
+import type { publicTools } from "@wup/brain";
+type JsonCompleter = publicTools.JsonCompleter;
 
 export interface PublicRouterOptions {
   enabled?: boolean;

@@ -1,0 +1,31 @@
+export const metadata = {
+  title: "Streaming answers, charts and more API keys",
+  description: "Answers now stream as they are written, render as charts and tables, and you can use OpenAI, Anthropic or OpenRouter keys with masking and deletion.",
+  date: "2026-05-17",
+  author: "abhigyan-raj",
+  tags: ["Release"],
+  primaryKeyword: "streaming ai answers openrouter",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+This release made answers faster to read and opened wuup up to more model providers. Text now streams into the chat as the model writes it, structured results render as charts and tables, and the key settings accept OpenAI, Anthropic and OpenRouter keys alongside Gemini.
+
+## Answers
+
+- **Streaming**: tokens appear as they are generated instead of after the whole answer is ready.
+- **Charts and tables**: answers can include a chart, a data table or a code block, rendered in the chat.
+- Citation numbers are parsed more reliably, and the typing indicator shows what wuup is doing.
+
+## Models and keys
+
+- **OpenAI, Anthropic and OpenRouter**: each key is validated by listing the provider's models before it is saved, and the model picker shows what your key can use.
+- **OpenRouter errors** from the stream are now shown in the chat instead of failing silently.
+- **Key masking**: after saving, the key is shown masked, never in full.
+- **Delete key**: remove your key from settings at any time, and see your usage next to it.
+
+## Read more
+
+- [Bring your own key](/docs/byok-setup)
+- [Getting started](/docs/getting-started)

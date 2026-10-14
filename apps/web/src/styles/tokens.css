@@ -1,0 +1,219 @@
+/* ==========================================================================
+   wuup design tokens
+   Ported from the design kit (tokens/tokens.css), variable names unchanged.
+   Colour scheme: BLUE, light only. The kit's orange/sunrise accents are
+   recoloured to the blue and sky scales below. Indigo stays the link, active
+   and focus colour.
+   Fonts come from next/font (see src/app/layout.tsx), which exposes
+   --font-newsreader, --font-figtree and --font-dm-mono on <html>.
+   This file is imported unlayered so it wins over Tailwind's theme layer.
+   ========================================================================== */
+
+:root {
+  /* ---------- Font families ---------- */
+  --font-display: var(--font-newsreader), "Newsreader", Georgia, serif;   /* h1/h2, section titles, hero buttons, CTA band */
+  --font-sans: var(--font-figtree), "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif; /* everything else */
+  --font-mono: var(--font-dm-mono), "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-eyebrow: var(--font-mono); /* footer column titles & small uppercase labels */
+
+  /* Weights. Non-standard variable weights: 425 = regular, 525 = medium. */
+  --fw-light: 300;
+  --fw-regular: 425;         /* body default */
+  --fw-medium: 525;          /* buttons, card titles, h3 */
+  --fw-semibold: 600;        /* compliance chips only */
+  --fw-display-regular: 380; /* hero h1 */
+  --fw-display-medium: 450;  /* section h2 */
+
+  /* ---------- Type scale ---------- */
+  --text-2xs: 10px;
+  --text-label: 12px;        /* eyebrows, footer column titles */
+  --text-caption: 14px;      /* meta, supporting copy, small buttons */
+  --text-nav: 15px;          /* header nav items + header buttons */
+  --text-body: 16px;
+  --text-body-lg: 18px;
+  --text-lead: 20px;         /* hero sub-copy (md+) */
+  --text-heading-card: 20px; /* card titles (h3) */
+  --text-heading-4: 22px;
+  --text-heading-3: 24px;    /* testimonial quote */
+  --text-heading-feature: 26px; /* accordion panel titles */
+  --text-heading-sub: 28px;  /* section h2 on mobile / sub-feature titles */
+  --text-heading-section: 36px; /* section h2 desktop */
+  --text-heading-2: 40px;
+  --text-heading-hero-sm: 44px; /* hero h1 mobile */
+  --text-heading-metric: 48px;
+  --text-heading-hero: 64px; /* hero h1 desktop */
+
+  /* Line heights */
+  --lh-tight: 1.05;    /* hero h1 */
+  --lh-heading: 1.2;   /* section h2 */
+  --lh-card: 1.3;      /* card titles */
+  --lh-snug: 1.45;     /* blog card titles */
+  --lh-body: 1.6;      /* card body copy */
+  --lh-relaxed: 1.65;  /* section intro copy */
+  --lh-lead: 1.75;     /* hero sub-copy */
+
+  /* Letter spacing */
+  --ls-hero: -0.025em;     /* hero h1 */
+  --ls-heading: -0.02em;   /* section h2 */
+  --ls-card: -0.015em;     /* card titles */
+  --ls-eyebrow: 0.17em;    /* uppercase eyebrow (2px @12px) */
+  --ls-badge: 0.025em;     /* hero badge text */
+
+  /* ---------- Colour: text ---------- */
+  --color-tx: #1f1f1f;            /* primary text, headings */
+  --color-tx-secondary: #3d3d3d;  /* hero sub-copy, list items */
+  --color-tx-tertiary: #666666;   /* body copy in cards, meta, footer links */
+  --color-tx-muted: #999999;      /* disabled, placeholders */
+  --color-tx-inverse: #faf8f5;    /* text on dark */
+  --color-tx-brand: #141b34;
+  --color-tx-accent: #2563eb;
+
+  /* ---------- Colour: surfaces ---------- */
+  --color-bg: #fcfcfc;            /* page background = main 'sheet' */
+  --color-sf: #fcfcfc;            /* raised surface */
+  --color-sf-white: #ffffff;      /* cards */
+  --color-sf-secondary: #f5f5f5;  /* secondary buttons, footer gradient end */
+  --color-sf-tertiary: #f0f0f0;   /* inactive tabs, auth buttons, code header */
+  --color-sf-quaternary: #e6e6e6;
+
+  /* ---------- Colour: strokes ---------- */
+  --color-st: #e6e6e6;            /* default border / divider */
+  --color-st-secondary: #f0f0f0;  /* subtle card border */
+
+  /* ---------- Colour: brand accents ---------- */
+  --color-ink: #2a2c33;           /* "slate": primary filled buttons */
+  --color-ink-deep: #1e2033;      /* hero CTA gradient end */
+  --color-ink-auth: #141414;      /* auth primary button */
+  --color-accent-orange: #2563eb; /* name kept from the kit; recoloured to blue */
+  --color-accent-blue: #393cc1;
+  --color-accent-green: #4cd964;
+  --color-accent-purple: #9b5de5;
+
+  /* Indigo: primary accent (links, active tab text, check icons, focus rings) */
+  --indigo-50: #fafcff;  --indigo-100: #e8effc; --indigo-200: #d2dff9; --indigo-300: #a7c0f1;
+  --indigo-400: #81a0e9; --indigo-500: #6a88e2; --indigo-600: #556adc; --indigo-700: #4250d5;
+  --indigo-800: #3333cc; --indigo-900: #212191; --indigo-950: #11115b;
+  /* Blue (replaces the kit's orange scale, by role) */
+  --blue-50: #eff6ff;    --blue-100: #dbeafe;   --blue-200: #bfdbfe;   --blue-300: #93c5fd;
+  --blue-400: #60a5fa;   --blue-500: #3b82f6;   --blue-600: #2563eb;   --blue-700: #1d4ed8;
+  --blue-800: #1e40af;   --blue-900: #1e3a8a;   --blue-950: #172554;
+  /* Sky (the sunrise "ring" colour, light accents) */
+  --sky-50: #f0f9ff;     --sky-100: #e0f2fe;    --sky-200: #bae6fd;    --sky-300: #7dd3fc;
+  --sky-400: #38bdf8;    --sky-500: #0ea5e9;    --sky-600: #0284c7;    --sky-700: #0369a1;
+  /* Green */
+  --green-50: #f2f8eb;   --green-100: #e3f1d8;  --green-200: #c8e4b0;  --green-300: #acd587;
+  --green-400: #90c85b;  --green-500: #83c040;  --green-600: #6ea335;  --green-700: #496d21;
+  --green-800: #385418;  --green-900: #263d0e;
+  /* Pink */
+  --pink-50: #fceaf0;    --pink-100: #f9d5e1;   --pink-200: #efabc5;   --pink-300: #e380a8;
+  --pink-400: #d4508e;   --pink-500: #b12060;   --pink-600: #9d2055;   --pink-700: #871f4b;
+  /* Red */
+  --red-50: #fde7e2;     --red-100: #f8d1c6;    --red-200: #eba18f;    --red-300: #db715c;
+  --red-400: #c43d2b;    --red-500: #b81514;    --red-600: #a21913;    --red-700: #781a11;
+  /* Yellow */
+  --yellow-50: #fff8e6;  --yellow-100: #fff0cf; --yellow-200: #ffe8b7; --yellow-300: #ffcb79;
+  --yellow-400: #ffb94a; --yellow-500: #feb12b; --yellow-600: #df9c2a; --yellow-700: #c08827;
+  /* Grey */
+  --grey-50: #f9f9f9;  --grey-100: #f5f5f5; --grey-200: #f0f0f0; --grey-300: #e6e6e6;
+  --grey-400: #cccccc; --grey-500: #b3b3b3; --grey-600: #999999; --grey-700: #666666;
+  --grey-800: #525252; --grey-900: #3d3d3d; --grey-950: #292929;
+
+  /* Chart series, in order */
+  --chart-1: #2563eb; --chart-2: #6ea335; --chart-3: #556adc; --chart-4: #df9c2a; --chart-5: #38bdf8;
+
+  /* Icon hover colours used on link rows (one colour per product family) */
+  --icon-hover-orange: #0284c7; /* name kept from the kit; recoloured to sky */
+  --icon-hover-indigo: #6366f1;
+  --icon-hover-green: #16a34a;
+  --icon-hover-red: #dc2626;
+
+  /* ---------- Gradients ---------- */
+  /* Hero "sunrise": blue core -> sky ring -> periwinkle -> near-white. See /hero-gradient.svg */
+  --gradient-hero-stops: #0b5cff 75%, #7dd3fc 78%, #c4b5fd 80%, #f7f6ff 100%;
+  /* CSS approximation of the SVG (half-disc centred 122px from the top, radius 1500px, unblurred) */
+  --gradient-hero: radial-gradient(circle 1500px at 50% 122px, var(--gradient-hero-stops));
+  --hero-gradient-url: url("/hero-gradient.svg");
+  --hero-gradient-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3244' height='1744' viewBox='0 0 3244 1744'%3E%3Cdefs%3E%3CradialGradient id='g' cx='0' cy='0' r='1' gradientUnits='userSpaceOnUse' gradientTransform='matrix(0 -1500 1500 0 1622 122)'%3E%3Cstop offset='.75' stop-color='%230B5CFF'/%3E%3Cstop offset='.78' stop-color='%237DD3FC'/%3E%3Cstop offset='.8' stop-color='%23C4B5FD'/%3E%3Cstop offset='1' stop-color='%23F7F6FF'/%3E%3C/radialGradient%3E%3Cfilter id='b' x='0' y='0' width='3244' height='1744' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeGaussianBlur stdDeviation='61'/%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23b)' fill='url(%23g)' d='M3122 122c0 397.8-158 779.4-439.3 1060.7C2401.4 1464 2019.8 1622 1622 1622s-779.4-158-1060.7-439.3C280 901.4 122 519.8 122 122H3122Z'/%3E%3C/svg%3E");
+  --gradient-hero-glow: radial-gradient(ellipse, #c4b5fd 0%, #dbe4ff 40%, transparent 70%);
+  --gradient-hero-rule: radial-gradient(circle, #6a88e2 0%, transparent 100%); /* 1px lines around hero badge */
+  --gradient-band-indigo: linear-gradient(180deg, #c7d2fe 0%, #a5b4fc 30%, #818cf8 50%, #a5b4fc 70%, #c7d2fe 100%); /* blurred band behind product showcase */
+  --gradient-cta-dark: linear-gradient(to bottom, #0b1026 0%, #172554 38%, #3b63d9 82%, #a5bbfc 116.55%); /* final CTA card ("dusk blue") */
+  --gradient-btn-primary: linear-gradient(to bottom, #3a3f5c 0%, #1e2033 100%);   /* hero primary button */
+  --gradient-btn-outline: linear-gradient(to bottom, #ffffff 0%, #f0f1f5 100%);   /* hero secondary button */
+  --gradient-footer: linear-gradient(to bottom, #ffffff, #f5f5f5);
+  --gradient-wordmark: linear-gradient(120deg, #11115b, #2563eb 35%, #38bdf8 60%, #556adc 85%, #1e3a8a); /* giant footer wordmark fallback */
+  --gradient-blue-vivid: linear-gradient(180deg, #1d4ed8 0%, #38bdf8 100%);
+  --gradient-blue-soft: linear-gradient(180deg, #5b8def 0%, #a5d8fb 100%);
+  --gradient-blue-pale: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+  --gradient-pink: linear-gradient(180deg, #f581a6 0%, #76123d 100%);
+  --gradient-pink-medium: linear-gradient(180deg, #f8a7c1 0%, #b47d94 100%);
+  --gradient-pink-light: linear-gradient(180deg, #fcd9e4 0%, #ddc4cf 100%);
+  --gradient-green: linear-gradient(180deg, #89b95b 0%, #293a18 100%);
+  --gradient-green-medium: linear-gradient(180deg, #acce8c 0%, #899380 100%);
+  --gradient-green-light: linear-gradient(180deg, #dceace 0%, #cacec5 100%);
+  --gradient-blue: linear-gradient(180deg, #bed2ff 0%, #393cc1 100%);
+  --gradient-blue-medium: linear-gradient(180deg, #dde7ff 0%, #a6a7e3 100%);
+  --gradient-blue-light: linear-gradient(180deg, #f4f7ff 0%, #bed2ff 100%);
+  --noise-url: url("/noise.svg"); /* soft-light grain overlay at 0.5 opacity on dark CTA */
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-1: 4px;  --space-1-5: 6px; --space-2: 8px;  --space-2-5: 10px; --space-3: 12px;
+  --space-3-5: 14px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-7: 28px;
+  --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-14: 56px; --space-16: 64px;
+  --space-20: 80px; --space-24: 96px; --space-28: 112px; --space-32: 128px; --space-36: 144px; --space-40: 160px;
+  --section-gap: 176px;       /* gap between home-page sections, desktop */
+  --section-gap-mobile: 96px; /* mobile */
+  --section-gap-inner-page: 128px; /* product/inner pages */
+  --section-gap-sm: 96px;
+  --section-inner: 48px;      /* heading-to-content gap inside a section (md+) */
+  --section-inner-sm: 32px;   /* mobile */
+
+  /* ---------- Layout ---------- */
+  --container-width: 83.333%;   /* md+ */
+  --container-width-mobile: 88%;/* mobile */
+  --container-max: 1400px;      /* 2xl; at 1440 viewport content = 1200px */
+  --header-height: 68px;
+  --bp-sm: 640px; --bp-md: 768px; --bp-lg: 1024px; --bp-xl: 1280px; --bp-2xl: 1536px;
+
+  /* ---------- Radius ---------- */
+  --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px;
+  --radius-xl: 12px;       /* mini-cards, chips, footer badges */
+  --radius-2xl: 16px;      /* standard card */
+  --radius-3xl: 24px;      /* showcase frame, CTA card */
+  --radius-pill-card: 26px;/* option cards */
+  --radius-4xl: 32px;      /* testimonial */
+  --radius-full: 9999px;   /* ALL buttons, tabs-as-pills, inputs on auth */
+  --radius-card: var(--radius-2xl);
+  --radius-card-lg: var(--radius-4xl);
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 3px #00000014;
+  --shadow-md: 0 4px 24px #0000001f;
+  --shadow-lg: 0 12px 40px -8px #0000001f;
+  --shadow-card: 0 0 40px 0 #0000000f;
+  --shadow-card-hover: 0 8px 40px -4px #0000001f;
+  --shadow-stroke-sm: 0 0 1px #00000033;
+  --shadow-stroke-md: 0 0 2px 0 #0000001a;
+  --shadow-inset-glow-white: inset 0 0 12px #ffffff;
+  --shadow-inset-glow-dark: inset 0 0 12px #00000017;
+  --shadow-inset-glow-indigo: inset 0 0 10px #c7d2fecc;
+  --shadow-inset-subtle: inset 0 -1px 0 #0000000d;
+  --shadow-focus: 0 0 0 3px #a5bbfc26;
+  --shadow-focus-error: 0 0 0 3px #f8717126;
+  /* Button bevels (the "pressed pill" look) */
+  --shadow-btn-ink: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(0,0,0,0.2);
+  --shadow-btn-soft: inset 0 2px 0 rgba(200,200,200,0.1), inset 0 -1px 0 rgba(0,0,0,0.05);
+  --shadow-btn-outline: inset 0 0 0 1px rgba(30,32,51,0.14);
+  --shadow-tab-active: inset 0 0 6px rgba(0,0,0,0.08), 0 0 0 1px #e6e6e6;
+
+  /* ---------- Motion ---------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);   /* buttons, links, most UI */
+  --ease-reveal: cubic-bezier(0.25, 1, 0.5, 1);  /* scroll reveals */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);        /* tabs, small state changes */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-instant: 100ms; --dur-fast: 150ms; --dur-normal: 200ms; --dur-moderate: 300ms;
+  --dur-button: 350ms;  --dur-slow: 500ms;  --dur-entrance: 700ms; --dur-reveal: 800ms;
+
+  /* ---------- Z-index ---------- */
+  --z-base: 0; --z-raised: 10; --z-dropdown: 50; --z-overlay: 100; --z-header: 10000;
+}

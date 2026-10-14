@@ -1,0 +1,127 @@
+export const metadata = {
+  title: "Bring your own key (BYOK) for AI, explained",
+  description: "What bring your own key means for AI tools, how BYOK works in wuup with OpenAI, Anthropic, OpenRouter or Gemini, and what a month of data questions costs.",
+  h1: "Bring your own key (BYOK),\nexplained",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["AI and data", "Pricing", "BYOK"],
+  primaryKeyword: "bring your own key ai",
+  status: "published",
+  priority: "P1",
+  related: ["/byok", "/docs/byok-setup", "/pricing", "/guides/best-ai-data-analyst-tools", "/guides/is-it-safe-to-connect-database-to-ai"],
+  og: { eyebrow: "Guide" },
+}
+
+Bring your own key (BYOK) means you paste an API key from an AI provider, such as OpenAI, Anthropic, OpenRouter or Google Gemini, into a tool, and the tool sends its model calls on your account. You pay the provider directly at their per-token prices, and the tool does not resell model usage to you. In wuup, BYOK works with all four of those providers and wuup charges nothing for it; without a key, you get 50 free questions on Gemini. This guide covers how BYOK works, what it really costs, and what to check before you paste a key anywhere.
+
+## How BYOK works
+
+Every AI answer is one or more calls to a model API. Someone pays for those tokens. There are two ways a tool can arrange that:
+
+- **Bundled.** The tool holds its own provider account, pays for tokens and charges you a subscription or credits that include a margin. Simple, but you pay the markup, and the tool chooses the model.
+- **BYOK.** You create an API key in your own provider account and give it to the tool. The tool calls the provider with your key. The provider bills you for exactly the tokens used, and the tool charges for its software, or in wuup's case, nothing.
+
+The tool still does all the work around the model: connecting to your data, writing and checking queries, building charts, and keeping chat history. Only the model calls move to your account.
+
+| | Bundled pricing | Bring your own key |
+| --- | --- | --- |
+| Who pays the provider | The tool | You, directly |
+| Markup on tokens | Usually, inside the plan price | None from the tool |
+| Model choice | The tool's | Any model your key can access |
+| Spend controls | The tool's plan limits | Your provider's budgets and limits |
+| Data terms for prompts | Tool's agreement with the provider | Your own agreement with the provider |
+
+## Why people choose BYOK
+
+**Cost transparency.** You see every request on your provider's usage dashboard. Heavy months cost more, light months cost less, and there is no seat fee for capacity you do not use.
+
+**Model choice.** You can pick a fast cheap model for routine counts and a stronger model for harder analysis. With OpenRouter, one key reaches models from many providers.
+
+**Your provider terms.** Prompts and responses are governed by your own agreement with the provider. If your company already has an enterprise agreement with OpenAI, Anthropic or Google, BYOK keeps model traffic under that agreement.
+
+**No lock-in.** Delete the key and the tool stops making calls on your account immediately.
+
+**When bundled pricing is the better deal.** BYOK is not always cheaper. If a tool includes a generous model allowance in a flat plan and you are a heavy user, the vendor's volume pricing can beat your own pay-as-you-go rate. Bundled plans also suit teams where nobody is allowed to create provider accounts or hold API keys. And if you only ask a handful of questions a month, the difference is a few cents either way, so pick whichever is simpler to approve.
+
+The trade-off is a little setup, and you manage spend limits yourself. The [setup guide](/docs/byok-setup) takes about two minutes.
+
+## How BYOK works in wuup
+
+<Steps>
+
+1. **Create a key** in your provider's console: OpenAI, Anthropic, OpenRouter or Google AI Studio for Gemini.
+2. **Paste it into wuup** under Settings and choose the provider.
+3. **wuup validates it** by listing the models your key can access, which costs no tokens. For Gemini, it also sends one tiny test request to confirm your key works from wuup's server region. Invalid keys are rejected with the provider's reason.
+4. **Pick a model** from the list your key returned, or leave it on automatic.
+5. **Ask questions.** Calls now go to your provider on your key. wuup adds no charge.
+
+</Steps>
+
+After saving, the key is shown masked (only the first four and last four characters), and you can delete it at any time from the same screen. Deleting removes the key and the cached model list from your account, and wuup goes back to any free questions you have left.
+
+<Callout type="security" title="What happens to the key">
+
+Your key is stored on your wuup account so the server can call the provider for you, and it is never shown in full again after you save it. Encrypting stored keys at rest is on our roadmap. Until then, and as good practice anywhere, use a dedicated key for wuup with a spending limit set in your provider's console, and rotate it if you stop using wuup.
+
+</Callout>
+
+All of wuup's features work with your own key: the read-only [MongoDB connector](/chat-with-mongodb), [Google Sheets](/chat-with-google-sheets), [document Q&A with citations](/chat-with-pdf), charts built from real rows, and the queries shown under each answer. Tool calling (the way the model asks wuup to run a query) is supported on all four providers.
+
+## What a month of data questions costs
+
+A data question is usually several model calls: the model reads the schema digest, calls a tool to query, reads the result and writes the answer, sometimes with a second query. So the cost depends on the model, how many tool calls a question needs, and how large the results are.
+
+Here is a worked example with **clearly assumed numbers**. Assume one typical question uses 12,000 input tokens and 1,500 output tokens across all its calls, and you ask 500 questions a month. Prices are standard per-million-token rates from each provider's pricing page, checked October 2026.
+
+| Model | Input price per 1M | Output price per 1M | Cost per question | 500 questions |
+| --- | --- | --- | --- | --- |
+| [OpenAI gpt-4o-mini](https://developers.openai.com/api/docs/pricing) | 0.15 dollars | 0.60 dollars | about 0.003 dollars | about 1.35 dollars |
+| [Gemini 2.5 Flash](https://ai.google.dev/gemini-api/docs/pricing) | 0.30 dollars | 2.50 dollars | about 0.007 dollars | about 3.68 dollars |
+| [Claude Sonnet 5.5](https://platform.claude.com/docs/en/about-claude/pricing) | 2 dollars | 10 dollars | about 0.039 dollars | about 19.50 dollars |
+
+The arithmetic for Gemini 2.5 Flash: 12,000 input tokens at 0.30 dollars per million is 0.0036 dollars, and 1,500 output tokens at 2.50 dollars per million is 0.00375 dollars, so about 0.0074 dollars per question.
+
+Your real numbers will differ. Questions over wide documents or large result sets use more input tokens, and reasoning models bill thinking tokens as output. Check a week of usage on your provider dashboard and multiply out. wuup keeps result sizes bounded (MongoDB queries return at most 100 rows and 50 KB), which also keeps input tokens predictable.
+
+**OpenRouter** passes through the underlying providers' prices with no markup on inference, and charges a 5.5% fee (0.80 dollar minimum) when you buy credits, per its [FAQ](https://openrouter.ai/docs/faq). It is a convenient way to try several models with one key.
+
+## The free tier, and when to switch
+
+Without a key, every account gets **50 free questions on Gemini**. That is enough to connect a source, try real questions and see whether wuup fits. When the free questions run out, wuup tells you, and adding a key unlocks unlimited questions billed by your provider. See [pricing](/pricing) and the [BYOK overview](/byok).
+
+Switch earlier if you want a specific model, if your company requires model traffic under its own provider agreement, or if you plan to ask more than a few questions a day.
+
+<ToolCta href="/docs/byok-setup" title="Set up your own key in two minutes" description="Step-by-step instructions for OpenAI, Anthropic, OpenRouter and Gemini keys, including how to set a spending limit." />
+
+## What to check before pasting a key into any tool
+
+BYOK moves trust from the tool's bill to the tool's handling of your key. Before pasting a key anywhere, ask:
+
+- **Is the key validated without spending tokens?** Listing models is a free check; a tool that runs a big test prompt is spending your money.
+- **Is it masked after saving and deletable any time?** You should never be able to read the full key back from the UI.
+- **How is it stored?** Ask whether keys are encrypted at rest, and prefer a dedicated key with a spending cap either way.
+- **Where do prompts go?** Prompts should go to your provider, not to a third party you did not choose.
+- **What data is sent in prompts?** With databases, sensitive fields should be removed before anything reaches the model. wuup hides fields such as passwords, tokens and card numbers from the model by default; our [database safety checklist](/guides/is-it-safe-to-connect-database-to-ai) covers this in detail.
+
+## FAQ
+
+### Does wuup charge anything when I use my own key?
+
+No. With your own key, wuup charges nothing; you pay your provider directly for the tokens your questions use.
+
+### Which providers does wuup support for BYOK?
+
+OpenAI, Anthropic, OpenRouter and Google Gemini. Through OpenRouter you can reach many more models with one key.
+
+### Can I switch providers later?
+
+Yes. Delete the current key and add one from another provider. Your chats and connected sources stay as they are.
+
+### Will my provider train on my prompts?
+
+That depends on your provider's API terms, not on wuup. Major providers publish API data-usage policies; check the one that applies to your account.
+
+### What happens if my key runs out of credit?
+
+The provider rejects the request and wuup shows the provider's error. Top up or raise your limit in the provider's console, or delete the key to return to any remaining free questions.

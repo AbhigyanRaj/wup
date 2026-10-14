@@ -1,0 +1,77 @@
+export const metadata = {
+  title: "wuup FAQ: data, security, models and pricing",
+  description: "Answers to the 12 most common questions about wuup: supported sources, read-only access, hidden fields, citations, the free tier, your own API key and deletion.",
+  h1: "Frequently asked questions",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "FAQ"],
+  primaryKeyword: "wuup faq",
+  status: "published",
+  priority: "P1",
+  group: "Get started",
+  order: 2,
+  navLabel: "FAQ",
+  related: ["/docs/getting-started", "/docs/scopes-and-redaction", "/docs/byok-setup", "/pricing"],
+  og: { eyebrow: "Docs" },
+}
+
+These are the questions people ask most before and after connecting their data to wuup. In short: wuup reads MongoDB, Google Sheets and PDF or TXT documents; it never writes to your database; sensitive fields are hidden from the model; answers show the exact queries used; and you get 50 free questions on Gemini before adding your own key from OpenAI, Anthropic, OpenRouter or Gemini. Each answer below links to the page with the full detail.
+
+## Data sources
+
+### Which data sources does wuup support?
+
+MongoDB (including Atlas), Google Sheets, and PDF and TXT documents. MD, CSV and DOCX uploads are coming soon. Other databases are on the roadmap. See [Getting started](/docs/getting-started). To query MongoDB from inside ChatGPT or Claude instead, see [how those options compare](/guides/connect-mongodb-to-chatgpt-or-claude).
+
+### Can I use several sources in one chat?
+
+Yes. Each chat has its own list of selected sources. You can ask a question that combines a MongoDB collection, a sheet and a PDF, and the answer shows which source each part came from.
+
+### How much data can one query return?
+
+Each MongoDB query returns at most 100 rows (20 by default) and 50 KB, and stops after 10 seconds. A Google Sheets read returns up to 500 rows. For bigger questions, wuup aggregates on the database side, so a sum over millions of documents still comes back as a few rows. See [Connect MongoDB](/docs/connect-mongodb).
+
+## Security and privacy
+
+### Can wuup change or delete my data?
+
+No. The query guard only allows read operations and an allowlist of aggregation stages. `$out`, `$merge`, `$where`, `$function` and other write or server-side JavaScript operators are refused before the query is sent. Connecting with a database user that only has the `read` role adds a second, independent layer. See [our read-only user guide](/guides/mongodb-read-only-user).
+
+### What stops the AI from seeing passwords or tokens?
+
+Fields whose names look sensitive (password, token, secret, api_key, card_number and similar) and binary fields are hidden automatically, and you can edit the list per collection. Hidden fields cannot be queried and are stripped from every result. See [Scopes and redaction](/docs/scopes-and-redaction).
+
+### Where is my connection string stored?
+
+In wuup's own database, encrypted with AES-256-GCM. It is decrypted only on the server, to open the connection, and it is never sent back to your browser or to the AI model.
+
+### Is my data used to train AI models?
+
+wuup does not train models on your data. The rows and passages needed for an answer are sent to the model provider that answers it: Google Gemini on the free tier, or the provider of your own key. Each provider's API terms govern what they do with API traffic. See the [privacy policy](/privacy), and the [Acceptable Use Policy](/acceptable-use) for data you should not connect.
+
+## Answers
+
+### How do I know an answer is correct?
+
+Every database answer lists the exact queries it ran under **Queries used**, with the row count and time taken. Charts and tables are built from the rows those queries returned, not from numbers the model wrote. Document answers carry numbered citations to the file and page.
+
+### Why did wuup ask me a question back?
+
+When a question is ambiguous, for example "revenue last month" when there are two revenue fields, wuup asks a short clarifying question with options instead of guessing. Pick one or type your own answer.
+
+## Models and pricing
+
+### What do I get for free?
+
+50 questions on Gemini, with no card required. Research questions count as more than one. After that, add your own API key to continue. See [Pricing](/pricing).
+
+### How does bring your own key work?
+
+Add a key from OpenAI, Anthropic, OpenRouter or Gemini in **Settings**. wuup checks it, then uses it for your questions. wuup charges nothing for questions asked with your key: your provider bills you directly. See [Bring your own key](/docs/byok-setup).
+
+## Account
+
+### How do I delete my account and data?
+
+Open **Settings**, choose **Delete account**, type `DELETE` and confirm with your password. wuup deletes your account, chats, messages, connections, documents and their indexed passages, and usage records. Removing a single connection or document is also possible from **Data**.

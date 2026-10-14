@@ -1,0 +1,138 @@
+export const metadata = {
+  title: "Privacy Policy",
+  description: "How wuup collects, uses, stores and deletes your data, which processors we use, our cookies, and your rights under India's DPDP Act 2023.",
+  h1: "wuup\nPrivacy Policy",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Legal"],
+  primaryKeyword: "wuup privacy policy",
+  status: "published",
+  priority: "P0",
+  og: { eyebrow: "Legal" },
+}
+
+This policy explains what personal data wuup collects when you use wuup.in and the wuup app, why we collect it, who we share it with, how long we keep it and how you can see, correct or delete it. wuup is an AI data analyst operated from India by its founder, Abhigyan Raj ("wuup", "we", "us"). For data you provide, wuup acts as the Data Fiduciary under India's Digital Personal Data Protection Act, 2023 ("DPDP Act").
+
+This policy is maintained by the wuup team. Last reviewed October 2026.
+
+## Summary
+
+- We only read your databases, sheets and documents to answer the questions you ask. wuup never writes to your MongoDB databases or edits your sheets.
+- Connection strings are encrypted before they are stored. Sensitive database fields are hidden from the AI model by default.
+- To answer a question, the relevant rows or passages are sent to the AI provider that answers it: Google Gemini on the free tier, or the provider of the API key you add.
+- We do not sell your data, show ads or use ad trackers. Our analytics are cookieless.
+- You can delete individual connections, documents and chats, or your whole account, at any time from the app.
+
+## What we collect and store
+
+| Data | What it includes | Why we keep it |
+| --- | --- | --- |
+| Account | Email address, optional name, password stored as a bcrypt hash, sign-in timestamps, preferences | To create your account, sign you in and keep your settings |
+| MongoDB connections | Connection string encrypted with AES-256-GCM, bridge name, chosen databases and collections, hidden-field settings, a schema summary (field names, types, document counts, index names) and starter questions | To run the read-only queries you ask for |
+| Google Sheets connections | The sheet link, stored encrypted, plus the spreadsheet title, tab names and header rows | To read the sheet when a question needs it |
+| Documents | The text extracted from files you upload, the passages (chunks) made from it and their embeddings, file name, size and a SHA-256 fingerprint | To search your documents and cite them in answers |
+| Chats | Your questions, wuup's answers, the queries wuup ran, the rows and passages shown in an answer, charts and tables, citations and your feedback | To show your chat history and let you continue a conversation |
+| Usage | Counts of questions asked, the model used and token counts per day | To apply the free tier and show you your usage |
+| Your API key | The key you add for OpenAI, Anthropic, OpenRouter or Gemini, the provider name and the models it can use | To call your chosen provider on your behalf. It is shown only in masked form after saving and you can delete it at any time |
+| Technical logs | IP address, request times, error messages and a request ID | To protect the service, apply rate limits and fix errors |
+
+**Original files are not kept.** An uploaded file is processed in memory and discarded. We keep the extracted text and the passages made from it, which is what the knowledge base needs.
+
+**Your databases are not copied.** We do not store copies of your MongoDB collections or your sheets. Values only enter wuup when a question reads them, and then only the rows that answer uses are saved in that chat. Fields you hide are removed before results reach the AI model and are never stored.
+
+We do not ask for, and you should not upload, special categories of sensitive data such as health records or government identity numbers. See our [Acceptable Use Policy](/acceptable-use).
+
+## How we use your data
+
+We use your data only to:
+
+- provide the service: connect your sources, answer your questions, keep your history and show your usage;
+- keep wuup secure: detect abuse, enforce rate limits and investigate incidents;
+- communicate with you about your account, security issues and material changes to these terms;
+- improve reliability, using error logs and aggregate usage counts.
+
+We do not use your connected data, documents or chats to train AI models, and we do not sell or rent personal data.
+
+## AI providers and other processors
+
+wuup relies on a small number of service providers ("processors") that handle data on our behalf.
+
+| Processor | Purpose | Data involved |
+| --- | --- | --- |
+| Google (Gemini API) | Answers on the free tier, document embeddings, schema-based starter questions | Your question, relevant rows, passages and schema summaries |
+| Your chosen provider (OpenAI, Anthropic, OpenRouter or Google) | Answers when you add your own API key | Your question, relevant rows and passages, sent with your key |
+| MongoDB Atlas | Hosts wuup's own database | Everything in "What we collect and store" |
+| Vercel | Hosts the website and app front end; cookieless Web Analytics | Page requests, IP address, aggregate page views |
+| Render | Hosts the wuup API | API requests, IP address, logs |
+| DuckDuckGo | Web search, only when you turn it on for a question | The search query text, not your data |
+| Google Sheets API | Reads sheets you shared with wuup's service account | Cell values in the ranges a question reads |
+
+When you use your own API key, your provider's terms and privacy policy apply to the data sent to it. Each AI provider's API terms govern whether and how long it retains API traffic.
+
+## Google Sheets data
+
+wuup reads Google Sheets through a service account with the read-only `spreadsheets.readonly` scope, and only for sheets you have shared with that account. wuup's use and transfer to any other app of information received from Google APIs will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements. In particular, we use Sheets data only to answer your questions, we do not use it for advertising, we do not sell it, and people at wuup do not read it unless you ask us to for support, it is needed for security, or the law requires it.
+
+## Cookies
+
+wuup uses a small number of cookies, all needed to run the service:
+
+- **Session cookie** (`wuup_session`, or a `__Host-` or `__Secure-` prefixed name in production): an httpOnly cookie that keeps you signed in for up to 7 days. Scripts cannot read it.
+- **`wuup_authed=1`**: a non-secret cookie that tells the website you are signed in, so it can send you to the app. It holds no personal data.
+
+We do not use advertising cookies, cross-site trackers or third-party marketing pixels. Our website analytics (Vercel Web Analytics) is cookieless and reports aggregate page views.
+
+## Retention
+
+- Account data, connections, documents and chats are kept until you delete them or delete your account.
+- Demo accounts are temporary and are deleted automatically after they expire (24 hours by default).
+- Technical logs are kept for a limited period for security and debugging, then deleted.
+- Backups of wuup's database may hold deleted data for a short time until they roll over.
+
+## Deleting your data
+
+- **A connection**: open **Data** and delete the bridge. The encrypted connection string, schema summary and settings are removed.
+- **A document**: delete it from **Data**. Its extracted text, passages and embeddings are removed.
+- **A chat**: delete it from the chat list, or delete all chats from settings.
+- **Your API key**: remove it in **Settings**.
+- **Your account**: open **Settings**, choose **Delete account**, type `DELETE` and confirm with your password. We delete your account, chats and messages, connections, documents with their passages and embeddings, and usage records, and sign you out.
+
+To revoke wuup's access at the source, you can also remove wuup's database user or IP access entry in MongoDB, or unshare a sheet from the service account.
+
+## Security
+
+Connection strings and sheet links are encrypted with AES-256-GCM. Passwords are hashed with bcrypt. wuup's MongoDB access is read-only and limited to the collections you choose, sensitive fields are hidden from the AI, and every query has row, size and time limits. We refuse connections to private network addresses. No system is perfectly secure: if we learn of a breach affecting your personal data, we will notify you and the Data Protection Board of India as the DPDP Act requires.
+
+## Your rights under the DPDP Act
+
+If you are in India, the DPDP Act gives you the right to:
+
+- **Access**: get a summary of the personal data we process about you and the processing activities, and the identities of those we share it with.
+- **Correction and erasure**: correct inaccurate or incomplete data, update it, and have it erased when it is no longer needed. Most of this you can do directly in the app.
+- **Withdraw consent**: stop using wuup and delete your account at any time. Withdrawal does not affect processing done before it.
+- **Grievance redressal**: complain to us and receive a response. If you are not satisfied, you may complain to the Data Protection Board of India.
+- **Nominate**: nominate another person to exercise these rights if you die or become incapable of exercising them.
+
+Users outside India can exercise the same requests by writing to us. We respond to requests within 30 days.
+
+## International transfers
+
+wuup is operated from India, and our processors may store or process data in other countries, including the United States. We transfer data only as needed to provide the service and only to countries not restricted by the Government of India under the DPDP Act.
+
+## Children
+
+wuup is not intended for children. You must be at least 18 years old to create an account. If we learn that we hold personal data of a child without verifiable parental consent, we will delete it.
+
+## Changes to this policy
+
+We will update this page when our practices change and change the "Updated on" date above. For material changes we will also notify you by email or in the app before they take effect.
+
+## Contact and grievance officer
+
+For privacy questions, data requests or complaints, contact our grievance officer:
+
+- Abhigyan Raj, Founder, wuup
+- Email: [abhigyan23018@iiitd.ac.in](mailto:abhigyan23018@iiitd.ac.in)
+
+Please include the email address on your account so we can verify the request.

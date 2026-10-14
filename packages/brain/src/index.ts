@@ -33,3 +33,4 @@ export { SourceRegistry, MAX_SNIPPET_CHARS, type SourceInput } from "./citations
 // Research
 export { runResearch } from "./research/runner";
 export { parsePlan, researchMaxSteps } from "./research/plan";
+export * as publicTools from "./public-tools";

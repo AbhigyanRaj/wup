@@ -1,0 +1,44 @@
+/* ==========================================================================
+   wuup base element defaults (kit tokens.css "Base element defaults").
+   Imported into @layer base from globals.css, so Tailwind utilities override it.
+   Light only: there is no dark theme.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: var(--fw-regular);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--color-tx);
+  background: var(--color-bg);
+}
+
+h1, h2, h3, h4, h5, h6, p { margin: 0; font-weight: inherit; font-size: inherit; }
+
+::selection { background: var(--indigo-200); color: var(--color-tx); }
+
+:focus-visible { outline: 2px solid var(--indigo-400); outline-offset: 2px; }
+
+img, video, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

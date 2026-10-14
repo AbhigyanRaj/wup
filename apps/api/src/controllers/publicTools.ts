@@ -10,19 +10,11 @@ import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { PublicToolCache, PublicToolUsage } from "@wup/models";
 import type { PublicTool } from "@wup/contracts";
-// @wup/brain's exports map only exposes ".", so "@wup/brain/dist/public-tools"
-// fails at runtime (ERR_PACKAGE_PATH_NOT_EXPORTED). The compiled module is
-// loaded by relative path instead; it resolves from both src/ and dist/.
-// Once brain/src/index.ts re-exports it (`export * as publicTools from
-// "./public-tools"`), this can become `import { publicTools } from "@wup/brain"`.
-import {
-  PublicToolError,
-  explainAggregation,
-  generateAggregation,
-  generateMongoQuery,
-  sqlToMongo,
-  type JsonCompleter,
-} from "../../../../packages/brain/dist/public-tools";
+import { publicTools } from "@wup/brain";
+
+const { PublicToolError, explainAggregation, generateAggregation, generateMongoQuery, sqlToMongo } = publicTools;
+type JsonCompleter = publicTools.JsonCompleter;
+type PublicToolError = InstanceType<typeof publicTools.PublicToolError>;
 import { env } from "../config/env";
 import { HttpError } from "../lib/httpError";
 import { logger } from "../lib/logger";

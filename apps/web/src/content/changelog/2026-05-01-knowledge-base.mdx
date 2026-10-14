@@ -1,0 +1,26 @@
+export const metadata = {
+  title: "Knowledge base: ask your PDFs, with citations",
+  description: "Upload PDF and TXT files to a private knowledge base and get answers grounded in the passages, with numbered citations back to the file and page.",
+  date: "2026-05-01",
+  author: "abhigyan-raj",
+  tags: ["Release"],
+  primaryKeyword: "pdf knowledge base citations",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+You can now upload documents and ask questions about them. Each account gets a private knowledge base: wuup extracts the text from a PDF or TXT file, splits it into overlapping passages, embeds them with Google's Gemini embedding model, and searches them when a question needs them. Answers cite the passages they used with numbers that point back to the file and page.
+
+## What shipped
+
+- **Upload** PDF and TXT files from the app. Files are processed in memory and never written to disk.
+- **Background indexing**: the upload returns at once and the document moves from pending to indexed while you keep working.
+- **Retrieval with citations**: the most relevant passages are added to the answer's context, and each claim that comes from them carries a numbered citation.
+- **Guard rails**: a file size cap, per-account limits on documents and passages, duplicate detection by file fingerprint, and an upload rate limit.
+- **Delete** removes a document and every passage indexed from it.
+
+## Read more
+
+- [Upload documents](/docs/upload-documents) covers limits, statuses and retries.
+- [Ask questions across PDFs and spreadsheets](/guides/ask-questions-across-pdfs-and-spreadsheets) shows how to combine documents with your data.

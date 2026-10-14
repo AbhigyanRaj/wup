@@ -28,6 +28,8 @@ import type { SourceUse } from "../research/plan";
 import { defaultContextLoader, isMongoBridge, isSheetsBridge, loadContext, type ContextLoader } from "./context";
 import { MetaStreamFilter, extractJsonObject, parseStructuredResponse } from "./meta";
 import { QueryRecorder, applyGrounding } from "./grounding";
+import { rowsToTable } from "../bridges/mongo/values";
+import { NO_ANSWER_TEXT, buildRetryPrompt, fillEmptyAnswer, type FillInput } from "./emptyAnswer";
 import { buildAvailableData, buildSystemPrompt } from "./prompt";
 import { generateTitle, heuristicTitle, lightModel } from "./titles";
 import { ToolRunner } from "./toolRunner";
@@ -39,6 +41,14 @@ export { MetaStreamFilter, parseStructuredResponse, META_START, META_END, extrac
 export { applyGrounding, QueryRecorder, MAX_CHART_POINTS } from "./grounding";
 export { buildSystemPrompt, buildPreferencesBlock, STATIC_PROMPT, CLARIFICATION_ALREADY_ASKED } from "./prompt";
 export { heuristicTitle, generateTitle, tidyTitle } from "./titles";
+export {
+  ANSWER_NOW_NUDGE,
+  CLARIFY_FALLBACK,
+  FOUND_ROWS_TEXT,
+  NO_ANSWER_TEXT,
+  buildRetryPrompt,
+  fillEmptyAnswer,
+} from "./emptyAnswer";
 export { loadContext, defaultContextLoader, type ContextLoader, type LoadedContext } from "./context";
 export { ToolRunner, toolLabel, toolStatusCode } from "./toolRunner";
 export type { ChatTurn, LlmCredentials };
@@ -51,6 +61,9 @@ export type { ChatTurn, LlmCredentials };
  *   3. Run the provider's tool loop (chat) or plan/steps/report (research), streaming
  *      tokens through MetaStreamFilter and tool/status/sources/step events through emit
  *   4. Parse the meta block, ground visuals on the real query rows, finalize citations
+ *   5. Never return an empty "complete" answer: fall back to the clarification question or
+ *      the rows found, else retry the final turn once without tools, else NO_ANSWER_TEXT
+ *      with producedOutput false (so the API refunds the quota)
  *
  * run() never throws: failures come back as outcome "error" with a contracts
  * error code, and an abort comes back as outcome "stopped" with the partial answer.
@@ -235,7 +248,8 @@ export class Brain {
 
     const recorder = new QueryRecorder();
     const sources = new SourceRegistry((list) => emit({ type: "sources", sources: list }));
-    const filter = new MetaStreamFilter();
+    // `let`: an empty answer is retried once into a fresh filter.
+    let filter = new MetaStreamFilter();
     let firstTokenMs: number | null = null;
     let produced = false;
     const emitToken = (text: string) => {
@@ -251,19 +265,56 @@ export class Brain {
     let runner: ToolRunner | undefined;
     let research: BrainResult["research"] = null;
 
-    const finish = (outcome: BrainResult["outcome"], error?: LlmError): BrainResult => {
+    /** Flushes the stream filter and returns the parsed, grounded response. */
+    const parseGrounded = () => {
       const tail = filter.flush();
       if (tail && !signal.aborted) emitToken(tail);
-      const structured = parseStructuredResponse(filter.fullText());
-      const grounded = applyGrounding(structured, recorder.lastRows, recorder.rowSets);
-      const content = sources.finalize(grounded.content);
+      return applyGrounding(parseStructuredResponse(filter.fullText()), recorder.lastRows, recorder.rowSets);
+    };
+    const fillInput = (g: ReturnType<typeof parseGrounded>, content: string): FillInput => ({
+      content,
+      clarification: g.clarification ?? null,
+      visualType: g.visualType,
+      tableData: g.tableData ?? null,
+      fallbackTable: recorder.lastRows?.length ? rowsToTable(recorder.lastRows) : null,
+      hasVisual: !!(g.chartData || g.diagramData),
+    });
+    /** True when the answer so far is empty and there is nothing to fill it from. */
+    const answerMissing = () => {
+      const g = parseGrounded();
+      return fillEmptyAnswer(fillInput(g, g.content)).kind === "empty";
+    };
+
+    const finish = (outcome: BrainResult["outcome"], error?: LlmError): BrainResult => {
+      const grounded = parseGrounded();
+      let content = sources.finalize(grounded.content);
+      let visualType = grounded.visualType;
+      let tableData = grounded.tableData ?? null;
+      let producedOutput = produced;
+      const clarification = outcome === "complete" ? grounded.clarification ?? null : null;
+
+      if (outcome === "complete") {
+        const fill = fillEmptyAnswer({ ...fillInput(grounded, content), clarification });
+        if (fill.kind !== "kept") {
+          content = fill.kind === "empty" ? NO_ANSWER_TEXT : fill.content;
+          if (fill.kind === "found") {
+            visualType = fill.visualType;
+            tableData = fill.tableData;
+          }
+          // The client shows what was streamed: stream the filled-in text too.
+          emit({ type: "token", text: produced ? `\n\n${content}` : content });
+          producedOutput = fill.kind !== "empty";
+          if (fill.kind === "empty") log().warn("the model produced no answer; returning the fallback text", { model: modelId });
+        }
+      }
+
       return {
         content,
         followUps: outcome === "complete" ? grounded.followUps : [],
-        clarification: outcome === "complete" ? grounded.clarification ?? null : null,
-        visualType: grounded.visualType,
+        clarification,
+        visualType,
         chartData: grounded.chartData ?? null,
-        tableData: grounded.tableData ?? null,
+        tableData,
         diagramData: grounded.diagramData ?? null,
         sources: sources.snapshot(),
         queries: recorder.queries,
@@ -273,7 +324,7 @@ export class Brain {
         toolCalls: runner?.calls ?? 0,
         firstTokenMs,
         exhausted: this.health.exhausted(llm.keyId ?? "server"),
-        producedOutput: produced,
+        producedOutput,
         outcome,
         ...(error ? { error: { code: error.code, message: friendlyError(error, llm), retryable: isRetryable(error) } } : {}),
       };
@@ -371,9 +422,12 @@ export class Brain {
       }
 
       emit({ type: "status", message: "Generating the answer", code: "llm.generating" });
+      const history = (req.history ?? [])
+        .filter((t) => t.role === "user" || t.role === "assistant")
+        .slice(-2 * CHAT_CONTEXT_MAX_MESSAGES);
       const loop = await driver.runToolLoop({
         system,
-        history: (req.history ?? []).filter((t) => t.role === "user" || t.role === "assistant").slice(-2 * CHAT_CONTEXT_MAX_MESSAGES),
+        history,
         prompt: req.prompt,
         tools,
         executeTool: (name, args) => runner!.execute(name, args),
@@ -386,6 +440,32 @@ export class Brain {
       modelId = loop.model;
       if (loop.hitTurnLimit) onText(RAN_OUT_OF_STEPS);
       if (signal.aborted) return finish("stopped");
+
+      // An empty final turn (only a meta block, or nothing after tool calls): ask once more, without tools.
+      if (answerMissing()) {
+        log().warn("empty answer; retrying the final turn once without tools", { model: modelId, toolCalls: runner.calls });
+        filter = new MetaStreamFilter();
+        try {
+          const retry = await driver.runToolLoop({
+            system,
+            history,
+            prompt: buildRetryPrompt(req.prompt, recorder.queries, sources.snapshot()),
+            tools: [],
+            executeTool: async () => ({ success: false, error: "Tools are not available for this answer." }),
+            maxTurns: 1,
+            signal,
+            onText,
+          });
+          usage.tokensIn += retry.usage.tokensIn;
+          usage.tokensOut += retry.usage.tokensOut;
+          modelId = retry.model;
+        } catch (err) {
+          const e = toLlmError(err, signal);
+          if (e.code === "ABORTED" || signal.aborted) return finish("stopped");
+          log().warn("the empty-answer retry failed", { code: e.code, status: e.status, message: e.message });
+        }
+        if (signal.aborted) return finish("stopped");
+      }
       return finish("complete");
     } catch (err) {
       const e = toLlmError(err, signal);

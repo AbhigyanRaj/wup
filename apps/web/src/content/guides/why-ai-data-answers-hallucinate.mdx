@@ -1,0 +1,133 @@
+export const metadata = {
+  title: "Why AI data answers hallucinate (and fixes)",
+  description: "Six reasons AI tools give wrong answers about your data, from guessed schemas to arithmetic done in the model's head, and the design fixes for each one.",
+  h1: "Why AI data answers hallucinate,\nand how to stop it",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["AI and data", "Accuracy"],
+  primaryKeyword: "why ai data answers hallucinate",
+  status: "published",
+  priority: "P1",
+  related: ["/guides/query-mongodb-in-plain-english", "/guides/text-to-sql-vs-text-to-mongodb", "/guides/ask-questions-across-pdfs-and-spreadsheets", "/chat-with-mongodb", "/guides/is-it-safe-to-connect-database-to-ai"],
+  og: { eyebrow: "Guide" },
+}
+
+AI data answers hallucinate when the number in the answer was produced by the language model instead of by your data. That happens in six common ways: the model answers without querying anything, guesses field names, sees a truncated slice of the rows, does arithmetic in its head, relies on stale context, or quietly picks one meaning of an ambiguous question. Each has a design fix: run a real query, inspect the schema first, disclose caps, compute in the database, read at question time, and ask a clarifying question. Below, each cause comes with an example and the fix.
+
+## What "hallucination" means for data questions
+
+Researchers use "hallucination" for generated text that is fluent but unsupported by the source it should be grounded in. [Ji et al.'s survey](https://arxiv.org/abs/2202.03629) splits it into intrinsic errors (contradicting the source) and extrinsic ones (adding things the source cannot confirm). For data questions both look the same to you: a confident sentence with a number in it.
+
+Data answers are especially risky because numbers do not read as wrong. "Revenue grew 18% month over month" is just as fluent when the true figure is 6%. Text errors often show up as odd phrasing; numeric errors almost never do.
+
+Even with a database in the loop, writing the query is hard. On the [BIRD text-to-SQL benchmark](https://bird-bench.github.io/) (95 databases, over 12,000 question and query pairs), the top system on the leaderboard reached about 83% execution accuracy when we checked in October 2026, against about 93% for human experts. So roughly one question in six still gets a wrong query from the best system. A query that runs is not automatically the right query, which is why the fixes below include showing it.
+
+## Causes in the query: grounding, schema, truncation
+
+The first three causes happen before the model writes a word of the answer: the data it works from is missing, wrong or incomplete.
+
+### Cause 1: no grounding at all
+
+**What happens.** You ask "How many active customers do we have?" and the model answers from what it absorbed in training plus whatever you pasted earlier. No database was touched.
+
+**How to spot it.** There is no query, range or citation attached to the answer. Asking "show me the query" gets an apology or a query written after the fact.
+
+**The fix.** The tool should call a data source for every numeric claim and record what it ran. In wuup, MongoDB answers come from read-only tool calls (`find`, `count`, `distinct`, `aggregate`) and each answer lists the queries used, with row counts and timing.
+
+### Cause 2: guessing the schema
+
+**What happens.** The model assumes a field is called `status` with the value `"active"`, but your collection uses `state: "ACTIVE"` or a boolean `isActive`. The query runs, matches nothing, and the model reports zero customers, or worse, "about 1,200" from a fallback guess.
+
+**How to spot it.** Empty results on questions that should obviously return rows, or field names in the query that you have never seen.
+
+**The fix.** Look before querying. wuup scans a sample of each in-scope collection when you connect, recording field paths, types, how often each field appears and indexes, and the model is told to describe a collection before querying one it has not seen. If you want to see what a schema scan finds in your own data, paste a few documents into the free [MongoDB schema from JSON tool](/tools/mongodb-schema-from-json). The method is explained in [how to infer a MongoDB schema from documents](/guides/infer-mongodb-schema-from-documents).
+
+### Cause 3: answering from a truncated slice
+
+**What happens.** The tool fetches the first 100 orders and the model writes "Total revenue is 48,210" as if those were all the orders. The real answer comes from 40,000 rows.
+
+**How to spot it.** Totals that look small, or "top 10" lists that are suspiciously recent. The answer never mentions a limit.
+
+**The fix.** Two parts. First, aggregate in the database so the total is computed over every row and only the result comes back. Second, disclose caps: when results are cut off, the tool should say so. In wuup every MongoDB query returns at most 100 rows and 50 KB, and results carry a `truncated` flag so the model can say "showing the first 100" instead of presenting a sample as the whole.
+
+<QueryExample
+  question="What is our total revenue from paid orders?"
+  collection="orders"
+  code={`db.orders.aggregate([
+  { $match: { status: "paid" } },
+  { $group: { _id: null, revenue: { $sum: "$total" }, orders: { $sum: 1 } } }
+])`}
+  columns={["revenue", "orders"]}
+  rows={[[1932480.5, 40112]]}
+/>
+
+The total above is one row computed over every paid order, so the 100-row cap never touches it.
+
+## Causes in the answer: math, staleness, ambiguity
+
+The next three happen even when the right rows came back: the model mishandles them, reuses old ones, or answers a different question from the one you meant.
+
+### Cause 4: arithmetic done "in the head"
+
+**What happens.** The tool returns 60 rows and the model sums them in its reply. Language models predict text token by token; adding sixty decimals that way is error-prone, and percentages and averages of averages are worse.
+
+**How to spot it.** Numbers in the answer that are not in any returned row and no computation step is shown.
+
+**The fix.** Push computation into the query (`$group`, `$sum`, `$avg`, `$setWindowFields` for running totals) or into code, and build charts from the rows that came back. In wuup, charts and tables are rendered from the actual query results, not from numbers the model typed, so a chart cannot show a bar the data did not return. You can practise writing these pipelines with the [aggregation generator](/tools/mongodb-aggregation-generator) and check one you already have with the [aggregation explainer](/tools/mongodb-aggregation-explainer).
+
+### Cause 5: stale context and stale snapshots
+
+**What happens.** You uploaded a CSV last Tuesday and ask "How did we do this week?" The model answers confidently from last week's file. Or an earlier answer in the same chat ("we had 312 open tickets") gets reused an hour later after the number changed.
+
+**How to spot it.** Answers that do not change after you know the data changed.
+
+**The fix.** Read live sources at question time and say when the data was read. Connected sources such as a [MongoDB database](/chat-with-mongodb) or a [Google Sheet](/chat-with-google-sheets) are queried per question in wuup. Documents are a snapshot by nature, so check the document date when an answer mixes PDFs with live data; we cover that case in [asking questions across PDFs and spreadsheets](/guides/ask-questions-across-pdfs-and-spreadsheets).
+
+### Cause 6: ambiguous questions answered silently
+
+**What happens.** "What was revenue last month?" Gross or net of refunds? Calendar month or the last 30 days? Which time zone? The model picks one interpretation and does not tell you.
+
+**How to spot it.** Two people ask the same question and get different numbers, and neither answer states its assumptions.
+
+**The fix.** Ask when it matters, and state assumptions when it does not. wuup can respond with a clarifying question and options ("Gross or net of refunds?") before running anything, and answers state the filters they used. The query itself is the most precise statement of the assumptions, which is another reason to show it.
+
+<Callout type="tip" title="A 30-second check for any AI data answer">
+
+Open the query or range behind the answer. Check the filter (right dates, right status values), check that totals were computed by the query rather than in the text, and check whether the result was truncated. If any of these is missing, treat the number as a draft.
+
+</Callout>
+
+## A checklist for evaluating any tool
+
+Use these questions when you compare AI analysts, including ours. We apply them in our roundup of [AI data analyst tools](/guides/best-ai-data-analyst-tools).
+
+| Question | Good sign | Warning sign |
+| --- | --- | --- |
+| Does every number come from a query or range? | Query shown under the answer | No query, or "based on your data" |
+| Does it look at the schema first? | Field names match your data | Invented field names |
+| Are caps disclosed? | "Showing first 100 of 4,212" | Silent sampling |
+| Who does the math? | Database or code | The model's prose |
+| Is data read at question time? | Live connection | Old uploads reused |
+| What happens with ambiguity? | Clarifying question or stated assumption | Silent guess |
+| Are document claims cited? | Numbered citations to passages | Uncited summaries |
+
+<ToolCta href="/chat-with-mongodb" title="See the query behind every answer" description="Connect MongoDB read-only, ask in plain English, and check the exact pipeline, row count and timing for each result." />
+
+## FAQ
+
+### Can prompting alone stop hallucinations in data answers?
+
+Prompting helps ("only use the returned rows"), but it is not enough on its own. The reliable fixes are structural: real queries, computation in the database, charts from returned rows, and visible caps.
+
+### Is a bigger model enough?
+
+Larger models write better queries, but the BIRD leaderboard shows even the best systems trailing human experts. Showing the query lets you catch the remaining errors.
+
+### Does showing the query really help non-technical users?
+
+Yes, even without reading every operator. Filters such as `status: "paid"` and a date range are readable, and they reveal the most common mistakes: wrong status value, wrong period, wrong collection.
+
+### How does wuup handle a query that fails?
+
+The error is returned to the model with a plain explanation (for example a field hidden for privacy, or a query that exceeded the 10 second limit) so it can correct the query, and the failed attempt still appears in the queries list.

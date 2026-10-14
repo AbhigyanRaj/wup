@@ -9,7 +9,7 @@ export interface RetrievedChunk {
   pageNumber: number;
   chunkIndex: number;
   text: string;
-  /** Cosine similarity in [-1, 1] (converted from Atlas vectorSearchScore). */
+  /** Cosine similarity in [-1, 1] (converted from Atlas vectorSearchScore, or computed in JS by the fallback). */
   score: number;
   /** @deprecated legacy shape; same values as the top-level fields. */
   metadata: {
@@ -28,6 +28,20 @@ export interface RetrieveOptions {
 
 export type AggregateFn = (pipeline: any[], options: { maxTimeMS: number }) => Promise<any[]>;
 export type QueryEmbedFn = (query: string, options: RetrieveOptions) => Promise<number[]>;
+
+/** A stored chunk as the JS fallback needs it (never sent to the client: it carries the embedding). */
+export interface StoredChunk {
+  embedding: number[];
+  text: string;
+  sourceId?: unknown;
+  metadata?: { sourceFile?: string; pageNumber?: number; chunkIndex?: number };
+}
+
+/**
+ * Loads up to `limit` of the user's chunks, most recent first, for the JS
+ * fallback. Must filter by userId (S-1).
+ */
+export type ChunkLoaderFn = (userId: string, options: { limit: number; maxTimeMS: number }) => Promise<StoredChunk[]>;
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +63,9 @@ export const MAX_RAG_CONTEXT_CHARS = 8000;
 /** A chunk is skipped when less than this much budget remains. */
 const MIN_ENTRY_BUDGET = 200;
 
+/** How long a "$vectorSearch is unsupported here" verdict is cached. */
+export const VECTOR_SEARCH_UNSUPPORTED_TTL_MS = 10 * 60 * 1000;
+
 function numEnv(name: string, fallback: number): number {
   const v = parseFloat(process.env[name] ?? "");
   return Number.isFinite(v) ? v : fallback;
@@ -64,6 +81,11 @@ export function ragTopK(): number {
   return Math.max(1, Math.floor(numEnv("RAG_TOP_K", 6)));
 }
 
+/** Max chunks the JS fallback scores per query (RAG_FALLBACK_MAX_CHUNKS, default 5000). */
+export function ragFallbackMaxChunks(): number {
+  return Math.max(1, Math.floor(numEnv("RAG_FALLBACK_MAX_CHUNKS", 5000)));
+}
+
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
 /**
@@ -72,6 +94,43 @@ export function ragTopK(): number {
  */
 export function vectorScoreToCosine(score: number): number {
   return 2 * score - 1;
+}
+
+/** Cosine similarity of two vectors; NaN when they can't be compared. */
+export function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  if (!a || !b || a.length !== b.length || a.length === 0) return NaN;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    dot += x * y;
+    na += x * x;
+    nb += y * y;
+  }
+  if (na === 0 || nb === 0) return NaN;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+/** Server error codes meaning "$vectorSearch can't run here" (stage unknown, search not enabled). */
+const UNSUPPORTED_CODES = new Set([40324, 31082, 6047401]);
+const UNSUPPORTED_MESSAGE =
+  /unrecognized pipeline stage name|\$vectorSearch|vectorSearch|index not found|no such index|search index|only (?:allowed|supported|available) on (?:an |mongodb )?atlas|searchnotenabled/i;
+
+/**
+ * True when an aggregate error means Atlas Vector Search is unavailable on this
+ * deployment (self-hosted or local mongod) or the vector index is missing.
+ * Timeouts and other failures are not treated as "unsupported".
+ */
+export function isVectorSearchUnsupported(err: unknown): boolean {
+  if (!err) return false;
+  const e = err as { code?: unknown; codeName?: unknown; message?: unknown };
+  const msg = typeof e.message === "string" ? e.message : String(err);
+  if (/RAG_TIMEOUT|RAG_ABORTED|MaxTimeMSExpired|operation exceeded time limit/i.test(msg)) return false;
+  if (typeof e.code === "number" && UNSUPPORTED_CODES.has(e.code)) return true;
+  if (typeof e.codeName === "string" && /SearchNotEnabled|IndexNotFound/i.test(e.codeName)) return true;
+  return UNSUPPORTED_MESSAGE.test(msg);
 }
 
 /**
@@ -98,18 +157,36 @@ export function selectRelevant<T extends { score: number }>(
 export class RAGService {
   private readonly aggregate: AggregateFn;
   private readonly embedQuery: QueryEmbedFn;
+  private readonly loadChunks: ChunkLoaderFn;
+  private readonly now: () => number;
+  /** Until this time (ms) $vectorSearch is known to be unsupported and is skipped. */
+  private vectorSearchUnsupportedUntil = 0;
+  private warned = false;
 
-  constructor(deps: { aggregate?: AggregateFn; embed?: QueryEmbedFn } = {}) {
+  constructor(
+    deps: { aggregate?: AggregateFn; embed?: QueryEmbedFn; loadChunks?: ChunkLoaderFn; now?: () => number } = {}
+  ) {
     this.aggregate =
       deps.aggregate ??
       ((pipeline, options) =>
         mongoose.model("KnowledgeChunk").aggregate(pipeline).option({ maxTimeMS: options.maxTimeMS }).exec());
     this.embedQuery = deps.embed ?? ((q, o) => defaultEmbed(q, { signal: o.signal, apiKey: o.apiKey }));
+    this.loadChunks = deps.loadChunks ?? defaultChunkLoader;
+    this.now = deps.now ?? Date.now;
+  }
+
+  /** True while the cached "$vectorSearch unsupported" verdict is fresh. */
+  get usingFallback(): boolean {
+    return this.now() < this.vectorSearchUnsupportedUntil;
   }
 
   /**
    * Retrieves the most similar chunks of the user's own documents.
-   * Security: the $vectorSearch filter always includes userId (S-1).
+   * Security: the $vectorSearch filter, and the fallback's find, always include userId (S-1).
+   *
+   * On a deployment without Atlas Vector Search (self-hosted or local mongod)
+   * or without the vector index, the chunks are scored in JS instead, and that
+   * verdict is cached for VECTOR_SEARCH_UNSUPPORTED_TTL_MS.
    */
   async retrieve(userId: string, rawQuery: string, options: RetrieveOptions = {}): Promise<RetrievedChunk[]> {
     const query = (rawQuery ?? "").slice(0, MAX_QUERY_CHARS); // R-7
@@ -119,54 +196,101 @@ export class RAGService {
     const queryVector = await this.embedQuery(query, options);
     if (options.signal?.aborted) throw new Error("RAG_TIMEOUT");
 
-    const results = await this.aggregate(
-      [
-        {
-          $vectorSearch: {
-            index: VECTOR_INDEX_NAME,
-            path: "embedding",
-            queryVector,
-            numCandidates: Math.max(100, topK * 20),
-            limit: topK * 2,
-            filter: { userId: new mongoose.Types.ObjectId(userId) }, // S-1
+    if (this.usingFallback) return this.retrieveInJs(userId, queryVector, topK);
+
+    let results: any[];
+    try {
+      results = await this.aggregate(
+        [
+          {
+            $vectorSearch: {
+              index: VECTOR_INDEX_NAME,
+              path: "embedding",
+              queryVector,
+              numCandidates: Math.max(100, topK * 20),
+              limit: topK * 2,
+              filter: { userId: new mongoose.Types.ObjectId(userId) }, // S-1
+            },
           },
-        },
-        {
-          $project: {
-            // S-7: never return raw embeddings
-            text: 1,
-            "metadata.sourceFile": 1,
-            "metadata.pageNumber": 1,
-            "metadata.chunkIndex": 1,
-            _sourceId: "$sourceId",
-            score: { $meta: "vectorSearchScore" },
+          {
+            $project: {
+              // S-7: never return raw embeddings
+              text: 1,
+              "metadata.sourceFile": 1,
+              "metadata.pageNumber": 1,
+              "metadata.chunkIndex": 1,
+              _sourceId: "$sourceId",
+              score: { $meta: "vectorSearchScore" },
+            },
           },
-        },
-      ],
-      { maxTimeMS: RETRIEVAL_TIMEOUT_MS }
-    );
+        ],
+        { maxTimeMS: RETRIEVAL_TIMEOUT_MS }
+      );
+    } catch (err) {
+      if (!isVectorSearchUnsupported(err)) throw err;
+      this.vectorSearchUnsupportedUntil = this.now() + VECTOR_SEARCH_UNSUPPORTED_TTL_MS;
+      if (!this.warned) {
+        this.warned = true;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[WUP RAG] Atlas $vectorSearch is unavailable (${msg.slice(0, 200)}). ` +
+            `Falling back to in-process cosine scoring (up to ${ragFallbackMaxChunks()} chunks per user). ` +
+            `Create the '${VECTOR_INDEX_NAME}' index on MongoDB Atlas for faster retrieval.`
+        );
+      }
+      if (options.signal?.aborted) throw new Error("RAG_TIMEOUT");
+      return this.retrieveInJs(userId, queryVector, topK);
+    }
 
     const mapped: RetrievedChunk[] = (results ?? [])
       .filter((r: any) => typeof r?.score === "number" && typeof r?.text === "string")
-      .map((r: any) => {
-        const sourceFile = r.metadata?.sourceFile ?? "Unknown";
-        const pageNumber = r.metadata?.pageNumber ?? 0;
-        const chunkIndex = r.metadata?.chunkIndex ?? 0;
-        const sourceId = r._sourceId?.toString() ?? "";
-        return {
-          sourceId,
-          sourceFile,
-          pageNumber,
-          chunkIndex,
-          text: r.text as string,
-          score: vectorScoreToCosine(r.score as number),
-          metadata: { sourceFile, pageNumber, chunkIndex, sourceId },
-        };
-      });
+      .map((r: any) => toRetrieved(r, r._sourceId, vectorScoreToCosine(r.score as number)));
 
     return selectRelevant(mapped, { topK }); // R-5
   }
+
+  /** JS fallback: cosine similarity over the user's most recent chunks (capped). */
+  private async retrieveInJs(userId: string, queryVector: number[], topK: number): Promise<RetrievedChunk[]> {
+    const limit = ragFallbackMaxChunks();
+    const stored = await this.loadChunks(userId, { limit, maxTimeMS: RETRIEVAL_TIMEOUT_MS });
+    const scored: RetrievedChunk[] = [];
+    for (const c of (stored ?? []).slice(0, limit)) {
+      if (!c || typeof c.text !== "string" || !Array.isArray(c.embedding)) continue;
+      const score = cosineSimilarity(queryVector, c.embedding);
+      if (!Number.isFinite(score)) continue;
+      scored.push(toRetrieved(c, c.sourceId, score)); // S-7: the embedding is not copied
+    }
+    return selectRelevant(scored, { topK }); // same threshold, window and top-K as Atlas
+  }
 }
+
+function toRetrieved(r: { text: string; metadata?: StoredChunk["metadata"] }, rawSourceId: unknown, score: number): RetrievedChunk {
+  const sourceFile = r.metadata?.sourceFile ?? "Unknown";
+  const pageNumber = r.metadata?.pageNumber ?? 0;
+  const chunkIndex = r.metadata?.chunkIndex ?? 0;
+  const sourceId = rawSourceId != null ? String(rawSourceId) : "";
+  return {
+    sourceId,
+    sourceFile,
+    pageNumber,
+    chunkIndex,
+    text: r.text,
+    score,
+    metadata: { sourceFile, pageNumber, chunkIndex, sourceId },
+  };
+}
+
+/** Default fallback loader: the user's chunks, most recent first, capped at `limit`. */
+const defaultChunkLoader: ChunkLoaderFn = async (userId, { limit, maxTimeMS }) =>
+  (await mongoose
+    .model("KnowledgeChunk")
+    .find({ userId: new mongoose.Types.ObjectId(userId) }) // S-1
+    .select({ embedding: 1, text: 1, sourceId: 1, "metadata.sourceFile": 1, "metadata.pageNumber": 1, "metadata.chunkIndex": 1 })
+    .sort({ _id: -1 })
+    .limit(limit)
+    .maxTimeMS(maxTimeMS)
+    .lean()
+    .exec()) as unknown as StoredChunk[];
 
 export const ragService = new RAGService();
 
@@ -179,8 +303,9 @@ export interface SafeRetrieveOptions extends RetrieveOptions {
 }
 
 /**
- * Non-blocking RAG wrapper: any failure (embed error, Atlas down, timeout,
- * missing index) returns [] and the answer proceeds without document context.
+ * Non-blocking RAG wrapper: any failure (embed error, database down, timeout)
+ * returns [] and the answer proceeds without document context. A missing
+ * vector index or a non-Atlas deployment is handled by RAGService's JS fallback.
  *
  *   safeRetrieve(userId, query, { signal, apiKey })
  *   safeRetrieve(ragService, userId, query)          // legacy call shape
@@ -234,14 +359,9 @@ export async function safeRetrieve(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "RAG_ABORTED") return [];
-    // R-3: warn specifically when the vector index has not been created
-    if (/index|vectorSearch/i.test(msg) && msg !== "RAG_TIMEOUT") {
-      console.warn(
-        `[WUP RAG] Vector index '${VECTOR_INDEX_NAME}' may not exist. Create it in MongoDB Atlas. RAG disabled for this query.`
-      );
-    } else {
-      console.warn(`[WUP Brain] RAG retrieval skipped (${msg})`);
-    }
+    // R-3: a missing index or a non-Atlas deployment falls back to JS scoring inside retrieve(),
+    // so anything that reaches here is a real failure (embed error, timeout, database down).
+    console.warn(`[WUP Brain] RAG retrieval skipped (${msg})`);
     return [];
   } finally {
     if (timer) clearTimeout(timer);

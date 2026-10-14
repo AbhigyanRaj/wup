@@ -2,8 +2,14 @@ import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { User } from "@wup/models";
 import {
+  ANSWER_NOW_NUDGE,
   CLARIFICATION_ALREADY_ASKED,
+  CLARIFY_FALLBACK,
+  FOUND_ROWS_TEXT,
   MetaStreamFilter,
+  NO_ANSWER_TEXT,
+  buildRetryPrompt,
+  fillEmptyAnswer,
   RAN_OUT_OF_STEPS,
   applyGrounding,
   chatMaxTurns,
@@ -301,6 +307,150 @@ describe("Brain.run with a fake driver", () => {
     assert.equal(result.clarification?.question, "Which collection?");
     assert.deepEqual(result.followUps, []);
     assert.equal(result.content, "Which collection?");
+  });
+});
+
+describe("never an empty answer", () => {
+  /** Swaps mongo_find for a fake that records `rows` as a real query would. */
+  async function withFakeFind<T>(rows: Record<string, unknown>[], fn: () => Promise<T>): Promise<T> {
+    const original = WUP_TOOLS_REGISTRY.mongo_find;
+    WUP_TOOLS_REGISTRY.mongo_find = async (_args, ctx) => {
+      ctx.onQuery?.(
+        { tool: "mongo_find", connectionName: "Movies", db: "mflix", collection: "movies", query: "{}", rowCount: rows.length, truncated: false, durationMs: 1 },
+        rows
+      );
+      return { success: true, rows };
+    };
+    try {
+      return await fn();
+    } finally {
+      WUP_TOOLS_REGISTRY.mongo_find = original;
+    }
+  }
+
+  test("fillEmptyAnswer rules", () => {
+    const base = { clarification: null, visualType: "none" as const, tableData: null };
+    assert.deepEqual(fillEmptyAnswer({ ...base, content: "hi" }), { kind: "kept" });
+    assert.deepEqual(fillEmptyAnswer({ ...base, content: " ", clarification: { question: "Which?", options: [] } as any }), {
+      kind: "clarification",
+      content: "Which?",
+    });
+    assert.deepEqual(fillEmptyAnswer({ ...base, content: "", clarification: { question: "  ", options: [] } as any }), {
+      kind: "clarification",
+      content: CLARIFY_FALLBACK,
+    });
+    const table = { columns: ["a"], rows: [{ a: 1 }] };
+    assert.deepEqual(fillEmptyAnswer({ ...base, content: "\n", fallbackTable: table }), {
+      kind: "found",
+      content: FOUND_ROWS_TEXT,
+      visualType: "table",
+      tableData: table,
+    });
+    assert.deepEqual(fillEmptyAnswer({ ...base, content: "" }), { kind: "empty" });
+    assert.match(buildRetryPrompt("Q?", [], []), /^Q\?\n\nAnswer the user's question now in plain language\.$/);
+  });
+
+  test("a clarification whose question is only in the meta block becomes the content", async () => {
+    const driver = new FakeDriver("m", async (p) =>
+      p.onText(META({ type: "clarification", question: "Which collection do you mean?", options: ["movies", "comments"] }))
+    );
+    const { result, tokens } = await runCollect(makeBrain(driver, { connections: [mongoBridge] }).brain, request());
+    assert.equal(result.outcome, "complete");
+    assert.equal(result.content, "Which collection do you mean?");
+    assert.equal(result.clarification?.question, "Which collection do you mean?");
+    assert.equal(result.producedOutput, true);
+    assert.equal(tokens, "Which collection do you mean?", "the filled-in text is streamed too");
+    assert.equal(driver.loops.length, 1, "no retry");
+  });
+
+  test("an empty final turn after a query with rows says it found something and shows the table", async () => {
+    await withFakeFind([{ title: "Heat", year: 1995 }], async () => {
+      const driver = new FakeDriver("m", async (p) => {
+        await p.executeTool("mongo_find", { connectionId: mongoBridge._id, db: "mflix", collection: "movies" });
+        p.onText(META({ type: "answer", followUps: [], visualType: "none" }));
+      });
+      const { result } = await runCollect(makeBrain(driver, { connections: [mongoBridge] }).brain, request());
+      assert.equal(result.outcome, "complete");
+      assert.equal(result.content, FOUND_ROWS_TEXT);
+      assert.equal(result.visualType, "table", "none becomes table when rows exist");
+      assert.deepEqual(result.tableData?.rows, [{ title: "Heat", year: 1995 }]);
+      assert.equal(result.producedOutput, true);
+      assert.equal(driver.loops.length, 1, "no retry");
+    });
+  });
+
+  test("an empty answer with no rows is retried once without tools", async () => {
+    const driver = new FakeDriver("m", async (p, call) => {
+      if (call === 0) {
+        p.onText("  \n" + META({ type: "answer", followUps: [], visualType: "none" }));
+        return;
+      }
+      p.onText(`There are 21,349 movies.\n${META({ type: "answer", followUps: [{ label: "By year", suggestedPrompt: "Movies by year" }], visualType: "none" })}`);
+    });
+    const { result, tokens } = await runCollect(makeBrain(driver, { connections: [mongoBridge] }).brain, request());
+    assert.equal(driver.loops.length, 2);
+    const retry = driver.loops[1];
+    assert.deepEqual(retry.tools, []);
+    assert.equal(retry.maxTurns, 1);
+    assert.ok(retry.prompt.startsWith("How many movies?"));
+    assert.ok(retry.prompt.endsWith(ANSWER_NOW_NUDGE));
+    assert.deepEqual(retry.system, driver.loops[0].system);
+    assert.equal(result.outcome, "complete");
+    assert.equal(result.content, "There are 21,349 movies.");
+    assert.deepEqual(result.followUps.map((f) => f.label), ["By year"]);
+    assert.equal(result.producedOutput, true);
+    assert.ok(tokens.includes("There are 21,349 movies."));
+    assert.ok(!tokens.includes("WUP_META"));
+    assert.deepEqual(result.usage, { tokensIn: 20, tokensOut: 10 }, "both turns are counted");
+  });
+
+  test("the retry prompt notes the queries that ran", async () => {
+    await withFakeFind([], async () => {
+      const driver = new FakeDriver("m", async (p, call) => {
+        if (call === 0) await p.executeTool("mongo_find", { connectionId: mongoBridge._id, db: "mflix", collection: "movies" });
+        else p.onText("No movies matched.");
+      });
+      const { result } = await runCollect(makeBrain(driver, { connections: [mongoBridge] }).brain, request());
+      assert.match(driver.loops[1].prompt, /mongo_find on Movies \/ movies: 0 row\(s\)/);
+      assert.equal(result.content, "No movies matched.");
+    });
+  });
+
+  test("still empty after the retry: the fallback text and producedOutput false", async () => {
+    const driver = new FakeDriver("m", async () => {});
+    const { result, tokens } = await runCollect(makeBrain(driver).brain, request());
+    assert.equal(driver.loops.length, 2, "exactly one retry");
+    assert.equal(result.outcome, "complete");
+    assert.equal(result.content, NO_ANSWER_TEXT);
+    assert.equal(result.producedOutput, false, "the API refunds the quota");
+    assert.equal(tokens, NO_ANSWER_TEXT);
+  });
+
+  test("a failing retry also ends with the fallback text, not an error", async () => {
+    const { LlmError } = await import("../src/ai/driver");
+    const driver = new FakeDriver("m", async (_p, call) => {
+      if (call === 1) throw new LlmError("PROVIDER_ERROR", "boom", 500);
+    });
+    const { result } = await runCollect(makeBrain(driver).brain, request());
+    assert.equal(result.outcome, "complete");
+    assert.equal(result.content, NO_ANSWER_TEXT);
+    assert.equal(result.producedOutput, false);
+  });
+
+  test("a non-empty answer is never retried, and stopped turns are left alone", async () => {
+    const d1 = new FakeDriver("m", async (p) => p.onText("ok"));
+    await runCollect(makeBrain(d1).brain, request());
+    assert.equal(d1.loops.length, 1);
+
+    const ctl = new AbortController();
+    const d2 = new FakeDriver("m", async (p) => {
+      ctl.abort();
+      return waitForAbort(p.signal);
+    });
+    const { result } = await runCollect(makeBrain(d2).brain, request(), ctl.signal);
+    assert.equal(result.outcome, "stopped");
+    assert.equal(result.content, "");
+    assert.equal(d2.loops.length, 1);
   });
 });
 

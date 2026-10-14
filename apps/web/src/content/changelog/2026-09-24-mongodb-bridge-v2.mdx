@@ -1,0 +1,39 @@
+export const metadata = {
+  title: "MongoDB bridge v2: schema-aware and read-only",
+  description: "A rebuilt MongoDB bridge: test before saving, pick collections, auto-hide sensitive fields, read-only tools with hard limits and the exact queries shown.",
+  date: "2026-09-24",
+  author: "abhigyan-raj",
+  tags: ["Release"],
+  primaryKeyword: "mongodb bridge read-only ai",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+The MongoDB bridge was rebuilt from the ground up. It now learns your schema before the first question, only reads the collections you choose, hides sensitive fields from the model, and shows exactly which queries produced each answer. Charts and tables are built from the rows those queries returned.
+
+## Connecting
+
+- **Connect wizard**: test the connection before saving, pick databases and collections, review the fields that will be hidden, then save.
+- **Background schema scan** samples each collection for field paths, types and counts, and writes a few starter questions for your data.
+- **Bridge details**: status, schema, hidden fields, refresh, rename and delete in one drawer.
+- Fixed bridges whose URL had no database name, which used to query an empty default database.
+
+## Querying
+
+- **Six read-only tools**: list sources, describe a collection, `find`, `count`, `distinct` and `aggregate`, using Extended JSON for dates and ObjectIds.
+- **Hard limits**: 100 rows and 10 seconds per query, with write stages such as `$out` and `$merge` and server-side JavaScript blocked.
+- **Scope and ownership**: each chat chooses its bridges, and every query is checked against the bridge owner and its collection scope.
+- **Auto-redaction**: fields like password, token and jwt are hidden by default and editable per collection.
+- **Queries used**: each answer lists the queries it ran, and charts and tables come from those real rows.
+
+## Models
+
+- Tool calling now works with OpenAI, OpenRouter and Anthropic keys, not only Gemini, so your own key can query your data.
+- Gemini uses a rotation of current models.
+
+## Read more
+
+- [Connect MongoDB](/docs/connect-mongodb)
+- [Scopes and redaction](/docs/scopes-and-redaction)
+- [Query MongoDB in plain English](/guides/query-mongodb-in-plain-english)

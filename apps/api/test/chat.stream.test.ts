@@ -12,6 +12,7 @@ import { Chat, Message, User } from "@wup/models";
 import { inflightSize } from "../src/lib/inflight";
 import { createApp } from "../src/app";
 import { encryptApiKey } from "../src/services/llmCredentials";
+import { EMPTY_ANSWER_TEXT, FOUND_ROWS_TEXT, ensureAnswerContent } from "../src/controllers/chat/persist";
 import {
   FakeBrain,
   baseResult,
@@ -128,6 +129,48 @@ describe("send message stream", () => {
     assert.equal(msg.ragSources[0].sourceFile, "report.pdf");
     assert.equal(msg.ragSources[0].pageNumber, 2);
     assert.equal(msg.webSources[0].url, "https://example.com");
+  });
+
+  test("an empty complete answer is never stored or sent empty, and the quota is refunded", async () => {
+    const { auth, id } = await makeUser({ freeTierUsage: 0, freeTierLimit: 3 });
+    const chat = await createChat(app, auth, { title: "Empty" });
+    brain.script = () => baseResult({ content: "   ", producedOutput: true });
+    const { events } = await postSse(app, `/chats/${chat.id}/messages`, auth, { content: "Hi" });
+    const done = events.at(-1);
+    assert.equal(done.type, "done");
+    assert.equal(done.message.assistantMessage.content, EMPTY_ANSWER_TEXT);
+    const msg: any = await Message.findById(done.message.assistantMessage.id).lean();
+    assert.equal(msg.content, EMPTY_ANSWER_TEXT);
+    assert.equal(msg.status, "complete");
+    const user: any = await User.findById(id).lean();
+    assert.equal(user.freeTierUsage, 0, "nothing useful was produced: refunded");
+  });
+
+  test("an empty answer with a clarification stores the question as the content", async () => {
+    const { auth } = await makeUser();
+    const chat = await createChat(app, auth, { title: "Clarify" });
+    brain.script = () =>
+      baseResult({ content: "", clarification: { question: "Which year?", options: ["2024", "2025"], allowFreeText: true } });
+    const { events } = await postSse(app, `/chats/${chat.id}/messages`, auth, { content: "Revenue?" });
+    const done = events.at(-1);
+    assert.equal(done.message.assistantMessage.content, "Which year?");
+    assert.equal(done.message.clarification.question, "Which year?");
+    const msg: any = await Message.findById(done.message.assistantMessage.id).lean();
+    assert.equal(msg.content, "Which year?");
+  });
+
+  test("ensureAnswerContent rules", () => {
+    assert.deepEqual(ensureAnswerContent("complete", " Hi ", null), { content: "Hi", refund: false });
+    assert.deepEqual(ensureAnswerContent("complete", "", { tableData: { columns: ["a"], rows: [{ a: 1 }] } } as any), {
+      content: FOUND_ROWS_TEXT,
+      refund: false,
+    });
+    assert.deepEqual(ensureAnswerContent("complete", "", { clarification: { question: " ", options: [] } } as any), {
+      content: "Could you clarify what you need?",
+      refund: false,
+    });
+    assert.deepEqual(ensureAnswerContent("complete", "\n", null), { content: EMPTY_ANSWER_TEXT, refund: true });
+    assert.deepEqual(ensureAnswerContent("stopped", "", null), { content: "", refund: false }, "a stopped turn may be empty");
   });
 
   test("a brain error emits an error event and persists an error message", async () => {

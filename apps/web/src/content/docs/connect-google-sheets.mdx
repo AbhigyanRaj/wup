@@ -1,0 +1,80 @@
+export const metadata = {
+  title: "Connect Google Sheets to wuup",
+  description: "Share a Google Sheet with wuup's read-only service account, paste the link and ask questions about its tabs in plain English, with charts built from real rows.",
+  h1: "Connect Google Sheets",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Google Sheets"],
+  primaryKeyword: "connect google sheets to ai",
+  status: "published",
+  priority: "P0",
+  group: "Connect data",
+  order: 12,
+  navLabel: "Connect Google Sheets",
+  related: ["/chat-with-google-sheets", "/guides/chat-with-google-sheets-methods", "/docs/troubleshooting"],
+  og: { eyebrow: "Docs" },
+}
+
+To connect a Google Sheet to wuup, share the sheet with wuup's service account email as a **Viewer**, then paste the sheet's link in **Data**. wuup reads it with Google's read-only Sheets scope, so it can never edit, delete or reshare anything. You do not sign in with your Google account and wuup gets no access to the rest of your Drive: it can only open sheets you have explicitly shared with that one service account address.
+
+## How access works
+
+wuup reads sheets through a Google Cloud service account, a robot account with its own email address. The app shows the address on the Google Sheets connect screen, with a copy button.
+
+- The service account uses the `spreadsheets.readonly` scope. It can read cell values and tab names, nothing else.
+- It only sees sheets that someone has shared with its address. Sharing one sheet does not expose any other file.
+- To revoke access, remove the service account from the sheet's **Share** dialog. wuup loses access immediately, even if the bridge still exists.
+
+## Connect a sheet
+
+<Steps>
+
+1. In wuup, open **Data**, choose **Connect a source**, then **Google Sheets**. Copy the service account email shown on the screen.
+2. In Google Sheets, choose **Share**, paste the email, set the role to **Viewer**, untick "Notify people" and choose **Share**.
+3. Back in wuup, paste the sheet's full URL from your browser's address bar (it contains `/spreadsheets/d/`). A bare spreadsheet ID also works.
+4. Choose **Test connection**. wuup shows the spreadsheet title and its tabs with row counts and header rows.
+5. Name the bridge and save.
+
+</Steps>
+
+<Callout type="note" title="Header rows matter">
+
+wuup treats the first row of each range as column headers and turns every other row into a record. A sheet with one clean header row per tab gives the best answers. Merged title rows above the headers confuse the column names.
+
+</Callout>
+
+## Ask questions
+
+Select the sheet bridge in a chat and ask as you would about any table:
+
+```text
+Which region had the highest revenue in Q3, and how does it compare with Q2?
+```
+
+The model first lists the tabs, then reads the range it needs. If it does not name a range, wuup reads `A1:Z100` of the tab. Numeric-looking cells are converted to numbers, so totals and charts use real values. Charts and tables in the answer are built from the rows wuup read, and the read appears under **Queries used**.
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| Rows per read | 500 data rows after the header |
+| Result size per read | 50 KB |
+| Tabs listed per sheet | 50 |
+| Default range | `A1:Z100` |
+
+For a large sheet, ask about a specific tab or column range, or ask the question in steps. wuup reads values as displayed in the sheet, not formulas.
+
+## Common errors
+
+- **"Share the sheet with ... as a Viewer"** (`SHEETS_NOT_SHARED`): Google refused access because the sheet is not shared with the service account. Share it, then test again.
+- **"We couldn't find that spreadsheet. Check the link."**: the ID in the link is wrong, or the file was deleted.
+- **"That doesn't look like a Google Sheets link."**: paste the full URL from the browser, not a Drive folder link.
+- **"That tab or range doesn't exist in this spreadsheet."**: the tab was renamed or the range is invalid. Refresh the bridge or ask again with the current tab name.
+- **"Google Sheets isn't set up on this server yet."** (`SHEETS_NOT_CONFIGURED`): the server has no service account configured. This only affects self-hosted setups.
+
+More fixes are in [Troubleshooting](/docs/troubleshooting).
+
+## Privacy
+
+wuup stores the sheet link encrypted, along with the tab names and header rows it found. Cell values are read when a question needs them, and the rows an answer used are saved in that chat's history. Our [privacy policy](/privacy) includes the Google API Services User Data Policy statement for Sheets data.

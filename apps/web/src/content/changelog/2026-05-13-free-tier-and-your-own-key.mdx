@@ -1,0 +1,24 @@
+export const metadata = {
+  title: "Free tier and bring your own API key",
+  description: "Every account now starts with 50 free questions on Gemini, and you can add your own API key to keep asking with no limit and no charge from wuup.",
+  date: "2026-05-13",
+  author: "abhigyan-raj",
+  tags: ["Release"],
+  primaryKeyword: "free tier bring your own key",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+wuup now runs on a simple hybrid model. New accounts get 50 free questions answered by Gemini, with no card required. When you want more, add your own API key and keep going: questions asked with your key are not counted against any wuup limit, and wuup does not charge for them. Your provider bills you directly.
+
+## What shipped
+
+- **Free tier**: a usage counter per account, shown in the app, with 50 questions included.
+- **Your own key**: add a Gemini API key from settings. wuup checks it by fetching the list of models it can use before saving it.
+- **Model list**: the ask bar shows the models your key can access, so you can pick one per question.
+- A clear message when the free questions run out, pointing to the key settings.
+
+## Since then
+
+The next releases added OpenAI, Anthropic and OpenRouter keys, masked key display and key deletion. See [Bring your own key](/docs/byok-setup) for the current setup, and [BYOK explained](/guides/byok-explained) for when it makes sense.

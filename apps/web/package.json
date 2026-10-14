@@ -47,8 +47,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "shiki": "^4.5.0",
-    "sonner": "^2.0.8",
-    "@wup/supabase": "file:../../packages/supabase"
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -1,0 +1,271 @@
+export const metadata = {
+  title: "Infer a MongoDB schema from your documents",
+  description: "Four ways to infer a MongoDB schema from existing documents: a $sample type report, a nested-field script, the Compass Schema tab and a $jsonSchema validator.",
+  h1: "How to infer a MongoDB schema from your documents",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["MongoDB", "Schema", "Data quality"],
+  primaryKeyword: "infer mongodb schema from documents",
+  status: "published",
+  priority: "P1",
+  related: [
+    "/tools/mongodb-schema-from-json",
+    "/guides/sql-to-mongodb-cheat-sheet",
+    "/guides/query-mongodb-in-plain-english",
+    "/docs/scopes-and-redaction",
+    "/chat-with-mongodb",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+MongoDB does not store a schema for a collection, so you infer one by reading documents. Take a random sample with `$sample`, walk every field path, and record two things per path: which BSON types appear and in what share of documents the field is present. A short aggregation does this for top-level fields. A small script handles nested objects and arrays. MongoDB Compass shows the same analysis in its Schema tab, and its JSON Schema export can become a `$jsonSchema` validator. This guide covers all four approaches, with code tested on MongoDB 8.2.
+
+## What an inferred schema should tell you
+
+A useful schema report answers three questions for every field path:
+
+1. **Which types does it hold?** `total` might be an `int` in most documents and a `string` in a few written by an old importer. Queries that compare numbers silently skip those documents.
+2. **How often is it present?** A field present in 40% of documents is optional, whatever the application code assumes. In SQL terms, every MongoDB field is nullable and may also be missing.
+3. **What is nested where?** Paths such as `items.price` (inside an array of objects) or `address.city` (inside an embedded object) decide how you write filters and whether you need `$unwind`.
+
+The examples below use a `shop` database whose `orders` collection has 40 documents. Each order has scalar fields (`orderNo`, `status`, `total`), a date (`createdAt`), an ObjectId reference (`customerId`), an array of line items and an optional `couponCode`.
+
+## Method 1: a type report with $sample and $objectToArray
+
+This pipeline samples up to 1,000 documents, turns each one into key and value pairs, and counts how many documents contain each field and with which types:
+
+```mongosh
+db.orders.aggregate([
+  { $sample: { size: 1000 } },
+  { $project: { fields: { $objectToArray: "$$ROOT" } } },
+  { $unwind: "$fields" },
+  { $group: {
+      _id: "$fields.k",
+      docs: { $sum: 1 },
+      types: { $addToSet: { $type: "$fields.v" } }
+  } },
+  { $sort: { docs: -1, _id: 1 } }
+])
+```
+
+On the sample collection it returns one row per top-level field:
+
+| `_id` (field) | `docs` | `types` |
+| --- | --- | --- |
+| `_id` | 40 | objectId |
+| `channel`, `city`, `status`, `paymentToken` | 40 | string |
+| `createdAt` | 40 | date |
+| `customerId` | 40 | objectId |
+| `items` | 40 | array |
+| `orderNo`, `total` | 40 | int |
+| `couponCode` | 16 | string, null |
+
+Divide `docs` by the sample size to get presence. `couponCode` appears in 16 of 40 documents (40%), and when present it is sometimes `null`. That distinction matters for queries, as the [SQL to MongoDB cheat sheet](/guides/sql-to-mongodb-cheat-sheet) explains.
+
+How the stages work:
+
+- `$sample` picks documents at random. When `$sample` is the first stage, `size` is less than 5% of the collection and the collection has more than 100 documents, MongoDB uses an efficient random cursor instead of sorting the whole collection. A sample of 1,000 is usually enough to see every common field. Rare fields (say, in 0.01% of documents) can be missed, so raise the size for a final check.
+- `$objectToArray` with `$$ROOT` converts the whole document into an array of `{ k, v }` pairs.
+- `$type` returns the BSON type name: `"int"`, `"long"`, `"double"`, `"decimal"`, `"string"`, `"date"`, `"objectId"`, `"null"` and so on. It tells apart the numeric types that most drivers hide.
+
+To look one level down into an array of objects, unwind the array first:
+
+```mongosh
+db.orders.aggregate([
+  { $sample: { size: 1000 } },
+  { $unwind: "$items" },
+  { $project: { fields: { $objectToArray: "$items" } } },
+  { $unwind: "$fields" },
+  { $group: { _id: "$fields.k", types: { $addToSet: { $type: "$fields.v" } }, n: { $sum: 1 } } },
+  { $sort: { _id: 1 } }
+])
+```
+
+Here every line item has `category`, `name`, `price`, `qty` and `sku`, with the numbers stored as `int`. For a single field you suspect is inconsistent, a direct count by type is the quickest check:
+
+```mongosh
+db.orders.aggregate([
+  { $group: { _id: { $type: "$total" }, n: { $sum: 1 } } }
+])
+```
+
+A clean collection returns one row (here `int: 40`). Two rows such as `int` and `string` mean some of your sums and range filters are wrong.
+
+## Method 2: a script that walks nested fields
+
+The aggregation approach gets unwieldy past one level of nesting. A short Node.js script with the official driver can walk every path to a fixed depth, including objects inside arrays:
+
+```js
+import { MongoClient } from "mongodb";
+
+const client = new MongoClient(process.env.MONGODB_URI);
+const SAMPLE_SIZE = 1000;
+const MAX_DEPTH = 3;
+
+function typeOf(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  if (value instanceof Date) return "date";
+  if (value._bsontype) return value._bsontype.toLowerCase();
+  return typeof value; // "string", "number", "boolean", "object"
+}
+
+const stats = new Map(); // path -> { types: Set, docs: number }
+
+function walk(doc, prefix, depth, seen) {
+  for (const [key, value] of Object.entries(doc)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const entry = stats.get(path) ?? { types: new Set(), docs: 0 };
+    entry.types.add(typeOf(value));
+    if (!seen.has(path)) {
+      seen.add(path);
+      entry.docs++;
+    }
+    stats.set(path, entry);
+    if (depth >= MAX_DEPTH) continue;
+    if (typeOf(value) === "object") walk(value, path, depth + 1, seen);
+    if (Array.isArray(value)) {
+      for (const item of value) if (typeOf(item) === "object") walk(item, path, depth + 1, seen);
+    }
+  }
+}
+
+try {
+  const docs = await client
+    .db("shop")
+    .collection("orders")
+    .aggregate([{ $sample: { size: SAMPLE_SIZE } }])
+    .toArray();
+  for (const doc of docs) walk(doc, "", 1, new Set());
+
+  const rows = [...stats]
+    .map(([path, s]) => ({
+      path,
+      types: [...s.types].sort().join(" | "),
+      present: `${Math.round((100 * s.docs) / docs.length)}%`,
+    }))
+    .sort((a, b) => parseInt(b.present) - parseInt(a.present) || a.path.localeCompare(b.path));
+  console.table(rows);
+} finally {
+  await client.close();
+}
+```
+
+Save it as `schema.mjs` and run `MONGODB_URI="mongodb+srv://..." node schema.mjs`. For the sample collection it prints 16 paths, including `items.category`, `items.price`, `items.qty` and `items.sku` at 100%, and `couponCode` as `null | string` at 40%.
+
+A few details matter:
+
+- **Presence is counted once per document.** The `seen` set stops an array with five items from counting `items.sku` five times.
+- **Depth is capped.** Deeply nested documents (event payloads, raw API responses) can produce thousands of paths. Three levels covers most application data.
+- **Numbers collapse.** The Node driver returns `int`, `long` and `double` values as plain JavaScript numbers, so this script reports them all as `number`. Use the `$type` aggregation from Method 1 when you need to tell them apart.
+- **Reads only.** The script never writes, so a database user with the built-in `read` role is enough. The [read-only user guide](/guides/mongodb-read-only-user) shows how to create one.
+
+The same logic runs in mongosh if you replace the import and client lines with `db.getSiblingDB("shop")`. Drop the `await` keywords, which mongosh does not need at the top level, and print the rows with `printjson`.
+
+<ToolCta
+  href="/tools/mongodb-schema-from-json"
+  title="Paste documents, get a schema"
+  description="Paste a few sample documents and see the field paths and types they share. Free, no sign-up."
+/>
+
+## Method 3: the Compass Schema tab
+
+If you prefer a UI, [MongoDB Compass](https://www.mongodb.com/docs/compass/current/schema/) has a Schema tab on every collection. According to the Compass documentation, it [samples 1,000 documents with `$sample`](https://www.mongodb.com/docs/compass/current/sampling/), or a sample of the documents matching a filter you type in the query bar. For each field it shows:
+
+- The percentage breakdown of types (for example 80% `string` and 20% `int32`), with missing values shown as `undefined`.
+- Value distributions: histograms for numbers and repeated strings, day-of-week and time-of-day charts for dates, and minimum, maximum and average lengths for arrays.
+- An expandable view for embedded documents and arrays of documents.
+
+Compass can also [export the analysed schema](https://www.mongodb.com/docs/compass/current/schema/export/) in three formats: Standard JSON Schema, MongoDB format (a `$jsonSchema` document using `bsonType`) and an Expanded format with probabilities and sample values. The MongoDB format is a good first draft for a validator, which is the next step.
+
+## Method 4: turn the inferred schema into a $jsonSchema validator
+
+An inferred schema describes what is there today. A validator stops new documents from drifting. After reviewing the report, encode the rules you want to keep:
+
+```mongosh
+db.createCollection("orders_v2", {
+  validator: { $jsonSchema: {
+    bsonType: "object",
+    required: ["orderNo", "customerId", "status", "createdAt", "items", "total"],
+    properties: {
+      orderNo: { bsonType: "number" },
+      customerId: { bsonType: "objectId" },
+      status: { enum: ["pending", "paid", "shipped", "delivered", "refunded"] },
+      channel: { enum: ["web", "app"] },
+      createdAt: { bsonType: "date" },
+      total: { bsonType: "number", minimum: 0 },
+      couponCode: { bsonType: ["string", "null"] },
+      items: {
+        bsonType: "array",
+        minItems: 1,
+        items: {
+          bsonType: "object",
+          required: ["sku", "qty", "price"],
+          properties: {
+            sku: { bsonType: "string" },
+            qty: { bsonType: "number", minimum: 1 },
+            price: { bsonType: "number", minimum: 0 }
+          }
+        }
+      }
+    }
+  } },
+  validationLevel: "strict",
+  validationAction: "error"
+})
+```
+
+`bsonType: "number"` is an alias that accepts `int`, `long`, `double` and `decimal`. That matters because mongosh writes a plain `1001` as a `double`, while many drivers write it as an `int`. `couponCode` is optional (not in `required`) but must be a string or `null` when present.
+
+For an existing collection with years of data, start gently with `collMod`:
+
+```mongosh
+db.runCommand({
+  collMod: "orders",
+  validator: { $jsonSchema: {
+    bsonType: "object",
+    required: ["orderNo", "status", "createdAt", "total"],
+    properties: {
+      status: { enum: ["pending", "paid", "shipped", "delivered", "refunded"] },
+      total: { bsonType: "number", minimum: 0 }
+    }
+  } },
+  validationLevel: "moderate",
+  validationAction: "warn"
+})
+```
+
+`validationLevel: "moderate"` skips updates to documents that already break the rules, and `validationAction: "warn"` logs violations instead of rejecting writes. Watch the logs, fix the offending writers, then switch to `"strict"` and `"error"`.
+
+## How wuup infers your schema
+
+When you [connect MongoDB to wuup](/docs/connect-mongodb), it runs the same kind of inference in the background, so the AI knows your field names before you ask anything. Here is exactly what the scan does:
+
+- **Samples 100 documents per in-scope collection** with `$sample`. It falls back to the first 100 documents if `$sample` is unavailable, and views are read with a plain `find()`. Each scan reads up to 100 collections, with a 10 second limit per read.
+- **Walks fields up to 3 levels deep**, including objects inside arrays, and keeps up to 60 field paths per collection, the most frequently present first.
+- **Records types and presence** per path (for example `couponCode: string, null, 40%`), plus the collection's indexes and document count.
+- **Hides sensitive fields automatically.** Any field whose name matches patterns such as `password`, `token`, `secret`, `api_key`, `ssn`, `cvv`, `otp`, `hash` or `card_number` is hidden, and so is any binary field such as an embedding. In the sample collection that means `paymentToken`. You can review and edit the hidden list per collection. Sample values for hidden fields are never stored. See [scopes and redaction](/docs/scopes-and-redaction).
+- **Re-scans** when you change the scope or press refresh.
+
+Because hidden fields must stay hidden, wuup's query guard treats schema inference queries specially. `$jsonSchema` is refused in every query, since it can probe for the existence of fields. `$objectToArray` and `$arrayToObject` are refused on any database with hidden fields, since they enumerate field names dynamically. Method 1 above would therefore be rejected by wuup on a collection with hidden fields. That is deliberate: the scan already gives the model the field list, without exposing hidden values.
+
+The result is that when you ask "which customers ordered more than three times last month", the model already knows that `customerId` is an ObjectId and `createdAt` is a date, and writes a correct filter on the first attempt. The [plain-English querying guide](/guides/query-mongodb-in-plain-english) walks through that flow, and [chat with MongoDB](/chat-with-mongodb) is where you try it.
+
+## FAQ
+
+### How many documents should I sample?
+
+For a type and presence report, 1,000 random documents catch every field that appears in more than a fraction of a percent of documents. If a field matters even when rare (a legacy flag, a migration marker), run a targeted query such as `db.orders.countDocuments({ legacyFlag: { $exists: true } })` instead of relying on the sample.
+
+### Can I get a schema without reading any documents?
+
+Partly. If the collection already has a validator, `db.getCollectionInfos({ name: "orders" })` returns it under `options.validator`. Indexes (`db.orders.getIndexes()`) also hint at important fields. Neither tells you what the data actually contains, so sample anyway.
+
+### Does $sample affect performance on large collections?
+
+`$sample` as the first stage, with a size under 5% of a collection of more than 100 documents, uses a random cursor and reads only the sampled documents. Larger sizes, or `$sample` after other stages, make MongoDB scan and sort, which is expensive on big collections. Run inference against a secondary or an analytics node if you can.
+
+### What about schemas for many collections at once?
+
+Loop over `db.getCollectionNames()` and run the Method 2 script per collection, skipping `system.*` collections and views you do not need. For dozens of collections, store the results in a file and compare runs over time to catch drift.

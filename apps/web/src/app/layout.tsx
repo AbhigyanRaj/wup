@@ -1,59 +1,41 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import localFont from "next/font/local";
+import { DM_Mono, Figtree, Newsreader } from "next/font/google";
+import { rootMetadata, rootViewport } from "@/lib/seo";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/*
+ * Fonts. Each exposes a CSS variable consumed by src/styles/tokens.css and the
+ * Tailwind theme (font-sans / font-display / font-mono).
+ * Figtree loads as a variable font (no `weight`), so the kit's 425 / 525 weights
+ * are applied in CSS. Passing custom weights like "425" to next/font throws.
+ */
+const figtree = Figtree({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-/* Custom display fonts from assets */
-const fontDisplay = localFont({
-  src: "../../public/fonts/font-1.otf",
-  variable: "--font-display",
+  variable: "--font-figtree",
   display: "swap",
 });
 
-const fontDisplay2 = localFont({
-  src: "../../public/fonts/font-2.otf",
-  variable: "--font-display-2",
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
   display: "swap",
 });
 
-import { AuthProvider } from "@/components/auth-context";
-import { ThemeProvider } from "@/components/theme-provider";
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-dm-mono",
+  display: "swap",
+});
 
-export const metadata: Metadata = {
-  title: "Wuup | AI Data Intelligence",
-  description: "AI-powered data intelligence platform",
-  icons: {
-    icon: "/logo.png",
-  },
-};
+export const metadata = rootMetadata;
+export const viewport = rootViewport;
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`light ${geistSans.variable} ${geistMono.variable} ${fontDisplay.variable} ${fontDisplay2.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <ThemeProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
-      </body>
+    <html lang="en" className={`${figtree.variable} ${newsreader.variable} ${dmMono.variable}`}>
+      <body className="bg-bg text-tx font-sans antialiased">{children}</body>
     </html>
   );
 }

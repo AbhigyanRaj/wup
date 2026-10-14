@@ -1,0 +1,146 @@
+export const metadata = {
+  title: "5 ways to chat with Google Sheets (compared)",
+  description: "Gemini in Sheets, add-ons, CSV uploads to ChatGPT or Claude, Apps Script and a hosted analyst: how each way to chat with Google Sheets works and what it costs.",
+  h1: "5 ways to chat with Google Sheets,\ncompared",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Google Sheets", "Comparison", "AI and data"],
+  primaryKeyword: "chat with google sheets",
+  status: "published",
+  priority: "P0",
+  related: ["/chat-with-google-sheets", "/docs/connect-google-sheets", "/guides/ask-questions-across-pdfs-and-spreadsheets", "/guides/best-ai-data-analyst-tools", "/guides/why-ai-data-answers-hallucinate"],
+  og: { eyebrow: "Guide" },
+}
+
+To chat with Google Sheets you have five practical options: Gemini inside Sheets (the side panel and the `=AI()` function), a Workspace Marketplace add-on, exporting a CSV into ChatGPT or Claude, an Apps Script that calls an LLM API, or a hosted analyst such as [wuup](/chat-with-google-sheets) that reads the live sheet through a read-only connection. They differ on four things that matter more than the model behind them: whether the answer uses live data, how many rows the AI actually sees, where your data goes, and what you pay. This guide walks through each, with the limits we could verify as of October 2026.
+
+## Pick by the job, then compare
+
+- **"I need a quick chart from the sheet I have open."** Gemini side panel, if your plan includes it.
+- **"I need to label or extract text in every row."** `=AI()` or an add-on. A chat window is the wrong shape for this job.
+- **"I have a 40 MB export and one big question."** Upload the CSV to ChatGPT or Claude.
+- **"I want the same question answered every Monday from new rows."** Apps Script with the numbers computed in code, or a hosted analyst.
+- **"Finance needs to check where every number came from."** Pick a method that shows the exact range or query it read. In our comparison of [AI data analyst tools](/guides/best-ai-data-analyst-tools), that transparency is one of the main criteria.
+
+| Method | Setup | Live data | What the AI sees | Privacy | Cost |
+| --- | --- | --- | --- | --- | --- |
+| Gemini in Sheets | None on eligible plans | Yes, the open file | Open spreadsheet, plus Drive and Gmail if you ask | Stays in Google Workspace | Included in eligible Workspace or Google AI plans |
+| Marketplace add-on | Install, grant access | Yes | Cells you pass to its formulas | Data goes to the add-on vendor and its model provider | Vendor pricing, often credits or a subscription |
+| CSV to ChatGPT or Claude | Download, upload | No, a snapshot | The uploaded file | A copy lives in your chat account | Free tiers with caps, paid plans for more |
+| Apps Script plus LLM API | Write and maintain code | Yes | Whatever your script sends | Data goes to the API provider you call | API tokens, plus your time |
+| Hosted analyst (wuup) | Share the sheet as Viewer | Yes, read per question | Up to 500 rows per read, as named tab and range | Read-only access; rows go to the model you use | 50 free questions, or bring your own key |
+
+## Method 1: Gemini in Google Sheets
+
+Google ships two Gemini features in Sheets.
+
+**The Gemini side panel.** Click "Ask Gemini" at the top right of a spreadsheet and type a request. According to [Google's help page](https://support.google.com/docs/answer/14356410?hl=en), the panel can create tables and formulas, generate analysis and insights, build charts, create pivot tables and apply actions such as conditional formatting and filters. It reads the open spreadsheet, you can limit it to specific tabs, and it can pull from your Drive files and Gmail when you ask. It searches the web only when your prompt says so.
+
+**The `=AI()` function.** Type `=AI("prompt", range)` (or `=Gemini(...)`, which behaves the same) to generate text per cell. Google's [AI function help page](https://support.google.com/docs/answer/15877199?hl=en) lists the limits: responses are text only, the function cannot see the whole spreadsheet or other Drive files (only the range you pass), it cannot be nested inside other functions such as `IF`, and only the first 350 selected cells are generated per batch, with short and long term generation limits on top. Google's [June 2025 announcement](https://workspaceupdates.googleblog.com/2025/06/generate-data-with-gemini-in-google-sheets.html) listed eligibility as Business Standard and Plus, Enterprise Standard and Plus, the Gemini Education add-ons, and Google AI Pro and Ultra; it gave a 200-cell batch at launch, which the help page has since raised.
+
+**Good for:** quick analysis of the file in front of you, formulas, charts and pivot tables, and per-row text generation.
+
+**Watch for:** answers about one file at a time, generated charts that do not update when the data changes (Google notes this in its help pages), and plan eligibility. If your account is not on an eligible plan, the features simply do not appear.
+
+## Method 2: an add-on from the Workspace Marketplace
+
+The [Google Workspace Marketplace](https://workspace.google.com/marketplace) has a whole category of AI add-ons that put LLM functions into Sheets. A widely used example is GPT for Sheets from GPT for Work. Its [FAQ](https://gptforwork.com/help/gpt-for-sheets/faq) describes usage-based pricing (buy credits and consume them) and subscription plans, and says you need your own API key on the subscription plans but not with prepaid packs.
+
+Most add-ons in this category work the same way: they add custom functions that you fill down a column, so each row becomes one prompt. That is a good fit for bulk text work (categorise 2,000 support tickets, extract company names from notes). It is a weaker fit for analytical questions such as "which region grew fastest last quarter", because a per-cell function never sees the whole table at once.
+
+**Before you install one:** read the scopes on the install screen. Many add-ons request access to all of your spreadsheets, not just the current one, and the data you send flows to the vendor and then to its model provider. Check the vendor's privacy page and data retention policy.
+
+## Method 3: export a CSV to ChatGPT or Claude
+
+Download the tab as CSV (File, Download, Comma separated values) and upload it to a chat assistant. Both major assistants run code against the file, so they can compute sums and group-bys instead of guessing.
+
+- **ChatGPT:** OpenAI's [file uploads FAQ](https://help.openai.com/en/articles/8555545-file-uploads-faq) puts spreadsheets at roughly 50 MB depending on row size, with a 512 MB hard cap per file and lower upload limits on the free plan.
+- **Claude:** Anthropic's [upload guide](https://support.claude.com/en/articles/8241126-what-kinds-of-documents-can-i-upload-to-claude) allows files up to 500 MB and 20 files per chat. CSV works out of the box; XLSX needs code execution and file creation turned on in your settings.
+
+**Good for:** one-off deep dives on large exports, and joining a few files in one conversation.
+
+**Watch for:** the answer is about a snapshot. When the sheet changes, you export again. A copy of your data now lives in your chat account under that provider's retention rules, and on workplace data that may need sign-off. You also cannot easily repeat the same question next week against new rows without redoing the upload.
+
+## Method 4: Apps Script calling an LLM API
+
+If you are comfortable with code, Apps Script can read a range and send it to any model API with `UrlFetchApp`. This example sends a small range to the Gemini API and writes the answer into a cell. Store the key in Script Properties, never in the code.
+
+```js
+// Extensions > Apps Script. Set GEMINI_API_KEY in Project Settings > Script Properties.
+function askSheet() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Orders");
+  const rows = sheet.getRange("A1:E201").getValues(); // header + 200 rows
+  const csv = rows.map((r) => r.join(",")).join("\n");
+
+  const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  const body = {
+    contents: [{
+      parts: [{ text: "Using only this CSV, which region had the highest total revenue?\n\n" + csv }],
+    }],
+  };
+
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-goog-api-key": key },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true,
+  });
+  const json = JSON.parse(res.getContentText());
+  const answer = json.candidates?.[0]?.content?.parts?.[0]?.text ?? res.getContentText();
+  sheet.getRange("G1").setValue(answer);
+}
+```
+
+Google's [Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas) apply: 20,000 URL Fetch calls per day on consumer accounts and 100,000 on Workspace, 6 minutes per script execution, 30 seconds for custom functions, and 50 MB per fetch response.
+
+**Good for:** a fixed, repeated job (a weekly summary written into a cell) where you control exactly which rows leave the sheet.
+
+**Watch for:** the model still does the arithmetic in its head unless you compute the numbers in the script first. Pasting 200 rows into a prompt and asking for a total invites the kind of errors we explain in [why AI data answers hallucinate](/guides/why-ai-data-answers-hallucinate). You also own error handling, key rotation and prompt changes.
+
+## Method 5: a hosted analyst connected to the sheet
+
+A hosted analyst connects to the sheet itself and reads it on demand for each question. This is how [wuup's Google Sheets connector](/chat-with-google-sheets) works. We build wuup, so weigh this section accordingly.
+
+<Steps>
+
+1. **Share the sheet.** Open Share in Google Sheets and add wuup's service account email (shown on the connect screen) as a **Viewer**. wuup uses the `spreadsheets.readonly` scope, so it cannot edit cells.
+2. **Paste the sheet link** into wuup. It reads the spreadsheet's tabs and header rows.
+3. **Ask in plain English.** "Total revenue by region for September, as a bar chart." wuup reads the named tab and range, treats the first row as headers, and answers from the rows it read.
+
+</Steps>
+
+Each read covers up to 500 rows, and every answer lists the tab and range it used, so you can open the sheet and check the same cells. Charts and tables are built from the returned rows, not from numbers the model typed. If a sheet is not shared with the service account, wuup tells you so instead of guessing. The setup is in the [Google Sheets docs](/docs/connect-google-sheets).
+
+<Callout type="note" title="Honest limits">
+
+Reads are capped at 500 rows each, so for very large tabs, ask about a specific tab, range or filter. wuup is read-only: it will not write formulas or fill columns, so for per-row generation use `=AI()` or an add-on. Pricing is 50 free questions on Gemini, then [bring your own key](/byok) from OpenAI, Anthropic, OpenRouter or Gemini at no charge from wuup.
+
+</Callout>
+
+The same chat can also query a [MongoDB database](/chat-with-mongodb) or your [PDFs](/chat-with-pdf), which helps when the sheet is only half the story. See [asking questions across PDFs and spreadsheets](/guides/ask-questions-across-pdfs-and-spreadsheets) for how that combination works.
+
+<ToolCta href="/chat-with-google-sheets" title="Chat with a live Google Sheet" description="Share a sheet as Viewer, ask in plain English, and see the exact range behind every answer." />
+
+## FAQ
+
+### Can ChatGPT read a Google Sheet directly?
+
+ChatGPT can analyse an uploaded CSV or Excel file, and paid plans offer a Google Drive connector. A one-time upload is a snapshot, so re-export when the data changes. Check OpenAI's help center for which plans include connectors in your region.
+
+### Is the `=AI()` function in Google Sheets free?
+
+It requires an eligible Google Workspace or Google AI plan. Google's help page also lists batch and daily generation limits, so it suits per-cell tasks more than large analyses.
+
+### Does wuup store my spreadsheet?
+
+wuup reads the ranges it needs when you ask a question and keeps the sheet link encrypted in its database. Answers, including the rows shown in tables, are saved in your chat history, which you can delete. See the [privacy policy](/privacy) for details.
+
+### Which method is safest for sensitive data?
+
+The one that sends the least data to the fewest parties. Gemini inside Workspace keeps data under your Google agreement. With any external tool, share only the tab you need, prefer read-only access, and remove access when you are done.
+
+*Third-party details checked October 2026 against the linked Google, OpenAI, Anthropic and GPT for Work pages. Plans and limits change, so confirm on the vendor's page before you rely on them.*

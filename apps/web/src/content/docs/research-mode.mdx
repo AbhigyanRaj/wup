@@ -1,0 +1,60 @@
+export const metadata = {
+  title: "Research mode: multi-step cited reports",
+  description: "Research mode plans a question as several steps, runs each against your data, documents and optionally the web, then writes a report with numbered citations.",
+  h1: "Research mode",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Features"],
+  primaryKeyword: "ai research mode cited report",
+  status: "published",
+  priority: "P1",
+  group: "Features",
+  order: 30,
+  navLabel: "Research mode",
+  requires: "researchMode",
+  related: ["/docs/getting-started", "/docs/upload-documents", "/guides/why-ai-data-answers-hallucinate"],
+  og: { eyebrow: "Docs" },
+}
+
+Research mode is for questions that need more than one lookup. Instead of answering in a single pass, wuup writes a short plan, runs each step against your connected sources (MongoDB, Google Sheets, your documents and, if you turn it on, the web), and then writes a report that cites every source it used with a number. You can watch each step start and finish while it works. Use it for questions like "Why did repeat orders drop in September, and which customer segments drove it?"
+
+## Start a research question
+
+<Steps>
+
+1. Open a chat and select the sources it may use.
+2. Switch the composer from **Chat** to **Research**.
+3. Ask your question and send it.
+
+</Steps>
+
+The answer area shows the plan as a list of steps. Each step moves through **pending**, **running** and **done** (or **skipped** and **error** when a step is not needed or fails), with a short note on what it found.
+
+## What you get
+
+- **A plan** with one line per step, so you can see how the question was broken down.
+- **The report**, written after the steps finish, with headings, charts or tables where they help, and numbered citations.
+- **Sources**: each number links to a document passage, a web page or the query that produced the data. Database results also appear under **Queries used**.
+- **Duration**: how long the research took.
+
+Every database query in research mode passes the same read-only guard, scope and hidden-field checks as a normal chat. See [Scopes and redaction](/docs/scopes-and-redaction).
+
+## When to use it
+
+Use a normal chat for a single number, list or chart: it is faster and cheaper. Switch to research when the question asks why something happened, compares several sources, or needs a written summary you can share. Good research questions name the time range and the decision you are trying to make, for example "Compare refund rates by product line for Q2 and Q3 and flag anything in the returns policy PDF that explains the change."
+
+## Cost and limits
+
+A research question runs several model calls and queries, so on the free tier it counts as more than one question (5 by default). With your own key there is no wuup limit, but your provider bills for every step. Research takes longer than a chat answer, usually tens of seconds.
+
+## For developers
+
+Research uses the same streaming endpoint as chat, with `mode` set to `"research"`:
+
+```json
+POST /chats/:id/messages
+{ "content": "Why did repeat orders drop in September?", "mode": "research" }
+```
+
+The server-sent event stream adds `step` events, each carrying a step with `id`, `title`, `status`, `detail` and the source numbers it gathered, plus `status` events with the codes `research.plan` and `research.report`. The final `done` event includes the steps and the total duration on the assistant message.

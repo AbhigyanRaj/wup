@@ -1,0 +1,30 @@
+export const metadata = {
+  title: "Optional web search in answers",
+  description: "wuup can now search the web when you turn it on for a question, so answers can combine your own data and documents with cited public sources.",
+  date: "2026-05-19",
+  author: "abhigyan-raj",
+  tags: ["Release"],
+  primaryKeyword: "ai data analyst web search",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+Some questions need context that is not in your database, such as a public benchmark, a holiday calendar or a competitor's published price. wuup can now search the web for those. Web search is optional and off by default: turn it on for a question and the model can call a search tool, read the top results and cite them next to your own sources.
+
+## How it works
+
+- The model decides when a search would help and sends a short query. Only the query text leaves wuup, not your data.
+- wuup reads the top results (title, link and snippet) and passes them to the model as sources.
+- Web sources get numbered citations, so you can tell them apart from database rows and document passages.
+
+## Also in this release
+
+- A welcome screen for new accounts that explains how to connect a source.
+- Follow-up suggestions under answers, so the next question is one click away.
+- Refreshed home screen in the app with usage at a glance.
+
+## Read more
+
+- [Why AI data answers hallucinate](/guides/why-ai-data-answers-hallucinate) explains why citations matter.
+- [FAQ](/docs/faq)

@@ -1,0 +1,135 @@
+export const metadata = {
+  title: "Ask questions across PDFs and spreadsheets",
+  description: "How AI answers one question from PDFs and spreadsheets together: retrieval with citations for documents, real queries for tables, and how a chat combines them.",
+  h1: "Ask questions across\nPDFs and spreadsheets",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Documents", "Google Sheets", "RAG"],
+  primaryKeyword: "ask questions across pdfs and spreadsheets",
+  status: "published",
+  priority: "P1",
+  related: ["/chat-with-pdf", "/chat-with-google-sheets", "/docs/upload-documents", "/guides/chat-with-google-sheets-methods", "/guides/why-ai-data-answers-hallucinate"],
+  og: { eyebrow: "Guide" },
+}
+
+To ask questions across PDFs and spreadsheets, an AI tool has to use two different techniques in one answer. Text in PDFs is searched with retrieval: the document is split into chunks, the chunks most similar to your question are found, and the answer quotes them with citations. Numbers in spreadsheets and databases are answered with real queries that read rows and compute totals. A question like "Does our refund policy explain why September refunds doubled?" needs both: the policy PDF for the why, the orders sheet for the number. This guide explains each half and how wuup combines them.
+
+## Why one technique is not enough
+
+Most tools handle documents or tables, and treat the other as an afterthought. That breaks in predictable ways.
+
+**Treating a spreadsheet like a document.** If you upload a CSV to a document Q&A tool, it is chunked and embedded like prose. A question such as "What was total revenue in Q3?" then retrieves a few chunks that look similar to the words "revenue" and "Q3", and the model adds up whatever rows happen to be in those chunks. The answer reads fluently and is wrong, because most rows were never retrieved.
+
+**Treating a document like a table.** The reverse also fails. A 40-page contract has no columns to group by. You need the passage that says "Refunds requested within 30 days are issued in full", quoted with its location, not a pivot table.
+
+So a cross-source answer needs a router: decide which parts of the question are about text and which are about numbers, use the right method for each, and say which source backs each claim.
+
+## How the PDF half works: retrieval with citations
+
+This pattern is called retrieval-augmented generation (RAG), described by [Lewis et al. (2020)](https://arxiv.org/abs/2005.11401). Here is how wuup implements it for your uploaded documents.
+
+<Steps>
+
+1. **Extract and split.** When you upload a PDF or TXT file, wuup extracts the text and splits it into chunks of about 1,800 characters with 200 characters of overlap, so a sentence that crosses a boundary appears whole in at least one chunk.
+2. **Embed.** Each chunk becomes a vector with a Gemini embedding model and is stored in your private knowledge base, tagged with your user id.
+3. **Search.** At question time, your question is embedded the same way and a vector search finds the closest chunks. Every search is filtered to your own documents.
+4. **Filter.** Chunks below a similarity floor are dropped, and so are chunks much weaker than the best match. At most six chunks reach the model by default.
+5. **Answer with numbers.** The model answers from those chunks and cites them as numbered sources, `[1]`, `[2]`, each pointing to the document it came from.
+
+</Steps>
+
+The filter step matters. If nothing in your documents is close to the question, the model gets no document context rather than six loosely related paragraphs, which makes "the documents do not say" a possible answer instead of a confident guess.
+
+## How the spreadsheet half works: queries over rows
+
+Tables get a different treatment. Instead of searching for similar text, the AI writes a request for exact rows and the system runs it.
+
+- **Google Sheets:** wuup reads a named tab and A1 range through the Sheets API with a read-only scope, treats the first row as headers, and returns up to 500 rows per read. The [Google Sheets connector](/chat-with-google-sheets) shows the range used under each answer.
+- **MongoDB:** wuup writes a read-only `find` or aggregation pipeline, a guard checks it, and it runs with a 10 second timeout and a 100-row cap. The [MongoDB connector](/chat-with-mongodb) shows the exact query.
+
+Because totals are computed by the database or from the rows returned, the number in the answer comes from data, and charts and tables are drawn from those same rows. If you want to see what such a query looks like, try the free [MongoDB aggregation generator](/tools/mongodb-aggregation-generator) or paste one into the [aggregation explainer](/tools/mongodb-aggregation-explainer).
+
+<QueryExample
+  question="How many refunds did we issue per month this year?"
+  collection="refunds"
+  code={`db.refunds.aggregate([
+  { $match: { createdAt: { $gte: ISODate("2026-01-01") } } },
+  { $group: { _id: { $dateTrunc: { date: "$createdAt", unit: "month" } }, refunds: { $sum: 1 } } },
+  { $sort: { _id: 1 } }
+])`}
+  columns={["month", "refunds"]}
+  rows={[["2026-07", 41], ["2026-08", 44], ["2026-09", 92]]}
+/>
+
+## Putting both halves in one chat
+
+Here is the refund question from the introduction, end to end, with a refund policy PDF uploaded and an orders source connected.
+
+1. **The question splits.** "Did refunds double in September?" is a numbers question. "Does the policy explain it?" is a document question.
+2. **The query runs.** A grouped count over September and August refunds returns 92 and 44 in this example. The chat shows the query used.
+3. **Retrieval runs.** The policy PDF is searched for passages about refund windows and changes. Suppose the best chunk says the refund window was extended from 14 to 30 days on 1 September.
+4. **The answer cites both.** "Refunds rose from 44 in August to 92 in September (query shown). The refund policy extended the window to 30 days from 1 September [1], which likely explains part of the increase."
+
+Notice what the answer does not do: it does not invent a cause the documents do not mention, and it marks "likely" because the connection between the two sources is an inference. When a question is ambiguous ("refunds" by count or by amount?), wuup asks a clarifying question first.
+
+<Callout type="tip" title="Write questions that name the source">
+
+"In the Q3 board deck PDF, what churn target did we set, and what is actual churn in the subscriptions sheet?" gets a better answer than "How is churn?" Naming the document and the tab tells the router exactly where to look.
+
+</Callout>
+
+## Limits you should know before uploading
+
+These are wuup's current limits. Other tools differ, so check theirs.
+
+| Limit | Value |
+| --- | --- |
+| Document types | PDF and TXT today. MD, CSV and DOCX uploads are coming soon. |
+| File size | 20 MB per file by default |
+| Documents per account | 20 sources |
+| Upload rate | 10 uploads per hour |
+| Duplicate files | Detected by content hash and not indexed twice |
+| Chunks used per answer | Up to 6, after similarity filtering |
+| Sheets rows per read | Up to 500 |
+| MongoDB rows per query | Up to 100, 10 second timeout |
+
+Scanned PDFs that are only images have no text layer to extract, so run OCR first. Very long tables pasted inside a PDF are searched as text, which means the "treat a table like a document" failure applies to them too; if the numbers matter, put that table in a sheet and ask about it there.
+
+Setup steps are in the [document upload docs](/docs/upload-documents) and the [Google Sheets docs](/docs/connect-google-sheets).
+
+<ToolCta href="/chat-with-pdf" title="Chat with your PDFs, with citations" description="Upload PDF or TXT files to a private knowledge base and get answers that cite the passage they came from." />
+
+## Checking an answer that spans sources
+
+A cross-source answer is only useful if you can verify it quickly. Look for three things in whatever tool you use:
+
+- **A citation for every document claim.** Click it and confirm the passage says what the answer claims. A citation to the right document but the wrong passage is a warning sign.
+- **The query or range for every number.** If a total has no query behind it, assume the model estimated it.
+- **Clear labels on inferences.** "Likely", "may explain" and "the documents do not say" are signs of an honest answer, not a weak one.
+
+### When sources disagree
+
+Documents and data often disagree. The pricing PDF says the Pro plan costs 49 dollars, while the invoices sheet shows most Pro customers paying 39 because of a discount nobody wrote down. A good answer reports both and names each source, rather than silently picking one. If you see a single confident number where you expected a conflict, ask a follow-up such as "Do the invoices match the price in the pricing PDF?" so the tool checks each source separately.
+
+The same applies to dates. A PDF is a snapshot from the day it was written, while a connected sheet or database is read at question time. When the answer mixes the two, check the document date before you treat its numbers as current, and prefer the live source for anything that changes weekly.
+
+We go deeper on why fluent answers can still be wrong in [why AI data answers hallucinate](/guides/why-ai-data-answers-hallucinate).
+
+## FAQ
+
+### Can I upload a spreadsheet as a document instead of connecting it?
+
+You can upload a TXT export today, and CSV uploads are coming soon, but for totals and trends a connected sheet is more accurate, because the rows are read and computed rather than retrieved as chunks of text.
+
+### Are my documents used to train models?
+
+wuup does not train models on your documents. Retrieved chunks are sent to the model you use for that answer (Gemini on the free tier, or your own provider if you bring a key), under that provider's terms.
+
+### Who can search my knowledge base?
+
+Only you. Every vector search is filtered to your user id, and deleting a document removes its chunks.
+
+### What happens if the answer is not in my documents?
+
+If no chunk passes the similarity filter, no document context is added, and the answer should say the documents do not cover it rather than guess.

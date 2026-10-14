@@ -1,0 +1,419 @@
+export const metadata = {
+  title: "SQL to MongoDB cheat sheet with examples",
+  description: "Translate SQL to MongoDB: SELECT, WHERE, LIKE, IN, NULL, GROUP BY, HAVING, JOIN, CASE, subqueries and UNION, each with a tested MongoDB query.",
+  h1: "SQL to MongoDB cheat sheet: every common query, translated",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["MongoDB", "SQL", "Reference"],
+  primaryKeyword: "sql to mongodb cheat sheet",
+  status: "published",
+  priority: "P1",
+  related: [
+    "/tools/sql-to-mongodb-converter",
+    "/guides/mongodb-aggregation-pipeline-examples",
+    "/guides/text-to-sql-vs-text-to-mongodb",
+    "/tools/mongodb-query-generator",
+    "/chat-with-mongodb",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+In MongoDB, simple SQL queries map to `find()` and everything that groups, joins or computes maps to `aggregate()`. `SELECT ... WHERE` becomes `find(filter, projection)`. `ORDER BY` and `LIMIT` become `.sort()` and `.limit()`. `GROUP BY` becomes a `$group` stage. `JOIN` becomes `$lookup`, and `UNION ALL` becomes `$unionWith`. This cheat sheet shows each translation side by side, using a store database with an `orders` table (or collection) and a `customers` table. Every MongoDB query below was run against MongoDB 8.2 before publishing.
+
+## Quick reference
+
+| SQL | MongoDB |
+| --- | --- |
+| `SELECT a, b FROM t` | `db.t.find({}, { a: 1, b: 1 })` |
+| `WHERE x = 1 AND y > 2` | `find({ x: 1, y: { $gt: 2 } })` |
+| `WHERE x = 1 OR y = 2` | `find({ $or: [{ x: 1 }, { y: 2 }] })` |
+| `WHERE x IN (1, 2)` | `find({ x: { $in: [1, 2] } })` |
+| `WHERE x BETWEEN 1 AND 9` | `find({ x: { $gte: 1, $lte: 9 } })` |
+| `WHERE name LIKE 'A%'` | `find({ name: { $regex: "^A" } })` |
+| `WHERE x IS NULL` | `find({ x: null })` (also matches a missing field) |
+| `ORDER BY x DESC LIMIT 5 OFFSET 10` | `.sort({ x: -1 }).skip(10).limit(5)` |
+| `SELECT DISTINCT x` | `db.t.distinct("x")` |
+| `SELECT COUNT(*) ... WHERE` | `db.t.countDocuments(filter)` |
+| `GROUP BY x` | `{ $group: { _id: "$x", ... } }` |
+| `HAVING COUNT(*) > 5` | `$match` placed after `$group` |
+| `CASE WHEN ... END` | `$switch` or `$cond` |
+| `JOIN` | `$lookup` (plus `$unwind` for inner join) |
+| `UNION ALL` / `UNION` | `$unionWith` (plus `$group` to deduplicate) |
+
+Field names in MongoDB are case sensitive, and string comparison is too unless you use a collation or a case-insensitive regex. Field references inside aggregation expressions take a `$` prefix (`"$total"`). Field names used as filter keys do not (`{ total: ... }`).
+
+## Selecting and filtering rows
+
+### SELECT specific columns
+
+```sql
+SELECT orderNo, city, total FROM orders LIMIT 2;
+```
+
+```mongosh
+db.orders.find({}, { _id: 0, orderNo: 1, city: 1, total: 1 }).limit(2)
+```
+
+The second argument to `find()` is the projection. `_id` is returned unless you exclude it with `_id: 0`. You cannot mix inclusions and exclusions in one projection, except for `_id`.
+
+### WHERE with AND and OR
+
+```sql
+SELECT orderNo, total FROM orders WHERE status = 'paid' AND total > 20000;
+```
+
+```mongosh
+db.orders.find({ status: "paid", total: { $gt: 20000 } }, { _id: 0, orderNo: 1, total: 1 })
+```
+
+Listing several fields in one filter object is an implicit `AND`. For `OR`, use `$or` with an array of conditions:
+
+```mongosh
+db.orders.find({ $or: [{ city: "Pune" }, { channel: "app" }] }).limit(1)
+```
+
+Comparison operators: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`. `!=` in SQL is `$ne`. Unlike SQL, `$ne` also matches documents where the field is missing.
+
+### LIKE
+
+```sql
+SELECT name FROM customers WHERE name LIKE 'A%';
+SELECT name FROM customers WHERE LOWER(email) LIKE '%nair%';
+```
+
+```mongosh
+db.customers.find({ name: { $regex: "^A" } }, { _id: 0, name: 1 })
+db.customers.find({ email: { $regex: "nair", $options: "i" } }, { _id: 0, name: 1 })
+```
+
+SQL `%` becomes `.*` (or simply no anchor), and `_` becomes `.`. A prefix pattern anchored with `^` and no `i` option can use an index. An unanchored or case-insensitive regex scans every value, so on large collections prefer a text or Atlas Search index.
+
+### IN and BETWEEN
+
+```sql
+SELECT orderNo, city FROM orders WHERE city IN ('Pune', 'Chennai');
+SELECT orderNo, total FROM orders WHERE total BETWEEN 5000 AND 10000;
+```
+
+```mongosh
+db.orders.find({ city: { $in: ["Pune", "Chennai"] } }, { _id: 0, orderNo: 1, city: 1 }).limit(3)
+db.orders.find({ total: { $gte: 5000, $lte: 10000 } }, { _id: 0, orderNo: 1, total: 1 }).limit(3)
+```
+
+`BETWEEN` is inclusive at both ends, so it maps to `$gte` and `$lte`. `NOT IN` is `$nin`.
+
+### NULL checks
+
+This is where SQL habits cause the most wrong answers. In MongoDB a field can be `null` or missing entirely, and `{ field: null }` matches both. On the sample data, 28 orders match `couponCode: null`: 24 where the field is missing and 4 where it is explicitly `null`.
+
+```sql
+SELECT COUNT(*) FROM orders WHERE couponCode IS NULL;
+SELECT COUNT(*) FROM orders WHERE couponCode IS NOT NULL;
+```
+
+```mongosh
+db.orders.countDocuments({ couponCode: null })
+db.orders.countDocuments({ couponCode: { $exists: false } })
+db.orders.countDocuments({ couponCode: { $type: "null" } })
+db.orders.countDocuments({ couponCode: { $ne: null } })
+```
+
+These four return 28, 24, 4 and 12. Use `$exists: false` for "the field is missing", `$type: "null"` for "the field is present and null", and `$ne: null` for SQL's `IS NOT NULL`.
+
+### Date ranges
+
+```sql
+SELECT orderNo, createdAt FROM orders
+WHERE createdAt >= '2026-08-01' AND createdAt < '2026-09-01'
+ORDER BY createdAt LIMIT 2;
+```
+
+```mongosh
+db.orders.find(
+  { createdAt: { $gte: ISODate("2026-08-01T00:00:00Z"), $lt: ISODate("2026-09-01T00:00:00Z") } },
+  { _id: 0, orderNo: 1, createdAt: 1 }
+).sort({ createdAt: 1 }).limit(2)
+```
+
+Compare dates with real `Date` values, not strings. If a field was saved as a string, `"2026-08-01" > "2026-7-31"` compares character by character and gives wrong results. MongoDB stores dates in UTC. If your reports use local time, shift the boundaries, or group with `$dateTrunc` and a `timezone`.
+
+### Aliases and computed columns
+
+```sql
+SELECT orderNo AS order_number, UPPER(city) AS city, total * 0.9 AS discounted,
+       CONCAT(channel, '-', status) AS segment
+FROM orders LIMIT 2;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $project: {
+      _id: 0,
+      order_number: "$orderNo",
+      city: { $toUpper: "$city" },
+      discounted: { $multiply: ["$total", 0.9] },
+      segment: { $concat: ["$channel", "-", "$status"] }
+  } },
+  { $limit: 2 }
+])
+```
+
+Since MongoDB 4.4, `find()` projections also accept expressions, but an aggregation `$project` or `$addFields` is the more common home for renamed and computed fields because it chains with grouping and sorting. The new name goes on the left and the expression on the right. Common SQL functions map one to one: `UPPER` and `LOWER` are `$toUpper` and `$toLower`, `CONCAT` is `$concat`, `SUBSTRING` is `$substrCP`, `ROUND` is `$round`, `COALESCE` is `$ifNull` and `CAST` is `$convert` (or the shortcuts `$toInt`, `$toDouble`, `$toString` and `$toDate`). `$concat` returns `null` if any input is `null` or missing, so wrap optional fields in `$ifNull` (for example `{ $ifNull: ["$couponCode", "none"] }`) before joining strings.
+
+## Sorting, paging and DISTINCT
+
+```sql
+SELECT orderNo, total FROM orders ORDER BY total DESC LIMIT 5 OFFSET 10;
+SELECT DISTINCT city FROM orders;
+```
+
+```mongosh
+db.orders.find({}, { _id: 0, orderNo: 1, total: 1 }).sort({ total: -1 }).skip(10).limit(5)
+db.orders.distinct("city")
+```
+
+`1` sorts ascending and `-1` descending. MongoDB applies sort, then skip, then limit, regardless of the order you chain them in. Large `skip()` values get slow for the same reason `OFFSET` does. For deep pagination, filter on the last seen value instead (`{ total: { $lt: lastTotal } }`). `distinct()` returns a plain array of values. For distinct values with counts, use `$sortByCount`.
+
+## Counting, grouping and CASE
+
+### COUNT and GROUP BY
+
+```sql
+SELECT COUNT(*) FROM orders WHERE status = 'refunded';
+
+SELECT city, COUNT(*) AS orders, SUM(total) AS revenue
+FROM orders GROUP BY city ORDER BY revenue DESC;
+```
+
+```mongosh
+db.orders.countDocuments({ status: "refunded" })
+
+db.orders.aggregate([
+  { $group: { _id: "$city", orders: { $sum: 1 }, revenue: { $sum: "$total" } } },
+  { $sort: { revenue: -1 } }
+])
+```
+
+The grouped query returns Bengaluru first (10 orders, ₹1,94,759), then Pune and Chennai. The grouping key always lands in `_id`. To group by several columns, use an object: `_id: { city: "$city", status: "$status" }`. `COUNT(*)` is `{ $sum: 1 }`, `SUM(col)` is `{ $sum: "$col" }`, and `AVG`, `MIN` and `MAX` are `$avg`, `$min` and `$max`.
+
+### HAVING
+
+```sql
+SELECT city, COUNT(*) AS orders FROM orders GROUP BY city HAVING COUNT(*) >= 8;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $group: { _id: "$city", orders: { $sum: 1 } } },
+  { $match: { orders: { $gte: 8 } } }
+])
+```
+
+There is no separate `HAVING`. A `$match` after `$group` filters the groups, which here leaves Bengaluru (10) and Mumbai (8).
+
+### Date parts and DATE_TRUNC
+
+```sql
+SELECT EXTRACT(MONTH FROM createdAt) AS month, COUNT(*) AS orders
+FROM orders GROUP BY 1 ORDER BY 1;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $group: { _id: { $month: "$createdAt" }, orders: { $sum: 1 } } },
+  { $sort: { _id: 1 } }
+])
+```
+
+`$year`, `$month`, `$dayOfMonth`, `$dayOfWeek`, `$hour` and `$isoWeek` extract parts of a date, and each accepts a `timezone` when you pass the long form (`{ $month: { date: "$createdAt", timezone: "Asia/Kolkata" } }`). For a `DATE_TRUNC('month', createdAt)` style bucket that keeps the year, use `$dateTrunc` (MongoDB 5.0 and later), as shown in the [aggregation pipeline examples](/guides/mongodb-aggregation-pipeline-examples).
+
+### CASE WHEN
+
+```sql
+SELECT orderNo,
+  CASE WHEN total >= 20000 THEN 'large'
+       WHEN total >= 5000 THEN 'medium'
+       ELSE 'small' END AS size
+FROM orders LIMIT 3;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $project: {
+      _id: 0,
+      orderNo: 1,
+      size: { $switch: {
+        branches: [
+          { case: { $gte: ["$total", 20000] }, then: "large" },
+          { case: { $gte: ["$total", 5000] }, then: "medium" }
+        ],
+        default: "small"
+      } }
+  } },
+  { $limit: 3 }
+])
+```
+
+For a single condition, `$cond: [condition, then, else]` is shorter. It is also how you write conditional aggregates such as `SUM(CASE WHEN ... THEN 1 ELSE 0 END)`:
+
+```mongosh
+db.orders.aggregate([
+  { $group: {
+      _id: null,
+      large: { $sum: { $cond: [{ $gte: ["$total", 20000] }, 1, 0] } },
+      small: { $sum: { $cond: [{ $lt: ["$total", 20000] }, 1, 0] } }
+  } }
+])
+```
+
+## Joins, subqueries and UNION
+
+### INNER JOIN and LEFT JOIN
+
+```sql
+SELECT o.orderNo, o.total, c.name
+FROM orders o JOIN customers c ON c._id = o.customerId LIMIT 2;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $lookup: { from: "customers", localField: "customerId", foreignField: "_id", as: "customer" } },
+  { $unwind: "$customer" },
+  { $project: { _id: 0, orderNo: 1, total: 1, name: "$customer.name" } },
+  { $limit: 2 }
+])
+```
+
+`$lookup` is a left outer join that puts matches into an array. `$unwind` then drops documents with no match, which turns it into an inner join. Keep the array (skip the `$unwind`) for a `LEFT JOIN`, or use `$unwind` with `preserveNullAndEmptyArrays: true`. Counting each customer's orders, including customers with zero, looks like this:
+
+```mongosh
+db.customers.aggregate([
+  { $lookup: { from: "orders", localField: "_id", foreignField: "customerId", as: "orders" } },
+  { $project: { _id: 0, name: 1, orderCount: { $size: "$orders" } } },
+  { $sort: { orderCount: 1 } }
+])
+```
+
+For a join with extra conditions, use the `let` and `pipeline` form:
+
+```mongosh
+db.customers.aggregate([
+  { $lookup: {
+      from: "orders",
+      let: { cid: "$_id" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$customerId", "$$cid"] }, status: "refunded" } },
+        { $project: { _id: 0, orderNo: 1, total: 1 } }
+      ],
+      as: "refunds"
+  } },
+  { $match: { "refunds.0": { $exists: true } } },
+  { $project: { _id: 0, name: 1, refunds: 1 } }
+])
+```
+
+Before writing a join, check whether the data is already embedded. In MongoDB, order line items usually live inside the order document, so the SQL join between `orders` and `order_items` becomes a `$unwind` on the `items` array.
+
+### Subqueries
+
+```sql
+SELECT COUNT(*) FROM orders
+WHERE customerId IN (SELECT _id FROM customers WHERE tier = 'pro');
+```
+
+```mongosh
+db.orders.aggregate([
+  { $lookup: { from: "customers", localField: "customerId", foreignField: "_id", as: "c" } },
+  { $match: { "c.tier": "pro" } },
+  { $count: "proOrders" }
+])
+```
+
+An `IN (SELECT ...)` subquery becomes a `$lookup` followed by a `$match` on the joined field. Alternatively, run two queries: fetch the `_id` values first, then pass them to `$in`. A scalar subquery such as "orders above the average order value" needs the average next to each row, which `$setWindowFields` provides without a second query:
+
+```sql
+SELECT orderNo, total FROM orders
+WHERE total > (SELECT AVG(total) FROM orders)
+ORDER BY total DESC LIMIT 3;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $setWindowFields: { output: { avgTotal: { $avg: "$total" } } } },
+  { $match: { $expr: { $gt: ["$total", "$avgTotal"] } } },
+  { $project: { _id: 0, orderNo: 1, total: 1, avgTotal: { $round: ["$avgTotal", 0] } } },
+  { $sort: { total: -1 } },
+  { $limit: 3 }
+])
+```
+
+`$expr` lets a `$match` compare two fields of the same document, which a plain filter cannot do.
+
+### UNION ALL and UNION
+
+```sql
+SELECT orderNo, total FROM orders
+UNION ALL
+SELECT orderNo, total FROM orders_2025
+ORDER BY total DESC LIMIT 3;
+```
+
+```mongosh
+db.orders.aggregate([
+  { $project: { _id: 0, orderNo: 1, total: 1 } },
+  { $unionWith: { coll: "orders_2025", pipeline: [ { $project: { _id: 0, orderNo: 1, total: 1 } } ] } },
+  { $sort: { total: -1 } },
+  { $limit: 3 }
+])
+```
+
+`$unionWith` keeps duplicates, like `UNION ALL`. For SQL's deduplicating `UNION`, group on the combined fields afterwards:
+
+```mongosh
+db.orders.aggregate([
+  { $project: { _id: 0, city: 1 } },
+  { $unionWith: { coll: "customers", pipeline: [ { $project: { _id: 0, city: 1 } } ] } },
+  { $group: { _id: "$city" } },
+  { $sort: { _id: 1 } }
+])
+```
+
+<ToolCta
+  href="/tools/sql-to-mongodb-converter"
+  title="Convert a SQL query to MongoDB"
+  description="Paste a SELECT statement and get the equivalent MongoDB query. Free, no sign-up."
+/>
+
+## Where the SQL mental model breaks
+
+Most translations are mechanical, but a few differences change results rather than syntax:
+
+- **Missing is not NULL.** As shown above, `{ x: null }` matches missing fields, and `$ne` matches them too. Decide which you mean.
+- **Arrays match element-wise.** `{ "items.category": "Lighting" }` matches any order with at least one Lighting item. To require two conditions on the same element, use `$elemMatch`.
+- **No enforced types.** The same field can hold a number in one document and a string in another, and a query for `{ total: 5000 }` will not match `"5000"`. Check the real types before you trust a count. The [schema inference guide](/guides/infer-mongodb-schema-from-documents) shows how.
+- **Denormalised data.** Many SQL joins disappear because the data is embedded. Others turn into `$unwind`.
+
+If you already think in SQL and just want answers, you can skip the translation. [wuup](/chat-with-mongodb) reads your collection schema, writes the `find()` or pipeline from a plain-English question, and shows the query it ran next to the result. Queries run read-only, against the collections you scope, with a 100-row and 10 second cap. The [plain-English querying guide](/guides/query-mongodb-in-plain-english) covers how that works, and [text-to-SQL vs text-to-MongoDB](/guides/text-to-sql-vs-text-to-mongodb) explains why generating MongoDB queries is a different problem from generating SQL.
+
+## FAQ
+
+### Can I run SQL directly against MongoDB?
+
+Not with the standard MongoDB server or drivers. MongoDB has offered SQL interfaces for BI tools (the Atlas SQL interface), but the native query language is `find()` and aggregation pipelines. For day-to-day work, translating is usually simpler than adding another layer.
+
+### Is $lookup slow?
+
+It runs a query on the foreign collection for each input document, so it is fast when the `foreignField` is indexed and the input has already been filtered and limited. Put `$match`, `$group` and `$limit` before `$lookup` wherever the logic allows.
+
+### Why does my MongoDB count differ from the SQL count?
+
+The usual causes are the ones in the section above: a `null` filter that also matched missing fields, an array field that matched on any element, or numbers stored as strings in some documents. Run the same filter with `$type` checks to find the documents that behave differently.
+
+### How do I write GROUP BY on two columns?
+
+Use a compound `_id`: `{ $group: { _id: { city: "$city", status: "$status" }, n: { $sum: 1 } } }`. The result's `_id` is an object with both keys.
+
+### What replaces SQL transactions for reports?
+
+Reads do not need them. A single aggregation reads a consistent view of each document. For multi-document consistency across a whole report, use read concern `"snapshot"` inside a session. Most analytics queries do not need it.

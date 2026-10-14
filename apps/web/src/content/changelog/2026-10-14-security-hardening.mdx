@@ -1,0 +1,38 @@
+export const metadata = {
+  title: "Security hardening across bridges and accounts",
+  description: "A security release: stricter MongoDB query checks, blocked private hosts, isolated demo accounts, safer sign-in and a fix for uploads that could stall.",
+  date: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Security"],
+  primaryKeyword: "wuup security update",
+  status: "published",
+  priority: "P2",
+  og: { eyebrow: "Changelog" },
+}
+
+This release tightens every layer that sits between the AI and your data. Nothing here changes how you use wuup, but several checks are now stricter, and one upload bug that could stall indexing is fixed. These fixes came out of an internal security review.
+
+## MongoDB query guard
+
+- Every segment of a field path is checked against hidden fields, including paths reached through variables such as `$$ROOT`.
+- Operators that enumerate keys dynamically are blocked whenever a collection has hidden fields.
+- Field-name arguments of joins (`$lookup`, `$graphLookup`) are checked too, and server-inspection stages are refused.
+- Excluding a hidden field in a projection is now allowed, limits are clamped, filters must be plain objects, and `distinct` results are redacted.
+
+## Connections
+
+- Bridges can no longer point at private, loopback or link-local addresses, or at wuup's own database. The check runs again on every connection, including after DNS changes.
+- Google Sheets errors no longer include API keys, and a Sheets tool can only use a Sheets connection.
+
+## Accounts and sign-in
+
+- Each demo visitor now gets an isolated account instead of one shared account.
+- Emails are normalised, credentials must be strings, and sign-in is rate limited.
+- Production servers refuse to start without strong session and encryption secrets.
+
+## Reliability
+
+- Fixed a document chunking loop that could freeze indexing for some uploads.
+- Answers are no longer lost when the model returns an unexpected chart type.
+
+Read [Scopes and redaction](/docs/scopes-and-redaction) for how the guard works, and [Is it safe to connect a database to AI?](/guides/is-it-safe-to-connect-database-to-ai) for the full checklist.

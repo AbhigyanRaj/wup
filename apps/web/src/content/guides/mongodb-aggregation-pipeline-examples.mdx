@@ -1,0 +1,360 @@
+export const metadata = {
+  title: "MongoDB aggregation pipeline: 15 real examples",
+  description: "15 MongoDB aggregation pipeline examples on one store dataset: $match, $group, $dateTrunc, $bucket, $facet, $setWindowFields, $lookup, $unionWith and more.",
+  h1: "MongoDB aggregation pipeline examples: 15 queries you can run today",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["MongoDB", "Aggregation", "Reference"],
+  primaryKeyword: "mongodb aggregation pipeline examples",
+  status: "published",
+  priority: "P0",
+  related: [
+    "/tools/mongodb-aggregation-generator",
+    "/tools/mongodb-aggregation-explainer",
+    "/guides/sql-to-mongodb-cheat-sheet",
+    "/guides/query-mongodb-in-plain-english",
+    "/chat-with-mongodb",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+A MongoDB aggregation pipeline is an array of stages that documents flow through in order: `$match` filters, `$group` summarises, `$sort` orders, `$project` reshapes, and so on. Each stage receives the output of the one before it. Below are 15 working examples, all written against one small store database (`orders`, `customers`, `returns` and an archive collection), so you can see how the stages combine on realistic data. Every pipeline was run against MongoDB 8.2 before publishing, and the result shown under each one is what that run returned. Copy them into mongosh, swap in your own field names, and they will run.
+
+## The sample data
+
+The examples use a database called `shop`. The main collection is `orders`, with 40 orders placed between June and September 2026. A typical order looks like this:
+
+```mongosh
+{
+  _id: ObjectId("66a1e0000000000000000001"),
+  orderNo: 1001,
+  customerId: ObjectId("66a1c0000000000000000005"),
+  status: "paid",            // paid | shipped | delivered | refunded | pending
+  channel: "web",            // web | app
+  city: "Pune",
+  createdAt: ISODate("2026-08-07T06:15:00Z"),
+  items: [
+    { sku: "VAS-01", name: "Ceramic vase", category: "Decor", qty: 3, price: 999 },
+    { sku: "RUG-01", name: "Jute rug", category: "Decor", qty: 3, price: 4599 }
+  ],
+  total: 16794,              // rupees
+  couponCode: "MONSOON10"    // a string, null, or missing entirely
+}
+```
+
+There are three supporting collections:
+
+- `customers`: `_id`, `name`, `email`, `city`, `tier` and `signedUpAt`.
+- `returns`: `orderId`, `customerId`, `amount`, `reason` and `createdAt`.
+- `orders_2025`: last year's orders, in the same shape as `orders`.
+
+Amounts are whole rupees. If your own data stores money in paise or cents, divide by 100 in a final `$project`.
+
+## Filter, group and sort
+
+These five stages cover most day-to-day reporting. Put `$match` first wherever you can: it is the stage that can use an index, and every stage after it then works on fewer documents.
+
+### 1. $match: large completed orders in September
+
+```mongosh
+db.orders.aggregate([
+  { $match: {
+      status: { $in: ["paid", "shipped", "delivered"] },
+      createdAt: { $gte: ISODate("2026-09-01"), $lt: ISODate("2026-10-01") },
+      total: { $gte: 10000 }
+  } },
+  { $project: { _id: 0, orderNo: 1, city: 1, total: 1 } }
+])
+```
+
+This returns six orders, from order 1004 (Pune, ₹10,296) to order 1039 (Chennai, ₹55,692). Use a half-open date range (`$gte` the first day, `$lt` the first day of the next month). It is the only form that never drops orders placed late on the last day of the month.
+
+### 2. $group: orders and revenue by status
+
+<QueryExample
+  question="How many orders do we have in each status, and how much revenue is in each?"
+  collection="orders"
+  code={`db.orders.aggregate([
+  { $group: {
+      _id: "$status",
+      orders: { $sum: 1 },
+      revenue: { $sum: "$total" },
+      avgOrder: { $avg: "$total" }
+  } }
+])`}
+  columns={["_id", "orders", "revenue", "avgOrder"]}
+  rows={[["shipped", 10, 121465, 12146.5], ["paid", 9, 157165, 17462.78], ["delivered", 7, 123178, 17596.86], ["pending", 7, 118672, 16953.14], ["refunded", 7, 55777, 7968.14]]}
+/>
+
+`_id` is the grouping key. Every other field in `$group` must be an accumulator such as `$sum`, `$avg`, `$min`, `$max`, `$first`, `$push` or `$addToSet`. `$sum: 1` counts documents. `$group` does not guarantee any output order, so add a `$sort` when the order matters.
+
+### 3. $sort: the five biggest orders that were not refunded
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: { $ne: "refunded" } } },
+  { $sort: { total: -1, orderNo: 1 } },
+  { $limit: 5 },
+  { $project: { _id: 0, orderNo: 1, city: 1, total: 1 } }
+])
+```
+
+The top five are 1039 (₹55,692), 1010 (₹45,294), 1007 (₹38,996), 1025 (₹32,497) and 1028 (₹28,596). The second sort key (`orderNo: 1`) breaks ties, so the result is stable from run to run. When `$sort` is followed directly by `$limit`, MongoDB keeps only the top N documents in memory instead of sorting the whole set.
+
+### 4. $project: reshape each order for a report
+
+```mongosh
+db.orders.aggregate([
+  { $project: {
+      _id: 0,
+      orderNo: 1,
+      day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+      lines: { $size: "$items" },
+      units: { $sum: "$items.qty" },
+      total: 1
+  } },
+  { $limit: 3 }
+])
+```
+
+The first row comes back as `orderNo: 1001, day: "2026-08-07", lines: 2, units: 6, total: 16794`. `$project` can include fields (`1`), exclude them (`0`) and compute new ones in the same stage. `"$items.qty"` resolves to an array of every item's quantity, and `$sum` adds it up.
+
+### 5. $count: orders that used a coupon
+
+```mongosh
+db.orders.aggregate([
+  { $match: { couponCode: { $type: "string" } } },
+  { $count: "ordersWithCoupon" }
+])
+```
+
+This returns `{ ordersWithCoupon: 12 }`. The `$type: "string"` filter skips both orders where `couponCode` is `null` and orders where the field is missing. `{ couponCode: { $ne: null } }` would also work here, but `$type` states the intent more clearly.
+
+## Dates and trends
+
+### 6. $dateTrunc: monthly revenue in Indian time
+
+<QueryExample
+  question="What was our revenue each month, excluding refunds?"
+  collection="orders"
+  code={`db.orders.aggregate([
+  { $match: { status: { $ne: "refunded" } } },
+  { $group: {
+      _id: { $dateTrunc: { date: "$createdAt", unit: "month", timezone: "Asia/Kolkata" } },
+      revenue: { $sum: "$total" },
+      orders: { $sum: 1 }
+  } },
+  { $sort: { _id: 1 } }
+])`}
+  columns={["month (IST)", "revenue", "orders"]}
+  rows={[["2026-06", 153970, 8], ["2026-07", 111577, 7], ["2026-08", 96571, 8], ["2026-09", 158362, 10]]}
+/>
+
+`$dateTrunc` (MongoDB 5.0 and later) rounds a date down to the start of a `unit`: `"day"`, `"week"`, `"month"`, `"quarter"` or `"year"`. Pass a `timezone` whenever your business reports in local time. Without one, an order placed at 1 am IST on 1 July falls into June. The returned `_id` is still a UTC date, so June 2026 in IST appears as `2026-05-31T18:30:00Z`.
+
+### 7. $setWindowFields: running total and month-over-month
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: { $ne: "refunded" } } },
+  { $group: {
+      _id: { $dateTrunc: { date: "$createdAt", unit: "month", timezone: "Asia/Kolkata" } },
+      revenue: { $sum: "$total" }
+  } },
+  { $setWindowFields: {
+      sortBy: { _id: 1 },
+      output: {
+        runningRevenue: { $sum: "$revenue", window: { documents: ["unbounded", "current"] } },
+        prevMonth: { $shift: { output: "$revenue", by: -1 } }
+      }
+  } }
+])
+```
+
+By September the running total reaches ₹5,20,480, and `prevMonth` for September holds August's ₹96,571, so a month-over-month change is one `$subtract` away. Window functions (MongoDB 5.0 and later) compute values across neighbouring documents without collapsing them the way `$group` does. The `window` sets which documents each calculation sees. `["unbounded", "current"]` means "from the first document up to this one", which gives a cumulative sum. Use `range` instead of `documents` with a time `unit` for windows such as "the last 7 days".
+
+## Distributions and dashboards
+
+### 8. $bucket: orders by value band
+
+```mongosh
+db.orders.aggregate([
+  { $bucket: {
+      groupBy: "$total",
+      boundaries: [0, 5000, 10000, 20000, 50000],
+      default: "50000+",
+      output: { orders: { $sum: 1 }, revenue: { $sum: "$total" } }
+  } }
+])
+```
+
+The result has five bands:
+
+| Band (`_id`) | Orders | Revenue |
+| --- | --- | --- |
+| 0 (under ₹5,000) | 10 | 30,885 |
+| 5000 | 10 | 78,670 |
+| 10000 | 12 | 1,94,142 |
+| 20000 | 7 | 2,16,868 |
+| 50000+ | 1 | 55,692 |
+
+Each boundary is the inclusive lower edge of a band. The `default` bucket catches anything outside the boundaries. Without it, a value outside them makes the whole pipeline fail. If you just want N roughly equal groups, use `$bucketAuto` instead.
+
+### 9. $facet: three dashboard widgets in one query
+
+```mongosh
+db.orders.aggregate([
+  { $match: { createdAt: { $gte: ISODate("2026-06-01") } } },
+  { $facet: {
+      byStatus: [ { $sortByCount: "$status" } ],
+      byChannel: [ { $group: { _id: "$channel", revenue: { $sum: "$total" } } } ],
+      totals: [ { $group: { _id: null, orders: { $sum: 1 }, revenue: { $sum: "$total" } } } ]
+  } }
+])
+```
+
+`$facet` runs several sub-pipelines over the same input and returns a single document with one array per facet. Here, `totals` holds 40 orders and ₹5,76,257, and the web channel brought in ₹3,76,806 of that. One round trip feeds a whole dashboard. The output is one document, so it must stay under MongoDB's 16 MB document limit. Keep the facets aggregated rather than returning raw rows.
+
+### 10. $sortByCount: the most common return reasons
+
+```mongosh
+db.returns.aggregate([
+  { $sortByCount: "$reason" }
+])
+```
+
+This returns `damaged: 3`, `wrong item: 2` and `changed mind: 2`. `$sortByCount` is shorthand for a `$group` with `count: { $sum: 1 }` followed by a descending `$sort`. It is the quickest way to answer "what is the most common X".
+
+## Arrays and joins
+
+### 11. $unwind: revenue by product category
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: { $ne: "refunded" } } },
+  { $unwind: "$items" },
+  { $group: {
+      _id: "$items.category",
+      units: { $sum: "$items.qty" },
+      revenue: { $sum: { $multiply: ["$items.qty", "$items.price"] } }
+  } },
+  { $sort: { revenue: -1 } }
+])
+```
+
+Furniture leads with ₹2,53,476 from 24 units, ahead of Decor (₹1,14,165) and Lighting (₹1,12,063). `$unwind` outputs one document per array element, so an order with three items becomes three documents. Do this after `$match`, because unwinding multiplies the number of documents in the pipeline. Add `preserveNullAndEmptyArrays: true` if orders with an empty `items` array must still be counted.
+
+### 12. $filter: keep only the matching array elements
+
+```mongosh
+db.orders.aggregate([
+  { $project: {
+      _id: 0,
+      orderNo: 1,
+      lightingItems: {
+        $filter: { input: "$items", as: "item", cond: { $eq: ["$$item.category", "Lighting"] } }
+      }
+  } },
+  { $match: { "lightingItems.0": { $exists: true } } },
+  { $limit: 3 }
+])
+```
+
+`$filter` trims an array without unwinding it, so each order stays one document. `$$item` refers to the variable named in `as`. The `"lightingItems.0": { $exists: true }` match is a compact way to say "the filtered array is not empty".
+
+### 13. $addFields: compute a discounted total
+
+```mongosh
+db.orders.aggregate([
+  { $addFields: {
+      discountPct: { $switch: {
+        branches: [
+          { case: { $eq: ["$couponCode", "MONSOON10"] }, then: 10 },
+          { case: { $eq: ["$couponCode", "WELCOME5"] }, then: 5 }
+        ],
+        default: 0
+      } }
+  } },
+  { $addFields: { netTotal: { $round: [{ $multiply: ["$total", { $subtract: [1, { $divide: ["$discountPct", 100] }] }] }, 0] } } },
+  { $match: { discountPct: { $gt: 0 } } },
+  { $project: { _id: 0, orderNo: 1, couponCode: 1, total: 1, netTotal: 1 } },
+  { $limit: 3 }
+])
+```
+
+Order 1004 used `MONSOON10`, so its ₹10,296 total becomes a `netTotal` of ₹9,266. `$addFields` (alias `$set`) keeps every existing field and adds new ones, while `$project` keeps only the fields you name. The two `$addFields` stages are separate because a field cannot reference another field computed in the same stage.
+
+### 14. $lookup: top customers with their names
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: { $ne: "refunded" } } },
+  { $group: { _id: "$customerId", revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
+  { $sort: { revenue: -1 } },
+  { $limit: 3 },
+  { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
+  { $unwind: "$customer" },
+  { $project: { _id: 0, name: "$customer.name", city: "$customer.city", orders: 1, revenue: 1 } }
+])
+```
+
+Aarav Mehta (Bengaluru, ₹1,19,775 over 6 orders) comes first. The join runs after `$group` and `$limit`, so MongoDB looks up only three customers instead of 40. That ordering matters on large collections. `$lookup` always returns an array, so `$unwind` turns the one-element array into a plain object. An index on the foreign field (here `_id`, which is always indexed) keeps lookups fast.
+
+### 15. $unionWith: compare this year with the archive
+
+```mongosh
+db.orders.aggregate([
+  { $project: { _id: 0, year: { $year: "$createdAt" }, total: 1 } },
+  { $unionWith: {
+      coll: "orders_2025",
+      pipeline: [ { $project: { _id: 0, year: { $year: "$createdAt" }, total: 1 } } ]
+  } },
+  { $group: { _id: "$year", orders: { $sum: 1 }, revenue: { $sum: "$total" } } },
+  { $sort: { _id: 1 } }
+])
+```
+
+This returns 12 orders worth ₹2,18,761 for 2025 and 40 orders worth ₹5,76,257 for 2026. `$unionWith` (MongoDB 4.4 and later) appends documents from another collection in the same database, like `UNION ALL` in SQL. Give both sides the same shape with a `$project` first, so the stages that follow see consistent fields.
+
+<ToolCta
+  href="/tools/mongodb-aggregation-generator"
+  title="Generate a pipeline from a plain-English question"
+  description="Describe the report you want in plain English and get an aggregation pipeline to run. Free, no sign-up."
+/>
+
+## Running these pipelines safely
+
+A few habits keep pipelines fast and predictable on production data:
+
+- **Filter first.** A leading `$match` (and a `$sort` directly after it) can use indexes. Run `db.orders.explain("executionStats").aggregate([...])` and look for `IXSCAN` instead of `COLLSCAN`.
+- **Project early on wide documents.** Dropping large fields before `$group` or `$lookup` reduces memory use.
+- **Mind the 100 MB stage limit.** Blocking stages such as `$group` and `$sort` have a per-stage memory limit. Since MongoDB 6.0, `allowDiskUse` defaults to true for most deployments, so a large pipeline spills to disk instead of failing. Turning it off makes the limit hard.
+- **Read the pipeline back.** If someone else (or an AI) wrote it, paste it into the [aggregation explainer](/tools/mongodb-aggregation-explainer) and check each stage before you trust the numbers.
+
+If you would rather not hand-write pipelines at all, [wuup](/chat-with-mongodb) writes and runs them for you when you ask a question in plain English, and shows the exact pipeline next to the answer. Its guard is stricter than a plain read-only user:
+
+- **Allowlisted stages only.** Pipelines may use only read stages: everything in this guide is allowed, while `$out` and `$merge` are rejected.
+- **No server-side code.** `$where`, `$function` and `$accumulator` are refused anywhere in a query.
+- **Hard limits.** A pipeline can have at most 30 stages. Every query has a 10 second `maxTimeMS` and runs with `allowDiskUse: false`. Results are capped at 100 rows (20 by default) and 50 KB.
+- **Scoped and redacted.** Only the collections you enable can be queried, `$lookup` and `$unionWith` included. See [scopes and redaction](/docs/scopes-and-redaction) for how hidden fields are enforced.
+
+The [plain-English querying guide](/guides/query-mongodb-in-plain-english) explains how that works end to end.
+
+## FAQ
+
+### What is the difference between find() and aggregate()?
+
+`find()` filters, projects, sorts and limits documents. It cannot group, join or compute across documents. `aggregate()` does all of that through stages. Anything you can write as a `find()` can be written as a pipeline (`$match`, `$project`, `$sort`, `$limit`), but not the other way round.
+
+### Does the order of stages matter?
+
+Yes. Each stage only sees the output of the previous one. A `$match` after `$group` filters groups, much like `HAVING` in SQL, while a `$match` before `$group` filters raw documents, like `WHERE`. MongoDB's optimiser reorders some stages for you, for example moving a `$match` ahead of a `$project`, but write them in the logical order anyway.
+
+### How do I convert a SQL GROUP BY to an aggregation pipeline?
+
+`GROUP BY col` becomes `{ $group: { _id: "$col", ... } }`, and each aggregate function becomes an accumulator. The [SQL to MongoDB cheat sheet](/guides/sql-to-mongodb-cheat-sheet) has side-by-side translations for joins, `HAVING`, `CASE` and `UNION`, and the [SQL to MongoDB converter](/tools/sql-to-mongodb-converter) translates a query for you.
+
+### Which MongoDB version do I need for these examples?
+
+Examples 1 to 5 and 8 to 14 work on any supported version. `$unionWith` needs 4.4. `$dateTrunc` and `$setWindowFields` need 5.0. MongoDB Atlas clusters run a recent enough version by default.

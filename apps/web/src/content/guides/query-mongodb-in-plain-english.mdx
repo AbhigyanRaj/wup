@@ -1,0 +1,149 @@
+export const metadata = {
+  title: "Query MongoDB in plain English (natural language)",
+  description: "How MongoDB natural language queries work: from a plain-English question to a find() or aggregation pipeline, what goes wrong, and how to check every answer.",
+  h1: "How to query MongoDB in plain English",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["MongoDB", "AI and data", "Getting started"],
+  primaryKeyword: "mongodb natural language query",
+  status: "published",
+  priority: "P0",
+  related: [
+    "/chat-with-mongodb",
+    "/guides/connect-mongodb-to-chatgpt-or-claude",
+    "/tools/mongodb-query-generator",
+    "/guides/mongodb-aggregation-pipeline-examples",
+    "/guides/why-ai-data-answers-hallucinate",
+    "/docs/connect-mongodb",
+    "/guides/mongodb-read-only-user",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+A MongoDB natural language query is a plain-English question, such as "which cities brought in the most revenue last month?", that a tool translates into a real MongoDB query, runs against your database and answers from the returned documents. The translation step is a language model that writes a `find()` or an aggregation pipeline. It only works well when the model knows your collections and field types, cannot write to the database, and shows you the query it ran so you can check it. This guide explains how the translation works, where it goes wrong, and how to set it up safely on your own data.
+
+## How natural language becomes a MongoDB query
+
+Every tool that does this, whether a chatbot you paste a schema into or a connected product, follows the same four steps.
+
+1. **Schema context.** The model needs your database and collection names, field paths and types. Without them it guesses that a field called `created_at` exists when yours is `createdAt`, or that `total` is a number when it is stored as a string. Good tools sample documents to build this context automatically. The [schema inference guide](/guides/infer-mongodb-schema-from-documents) shows how that sampling works.
+2. **Query generation.** Given the question and the schema, the model writes a query. Simple lookups become `find()` with a filter, projection, sort and limit. Anything with "per", "by", "average", "top" or "trend" becomes an aggregation pipeline with `$match`, `$group` and `$sort`. "How many" usually becomes `countDocuments()`.
+3. **Validation and execution.** Before anything runs, the query should be checked: read-only stages only, no server-side JavaScript, only collections you allowed, and limits on rows and time. Then it runs against the database.
+4. **The answer.** The model writes a reply from the rows that came back. A trustworthy answer quotes numbers from those rows, builds any chart from them, and shows the query so you can verify it.
+
+Steps 1 and 3 decide whether the result is safe and correct. Step 2 is the part people focus on, but a capable model given a bad schema still writes a wrong query, and a correct query run without a guard is still a risk.
+
+## Two questions, start to finish
+
+Take a store database with an `orders` collection. Each order has `status`, `city`, `total` (rupees), `createdAt` (a date) and an array of `items`. Here is a typical analytical question and the pipeline a model should produce:
+
+<QueryExample
+  question="Which three cities brought in the most revenue in August 2026, not counting refunds?"
+  collection="orders"
+  code={`db.orders.aggregate([
+  { $match: {
+      status: { $ne: "refunded" },
+      createdAt: { $gte: ISODate("2026-07-31T18:30:00Z"), $lt: ISODate("2026-08-31T18:30:00Z") }
+  } },
+  { $group: { _id: "$city", revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
+  { $sort: { revenue: -1 } },
+  { $limit: 3 }
+])`}
+  columns={["_id", "revenue", "orders"]}
+  rows={[["Delhi", 26291, 2], ["Pune", 24291, 2], ["Mumbai", 17997, 1]]}
+/>
+
+Notice what the question left implicit and the query made explicit:
+
+- **"August" in Indian time.** MongoDB stores dates in UTC, so August in IST starts at `2026-07-31T18:30:00Z`. A model that writes `ISODate("2026-08-01")` miscounts orders placed in the first five and a half hours of the month.
+- **"Not counting refunds"** became `status: { $ne: "refunded" }`. If the question had said nothing, the model would have to decide whether revenue includes refunded orders. A good tool asks instead of guessing.
+- **"Three"** became `$limit: 3` after the sort, not before it.
+
+A lookup question produces a simpler `find()`:
+
+```mongosh
+db.orders.find(
+  { status: "pending" },
+  { _id: 0, orderNo: 1, city: 1, total: 1, createdAt: 1 }
+).sort({ createdAt: -1 }).limit(5)
+```
+
+This answers "show me the five most recent pending orders". The projection keeps the reply readable and avoids pulling fields the question did not ask for. If you want to see how a model handles your own phrasing, the free [MongoDB query generator](/tools/mongodb-query-generator) turns a question into a query without connecting anything. The [aggregation pipeline examples](/guides/mongodb-aggregation-pipeline-examples) show 15 more patterns these questions map to.
+
+## Where plain-English queries go wrong
+
+Most wrong answers come from the question being ambiguous or the data being messier than the schema suggests, not from the model failing at syntax. Watch for these:
+
+- **Undefined business terms.** "Active customers", "revenue" and "churn" mean different things in different companies. The model cannot know that your revenue excludes tax, or that "active" means "ordered in the last 90 days".
+- **Time zones and date boundaries.** "Last month", "this week" and "yesterday" all depend on a time zone and on whether the range is inclusive. Check the boundaries in the generated query.
+- **Missing versus null.** In MongoDB, `{ couponCode: null }` matches documents where the field is `null` and documents where it does not exist. "Orders without a coupon" can be either.
+- **Mixed types.** If some documents store `total` as a string, a `$sum` skips them silently and the total comes out low.
+- **Arrays.** "Orders that contain a lamp" is a match on `items.name`, while "revenue from lamps" needs `$unwind` first. Otherwise you sum whole orders instead of lamp lines.
+- **Truncated results.** If the tool caps rows, "list all customers" returns the first N. The answer should say so rather than imply it is complete.
+
+The deeper reasons models produce confident wrong numbers are covered in [why AI data answers hallucinate](/guides/why-ai-data-answers-hallucinate). The practical defence is the same in every case: read the query, not just the answer.
+
+<Callout type="tip" title="Ask questions the way you would brief an analyst">
+
+Name the metric, the time range and the filter: "revenue excluding refunds, by city, for August 2026 in IST". Short questions work, but every word you leave out is a decision the model makes for you.
+
+</Callout>
+
+## Four ways to ask MongoDB questions in English
+
+| Approach | How it works | Good for | Watch out for |
+| --- | --- | --- | --- |
+| Paste schema into a chatbot | You describe the collections, the chatbot writes a query, you run it yourself | One-off queries, learning the syntax | You maintain the schema description by hand, and nothing checks the query before you run it |
+| Free query generator tools | Paste a question and sample documents, get a query back | Drafting a pipeline you will review | Same as above. The tool never sees your real data |
+| MongoDB Compass | Compass can [generate filter queries and aggregations from natural language](https://www.mongodb.com/docs/compass/current/query-with-natural-language/query-with-natural-language/) (version 1.40 and later), sending your prompt and schema details to its AI provider | Developers who already use Compass | It generates queries for you to run, inside a desktop app. MongoDB labels the feature experimental |
+| A connected AI analyst | The tool connects to your database read-only, writes the query, runs it and answers with charts and tables | Teams who want answers, not queries | Check how it enforces read-only access, which collections it can see and what it does with sensitive fields |
+
+The first two keep you in control of execution but leave the checking to you. The last one removes the copy and paste, which is why its guardrails matter more. The [safety checklist for connecting a database to AI](/guides/is-it-safe-to-connect-database-to-ai) covers what to ask any vendor.
+
+## Setting it up with wuup
+
+[wuup](/chat-with-mongodb) is a connected AI analyst for MongoDB (and Google Sheets and documents). Here is the setup, start to finish:
+
+<Steps>
+
+1. **Create a read-only database user.** Give it the built-in `read` role on the databases you want to query, or a custom role limited to specific collections. The [read-only user guide](/guides/mongodb-read-only-user) has the exact commands. If your cluster is on Atlas, also add wuup's server to the IP access list.
+2. **Paste the connection string and test it.** wuup lists the databases and collections the user can see. Hosts that resolve to private or internal addresses are refused.
+3. **Choose the collections in scope.** Only the collections you tick can be queried, including through `$lookup` and `$unionWith`. Details are in [scopes and redaction](/docs/scopes-and-redaction).
+4. **Review hidden fields.** Fields named like `password`, `token`, `secret`, `api_key`, `otp`, `hash` or `card_number`, and binary fields such as embeddings, are hidden automatically. You can hide more. Hidden fields are stripped from every result and cannot be filtered, grouped or joined on.
+5. **Ask.** A background scan samples each collection, so the model already knows your field names and types. You also get a few starter questions built from your schema.
+
+</Steps>
+
+When you ask a question, the answer streams in as it is written. Under it you see the queries used (the exact filter or pipeline, the collection and the row count), any table or chart built from the returned rows, and suggested follow-up questions. If the question is ambiguous, wuup asks a clarifying question instead of guessing. The full walkthrough is in the [connect MongoDB docs](/docs/connect-mongodb).
+
+The free tier includes 50 questions on Gemini. After that you can add your own OpenAI, Anthropic, OpenRouter or Gemini key, and wuup does not charge for those questions.
+
+## The guardrails that make it safe to try
+
+A plain-English interface is only as safe as the layer between the model and your database. In wuup that layer is a query guard that runs before every query:
+
+- **Read-only by construction.** Pipelines may only use an allowlist of read stages. `$out` and `$merge` are rejected, as are server-side JavaScript operators (`$where`, `$function`, `$accumulator`). Pair it with a read-only database user for a second, independent layer.
+- **Bounded cost.** Every query has a 10 second time limit and runs with `allowDiskUse: false`. Pipelines are limited to 30 stages, and results are capped at 100 rows (20 by default) and 50 KB.
+- **Scope and privacy.** `admin`, `local`, `config` and `system.*` collections are never queryable. Cross-collection stages must stay inside your scope, and hidden fields are enforced at any depth.
+- **Transparency.** Every query is shown with the answer, so you can rerun it in mongosh or paste it into the [aggregation explainer](/tools/mongodb-aggregation-explainer).
+
+These limits also shape what plain-English querying is good for. It works well for questions with aggregated answers ("revenue by month", "top 10 products", "how many users signed up last week"). It is not a way to export a full collection, since results stop at 100 rows.
+
+## FAQ
+
+### Can an AI write MongoDB aggregation pipelines correctly?
+
+Current models write correct pipelines for most everyday questions when they are given the real schema. Errors cluster around ambiguous terms, time zones, null handling and arrays, which is why you should always see the query that ran. Read it, or rerun it yourself, before you act on a number.
+
+### Does querying in natural language send my data to the AI model?
+
+The model needs the schema and the rows that answer the question, so those are sent to the model provider. In wuup, the values of hidden fields are removed before anything reaches the model, results are capped at 100 rows and 50 KB, and on the free tier the model is Gemini. With your own key, the request goes to the provider you chose.
+
+### Do I need to know MongoDB to use this?
+
+No, but it helps to recognise a few patterns in the query shown with each answer: `$match` is the filter, `$group` is the "by" in your question, and `$sort` with `$limit` is the "top N". The [SQL to MongoDB cheat sheet](/guides/sql-to-mongodb-cheat-sheet) maps these to SQL if that is more familiar.
+
+### Can natural language queries change or delete data?
+
+They should not be able to, and you should not rely on the tool alone for that. Connect with a database user that only has the `read` role, so even a query that slipped past the tool's checks could not write. In wuup the query guard rejects write stages and server-side JavaScript before anything runs.

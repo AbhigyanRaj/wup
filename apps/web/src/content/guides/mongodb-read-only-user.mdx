@@ -1,0 +1,208 @@
+export const metadata = {
+  title: "How to create a MongoDB read-only user",
+  description: "Create a MongoDB read-only user in Atlas or mongosh, limit it to one collection with a custom role, lock down the IP list and prove that writes fail.",
+  h1: "How to create a\nMongoDB read-only user",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Security", "MongoDB", "Atlas"],
+  primaryKeyword: "mongodb read only user",
+  status: "published",
+  priority: "P0",
+  related: [
+    "/guides/is-it-safe-to-connect-database-to-ai",
+    "/docs/connect-mongodb",
+    "/docs/scopes-and-redaction",
+    "/chat-with-mongodb",
+    "/security",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+A MongoDB read-only user is a database user whose only role is `read` (one database), `readAnyDatabase` (every database except `local` and `config`), or a custom role that grants the `find` action. In MongoDB Atlas you create it under **Database & Network Access** with the built-in role "Only read any database". On a self-managed deployment you run `db.createUser()` in mongosh with `roles: [{ role: "read", db: "shop" }]`. The user can run `find`, `count` and aggregations, and every insert, update, delete or `$out` comes back as `Unauthorized`. This guide shows all three options, then proves the user cannot write.
+
+## Why a read-only user is the first control
+
+Any tool that reads your database on your behalf, whether a BI dashboard, a notebook or an AI analyst, should hold the least privilege that still answers its questions. A read-only user turns "please do not write" from a promise into a server-side rule. If the tool misbehaves, gets a prompt injected into it, or simply has a bug, MongoDB itself refuses the write.
+
+Three levels of scope are worth knowing:
+
+| Option | What it can read | Where to set it |
+| --- | --- | --- |
+| `readAnyDatabase` ("Only read any database" in Atlas) | Every database except `local` and `config` | Atlas UI or `db.createUser` |
+| `read` on one database | All non-system collections in that database | Atlas "Specific Privileges" or `db.createUser` |
+| Custom role with `find` on named collections | Only the collections you list | Atlas "Custom Roles" or `db.createRole` |
+
+Pick the narrowest one that covers the questions you plan to ask. For an analytics tool that only needs `orders` and `products`, the custom role is the right answer. For a quick trial on a sample cluster, `read` on one database is fine.
+
+The `read` role grants the actions `changeStream`, `collStats`, `dbHash`, `dbStats`, `find`, `killCursors` and `listCollections` (plus a few index and stats actions) on non-system collections, per the [MongoDB built-in roles reference](https://www.mongodb.com/docs/manual/reference/built-in-roles/). It grants nothing that modifies data.
+
+## Option 1: create a read-only user in MongoDB Atlas
+
+Atlas manages database users for you, so you create them in the Atlas UI, the Atlas CLI or the Admin API. Atlas rolls back users created any other way, which means `db.createUser()` in mongosh is not the path on Atlas.
+
+<Steps>
+
+1. In Atlas, open your project. In the sidebar, under **Security**, click **Database & Network Access**.
+2. Click **Add New Database User** and keep the authentication method on **Password**.
+3. Enter a username such as `wuup_reader` and use **Autogenerate Secure Password**. Copy it now; you will paste it into your connection string.
+4. In the privileges section, open the **Built-in Role** dropdown and choose **Only read any database**. That maps to the `readAnyDatabase` role.
+5. To narrow it to one database, remove the built-in role and expand **Specific Privileges** instead. Choose `read` and type the database name, for example `shop`.
+6. Optional: toggle **Restrict Access to Specific Clusters** so the user only exists on the cluster you plan to query.
+7. Click **Add User**.
+
+</Steps>
+
+Atlas also supports temporary users that expire within a period you choose of up to 7 days ([Atlas docs](https://www.mongodb.com/docs/atlas/security-add-mongodb-users/)). A temporary user is a good fit when you are evaluating a tool and do not want a forgotten credential lying around.
+
+<Callout type="tip" title="Encode special characters">
+
+If the generated password contains characters such as `@`, `:` or `/`, URL-encode them in the connection string (`@` becomes `%40`). An unencoded password is the most common cause of "Authentication failed" errors.
+
+</Callout>
+
+## Option 2: create read-only users with mongosh
+
+On a self-managed replica set, connect as a user with the `userAdmin` role on the target database (or `userAdminAnyDatabase`) and run:
+
+```mongosh
+use shop
+
+db.createUser({
+  user: "wuup_reader",
+  pwd: passwordPrompt(),
+  roles: [{ role: "read", db: "shop" }]
+})
+```
+
+`passwordPrompt()` asks for the password interactively so it never lands in your shell history. The user is created in the `shop` database, so its connection string needs `authSource=shop`:
+
+```text
+mongodb://wuup_reader:<password>@db1.example.com:27017,db2.example.com:27017/shop?replicaSet=rs0&authSource=shop
+```
+
+To read every database instead, create the user in `admin` with `roles: [{ role: "readAnyDatabase", db: "admin" }]`. Prefer the single-database version unless you really need the whole cluster.
+
+### Limit the user to specific collections
+
+Database-level `read` still exposes collections you may not want a tool to see, such as `users` or `sessions`. A custom role fixes that. The role below can query `orders` and see its indexes, and can list collection names in `shop`, but cannot read anything else:
+
+```mongosh
+use shop
+
+db.createRole({
+  role: "ordersReadOnly",
+  privileges: [
+    { resource: { db: "shop", collection: "orders" }, actions: ["find", "listIndexes"] },
+    { resource: { db: "shop", collection: "" }, actions: ["listCollections"] }
+  ],
+  roles: []
+})
+
+db.createUser({
+  user: "wuup_orders",
+  pwd: passwordPrompt(),
+  roles: [{ role: "ordersReadOnly", db: "shop" }]
+})
+```
+
+A few details matter here:
+
+- `find` is enough for `find`, `countDocuments`, `estimatedDocumentCount` and `aggregate` on that collection. You do not need a separate `aggregate` action.
+- `collection: ""` means "the database itself", which is where `listCollections` lives. Without it, tools that discover your schema cannot list what exists.
+- `listIndexes` lets a tool see which fields are indexed, which helps it write queries that use them. It is optional.
+- Repeat the first privilege for each extra collection, for example `products`.
+
+On Atlas, build the same role in the UI: **Database & Network Access**, then the **Custom Roles** tab, then **Add New Custom Role**. Pick `find` from **Collection Actions**, set the database to `shop` and the collection to `orders`, add a row for `listCollections` on the database, and click **Add Custom Role**. Atlas exposes a subset of privilege actions for custom roles ([Atlas custom roles](https://www.mongodb.com/docs/atlas/security-add-mongodb-roles/)), and `find` is part of it.
+
+## Lock down network access
+
+A read-only user stops writes, but anyone with the password and a network path can still read. The Atlas IP access list closes the network path. Atlas only accepts client connections from entries on the project's list, each a single IP or a CIDR range ([Atlas IP access list](https://www.mongodb.com/docs/atlas/security/ip-access-list/)).
+
+<Steps>
+
+1. Go to **Database & Network Access** and click **IP Access List** under the **Network Access** heading.
+2. Click **Add IP Address** and enter the public address of the service that will connect, with a comment that says which service it is.
+3. If you are testing and must open `0.0.0.0/0`, set the entry to expire. Atlas supports temporary entries that expire within a period of up to 7 days.
+
+</Steps>
+
+For self-managed clusters, do the same at the firewall or security-group level and bind `mongod` only to interfaces that need it. If a tool reports that it cannot reach your cluster after this step, the access list is the usual cause; our [troubleshooting docs](/docs/troubleshooting) cover the other common errors.
+
+## Verify that writes fail
+
+Never assume a role is right. Connect as the new user and try to write:
+
+```bash
+mongosh "mongodb://wuup_reader:<password>@localhost:27017/shop?authSource=shop"
+```
+
+```mongosh
+db.orders.find().limit(1)          // works
+db.orders.countDocuments({})       // works
+db.orders.insertOne({ status: "test" })
+```
+
+The insert fails with an authorization error like this (the session id and ObjectId will differ):
+
+```text
+MongoServerError: not authorized on shop to execute command { insert: "orders", documents: [ { status: "test", _id: ObjectId('...') } ], ordered: true, lsid: { id: UUID("...") }, $db: "shop" }
+```
+
+Run the same check for an aggregation that writes, because `$out` and `$merge` are writes too:
+
+```mongosh
+db.orders.aggregate([{ $out: "orders_copy" }])
+// MongoServerError: not authorized on shop to execute command { aggregate: "orders", pipeline: [ { $out: "orders_copy" } ], ... }
+```
+
+For the collection-level user, also confirm that a collection outside the role is closed:
+
+```mongosh
+db.users.find()
+// MongoServerError: not authorized on shop to execute command { find: "users", filter: {}, ... }
+```
+
+We ran every command in this guide against MongoDB 8.2 with authentication enabled and got exactly these results: `find`, counts, aggregations, `listIndexes` and `listCollections` succeeded; `insertOne`, `$out` and the out-of-scope `find` returned `Unauthorized`.
+
+<Callout type="note" title="listDatabases still works">
+
+Since MongoDB 4.0.5, a user without the `listDatabases` privilege can still run `listDatabases` and sees only the databases it has privileges on. That is expected and does not leak other database names.
+
+</Callout>
+
+## How wuup adds a second layer
+
+When you [connect MongoDB to wuup](/docs/connect-mongodb), we ask for a read-only user like the one above. The database enforces the first layer. wuup enforces a second one in its own query guard before anything reaches your cluster, so a mistake on either side is caught by the other:
+
+- **Stage allowlist.** Aggregations may only use read stages such as `$match`, `$group`, `$lookup` and `$setWindowFields`. `$out`, `$merge` and any stage not on the list are refused, with a message the model can act on.
+- **Blocked operators.** Server-side JavaScript (`$where`, `$function`, `$accumulator`) and schema probing with `$jsonSchema` are rejected anywhere in a query.
+- **Scope.** Only the databases and collections you tick when connecting are queryable. `admin`, `local`, `config` and every `system.*` collection are always off limits, and `$lookup`, `$graphLookup` and `$unionWith` must target an in-scope collection in the same database. See [scopes and redaction](/docs/scopes-and-redaction).
+- **Redaction.** Fields whose names look like `password`, `token`, `api_key`, `ssn`, `cvv` or `card_number`, plus binary fields such as embeddings, are hidden from the AI at any depth. You can edit the list per collection.
+- **Limits.** Every query runs with a 10 second `maxTimeMS`, returns at most 100 rows (20 by default) and at most 50 KB of data, and aggregations run with `allowDiskUse: false`.
+
+When you [chat with MongoDB](/chat-with-mongodb) in wuup, you can see the exact query behind every answer in the "queries used" panel, and you can try the query writing part without connecting anything in the free [MongoDB query generator](/tools/mongodb-query-generator).
+
+<ToolCta href="/tools/mongodb-query-generator" title="Write MongoDB queries in plain English" description="Describe what you want in plain English and get a MongoDB query you can review and run in mongosh. Free to use." />
+
+## FAQ
+
+### Can a read-only user run aggregation pipelines?
+
+Yes. Aggregations that only read need the `find` action on the collection, which `read`, `readAnyDatabase` and the custom role above all grant. Pipelines that end in `$out` or `$merge` write data, so a read-only user cannot run them.
+
+### What is the difference between read and readAnyDatabase?
+
+`read` applies to one database. `readAnyDatabase` applies to every database except `local` and `config` and also grants `listDatabases` on the cluster. In Atlas the built-in role "Only read any database" is `readAnyDatabase`.
+
+### Can I use db.createUser on MongoDB Atlas?
+
+No. Atlas manages database users through the Atlas UI, Atlas CLI and Admin API, and rolls back users created another way. Use **Database & Network Access** in the UI.
+
+### Is a read-only user enough to connect a database to AI?
+
+It is necessary but not sufficient. It stops writes, but it does not stop a tool from reading sensitive fields or running a very expensive query. Pair it with collection scope, field redaction and query limits. Our guide on [whether it is safe to connect a database to AI](/guides/is-it-safe-to-connect-database-to-ai) walks through the full checklist.
+
+### Do I need a replica set for a read-only user?
+
+No. Users and roles work on a standalone `mongod`, a replica set and a sharded cluster. A replica set does let a reporting tool read from secondaries, which keeps analytical load away from the primary; wuup connects with the `secondaryPreferred` read preference for that reason.

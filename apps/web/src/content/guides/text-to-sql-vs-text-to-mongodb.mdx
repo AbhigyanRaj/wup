@@ -1,0 +1,183 @@
+export const metadata = {
+  title: "Text-to-SQL vs text-to-MongoDB: what changes",
+  description: "Text-to-SQL and text-to-MongoDB both turn questions into queries, but schemas, joins, arrays, validation and evaluation differ. A practical comparison.",
+  h1: "Text-to-SQL vs\ntext-to-MongoDB",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["AI and data", "MongoDB", "SQL"],
+  primaryKeyword: "text to sql vs text to mongodb",
+  status: "published",
+  priority: "P1",
+  related: [
+    "/guides/sql-to-mongodb-cheat-sheet",
+    "/guides/infer-mongodb-schema-from-documents",
+    "/guides/query-mongodb-in-plain-english",
+    "/tools/sql-to-mongodb-converter",
+    "/chat-with-mongodb",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+Text-to-SQL and text-to-MongoDB solve the same problem: turn a plain English question into a query that runs. The difference is everything around the query. SQL databases publish a fixed schema the model can read, joins are a single keyword, and one row means one record. MongoDB has no enforced schema to read, so the model must infer fields from sampled documents; data often lives in nested arrays that need `$unwind`; joins are an explicit `$lookup` stage; and the output is a JSON pipeline, not a string. Those differences change how you discover schema, guard queries and measure accuracy.
+
+## Same question, two queries
+
+Take one question: "Which product categories earned the most from paid orders in September 2026?"
+
+In a SQL database the data is normalised into three tables, and the answer is a join:
+
+```sql
+SELECT p.category, SUM(oi.quantity * oi.unit_price) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.id
+JOIN products p ON p.id = oi.product_id
+WHERE o.status = 'paid'
+  AND o.created_at >= '2026-09-01'
+  AND o.created_at < '2026-10-01'
+GROUP BY p.category
+ORDER BY revenue DESC
+LIMIT 5;
+```
+
+In MongoDB the line items are usually embedded in each order, and products live in their own collection:
+
+<QueryExample
+  question="Which product categories earned the most from paid orders in September 2026?"
+  collection="orders"
+  code={`db.orders.aggregate([
+  { $match: {
+      status: "paid",
+      createdAt: { $gte: ISODate("2026-09-01"), $lt: ISODate("2026-10-01") }
+  } },
+  { $unwind: "$items" },
+  { $lookup: {
+      from: "products",
+      localField: "items.productId",
+      foreignField: "_id",
+      as: "product"
+  } },
+  { $unwind: "$product" },
+  { $group: {
+      _id: "$product.category",
+      revenue: { $sum: { $multiply: ["$items.qty", "$items.price"] } }
+  } },
+  { $sort: { revenue: -1 } },
+  { $limit: 5 }
+])`}
+  columns={["_id", "revenue"]}
+  rows={[["Furniture", 200], ["Lighting", 80]]}
+/>
+
+We ran both against the same four sample orders (the SQL in an in-memory SQL engine, the pipeline on MongoDB 8.2) and they return the same two rows. The SQL version reads top to bottom as one statement. The MongoDB version is a sequence of stages, and the order matters: `$match` first so the filter can use an index, `$unwind` before `$lookup` because each line item points at a product.
+
+If you think in SQL, our [SQL to MongoDB cheat sheet](/guides/sql-to-mongodb-cheat-sheet) maps each clause to its stage, and the free [SQL to MongoDB converter](/tools/sql-to-mongodb-converter) translates a query for you.
+
+## Schema discovery: catalog vs sampling
+
+A text-to-SQL system starts by reading the catalog: table names, column names, types, primary keys and foreign keys. All of it is declared and exact. The model is told `order_items.product_id` references `products.id`, so it does not have to guess the join.
+
+MongoDB stores no such catalog for most collections. Schema validation exists, but it is optional and often absent. A text-to-MongoDB system therefore has to **infer** the schema by sampling documents and recording:
+
+- every field path, including nested ones such as `customer.address.city`
+- the types seen at each path (a `price` can be a double in new documents and a string in old ones)
+- how often each field appears (a field present in 40% of documents needs `$exists` or `$ifNull` handling)
+- which fields hold arrays, because those change how you count
+
+wuup samples 100 documents per collection with `$sample` and records paths up to three levels deep, then shows the model each field with its types and how often it appears. Our guide to [inferring a MongoDB schema from documents](/guides/infer-mongodb-schema-from-documents) explains the method, and the free [schema from JSON tool](/tools/mongodb-schema-from-json) infers a schema from documents you paste.
+
+Sampling has a cost SQL never pays: rare fields can be missed. A field that appears in 1 document out of 10,000 will usually not show up in a 100-document sample. Good systems let the model look at more samples on demand and say plainly when a field may be missing rather than exist.
+
+## Nested arrays and joins
+
+Two things a SQL-trained model has no instinct for: arrays inside documents, and joins that are a stage rather than a keyword.
+
+### Arrays and `$unwind`: the counting trap
+
+Nested arrays are the single biggest source of wrong answers in text-to-MongoDB. In SQL, line items are rows in their own table, and `COUNT(DISTINCT o.id)` is a habit. In MongoDB, once you `$unwind` the `items` array, each order becomes one document per item, and any count after that counts items, not orders.
+
+On our sample data, this pipeline returns 4 for "how many paid orders are there?", which is wrong:
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: "paid" } },
+  { $unwind: "$items" },
+  { $count: "orders" }        // 4: counts line items
+])
+```
+
+The correct answer, 3, comes from not unwinding at all, or from regrouping by `_id` before counting:
+
+```mongosh
+db.orders.aggregate([
+  { $match: { status: "paid" } },
+  { $count: "orders" }        // 3
+])
+```
+
+The same trap applies to sums: a total computed after `$unwind` repeats any order-level field once per item. A model that learned on SQL has no instinct for this, so the schema it is given must say which fields are arrays, and a reviewer should check every pipeline that unwinds before it aggregates. The free [aggregation explainer](/tools/mongodb-aggregation-explainer) explains a pipeline stage by stage, which makes an early `$unwind` easy to spot.
+
+### Joins: one keyword vs an explicit stage
+
+SQL joins are declarative. The engine picks the strategy, and foreign keys tell the model which columns match.
+
+`$lookup` is explicit and has rules a model must follow:
+
+- `from` names a collection in the **same database** as the pipeline. wuup also requires it to be a collection you have put in scope.
+- `localField` and `foreignField` must have the same type. An `ObjectId` in `orders.items.productId` will not match a string in `products._id`, and the result is an empty array with no error.
+- The result is always an array, so a one-to-one join needs a follow-up `$unwind` (or `$first`) before you can group on the joined field.
+- Without an index on `foreignField`, every input document scans the foreign collection.
+
+Many MongoDB schemas avoid joins altogether by embedding, which is good for the model: fewer stages, fewer chances to mismatch types. A text-to-MongoDB system should prefer the embedded field when both exist.
+
+## Dialects, versions and output format
+
+**SQL has dialects.** Date truncation, string concatenation, `LIMIT` versus `TOP`, quoting rules and window function support differ between SQL databases. A text-to-SQL system must know which engine it is targeting and generate for that dialect, or it produces queries that parse in one engine and fail in another.
+
+**MongoDB has versions and deployment types.** There is one query language, but operators arrive over time: `$dateTrunc` and `$setWindowFields` need MongoDB 5.0 or later, and full-text and vector search stages depend on how the deployment is set up. The system needs the server version and deployment type, not a dialect name.
+
+**The output format differs too.** SQL is a string, which you parse to inspect. A MongoDB query is structured JSON: a filter object or an array of stages. That is an advantage for safety, because you can walk the structure and check every stage and operator without writing a parser. It also means the model must produce valid Extended JSON, including `{"$date": "..."}` for dates and `{"$oid": "..."}` for ids, or the query compares a string to a date and silently matches nothing.
+
+## Validation and guarding
+
+Both kinds of system need a guard between the model and the database, and both should sit behind a read-only database user. The checks differ.
+
+| Risk | Text-to-SQL guard | Text-to-MongoDB guard |
+| --- | --- | --- |
+| Writes | Parse the statement and allow only `SELECT`; run in a read-only transaction | Allowlist read stages; refuse `$out` and `$merge` |
+| Server-side code | Block user-defined functions and procedure calls | Block `$where`, `$function` and `$accumulator` anywhere in the query |
+| Sensitive columns or fields | Column-level grants or views | Hide fields by name at any nesting depth, including inside `$lookup` results |
+| Runaway queries | Statement timeout, row limit | `maxTimeMS`, a hard `$limit`, `allowDiskUse: false` |
+| Out-of-scope data | Schema or table grants | Collection scope, also enforced on `$lookup`, `$graphLookup` and `$unionWith` targets |
+
+In MongoDB, sensitive data hides in more places. A `password` field can sit at `user.auth.password`, be pulled in by a `$lookup`, or be reached through `$$ROOT.password`. wuup's guard checks every path segment, not just the leaf, and strips hidden fields from results at any depth. Details are in the [scopes and redaction docs](/docs/scopes-and-redaction).
+
+## Evaluation: a mature benchmark culture vs a young one
+
+Text-to-SQL has years of public benchmarks. [Spider](https://yale-lily.github.io/spider) and [BIRD](https://bird-bench.github.io/) are the best known, and both score systems by executing the generated SQL and comparing results.
+
+Text-to-MongoDB benchmarks are newer. [TEND](https://arxiv.org/abs/2502.11201) is an execution-verified set of 1,210 MongoDB-native tasks across 11 databases, built around nested arrays, sparse fields and polymorphic documents rather than translated from SQL. [SM3-Text-to-Query](https://neurips.cc/virtual/2024/poster/97708) (NeurIPS 2024) covers SQL, MongoDB and two graph query languages on one synthetic medical dataset.
+
+For your own data, execution matching is the method that matters. Collect 30 to 50 real questions with known answers, run the generated query, and compare the rows, not the query text. Two pipelines that look different can return identical results, and two that look nearly identical can differ by an `$unwind`. This is also why wuup shows the exact query behind every answer: you can rerun it in mongosh and check.
+
+If you want to see a text-to-MongoDB system in practice, [chat with MongoDB](/chat-with-mongodb) on your own read-only cluster, or try the free [MongoDB query generator](/tools/mongodb-query-generator) without connecting anything.
+
+<ToolCta href="/tools/sql-to-mongodb-converter" title="Convert SQL to MongoDB" description="Paste a SQL SELECT statement and get the equivalent MongoDB query to review and run. Free to use." />
+
+## FAQ
+
+### Is text-to-MongoDB harder than text-to-SQL?
+
+It has different failure modes. Schema has to be inferred instead of read, arrays change counting, and joins need matching types. With a good inferred schema and a guard, accuracy on everyday analytical questions is practical; the risky cases are the ones that unwind arrays.
+
+### Can a text-to-SQL model generate MongoDB queries?
+
+General-purpose models can write both. The quality depends less on the model and more on what you tell it: field paths, types, which fields are arrays, and the server version.
+
+### Should I convert MongoDB data to a SQL database for AI queries?
+
+Only if you already need it there for other reasons. Flattening nested documents adds a pipeline to maintain and goes stale. Querying MongoDB directly with a read-only user keeps answers live.
+
+### Does wuup support SQL databases?
+
+Not today. wuup connects to MongoDB, Google Sheets and PDF or TXT documents. SQL database support is on the roadmap.

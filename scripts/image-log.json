@@ -1,0 +1,570 @@
+[
+  {
+    "id": "home/pillar-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single saturated royal blue #2563EB to sky blue #38BDF8 gradient field filling the whole frame, with faint thin radiating curved lines in white at low opacity. Centred in the frame, small enough to leave wide margins: a white translucent glossy stack of three rounded discs, like a database cylinder. Soft inner glow, gentle soft shadow beneath. Wide 5:3 composition.",
+    "date": "2026-10-14T11:55:08.770Z",
+    "bytes": 26918
+  },
+  {
+    "id": "home/split-security",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA serene symmetric scene. A soft periwinkle-to-ice-white gradient sky. Layered rounded dome shapes in indigo and royal blue rising from the bottom edge like a calm, stylised vault, flat-shaded with soft inner glows. A thin white geometric lattice shield, drawn in fine monoline, floating in the sky above the domes. 4:3.",
+    "date": "2026-10-14T11:55:12.225Z",
+    "bytes": 25630
+  },
+  {
+    "id": "home/pillar-sheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single saturated sky blue #38BDF8 to periwinkle #A5BBFC gradient field filling the whole frame, with faint thin radiating curved lines in white at low opacity. Centred in the frame, small enough to leave wide margins: a frosted translucent white rounded grid of nine soft square cells, three by three. Soft inner glow, gentle soft shadow beneath. Wide 5:3 composition.",
+    "date": "2026-10-14T11:55:43.489Z",
+    "bytes": 20704
+  },
+  {
+    "id": "home/pillar-docs",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single saturated indigo #556ADC to periwinkle #A5BBFC gradient field filling the whole frame, with faint thin radiating curved lines in white at low opacity. Centred in the frame, small enough to leave wide margins: a frosted translucent white stack of three rounded paper pages with a small ribbon bookmark. Soft inner glow, gentle soft shadow beneath. Wide 5:3 composition.",
+    "date": "2026-10-14T11:55:50.298Z",
+    "bytes": 14334
+  },
+  {
+    "id": "home/tile-sandbox",
+    "provider": "openai",
+    "model": "gpt-image-2.5-flare",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single app-icon style rounded square made of frosted glass with glossy depth, filled with a royal blue #2563EB gradient, with a subtle embossed white cube in the centre, soft drop shadow beneath. Isolated object centred on a fully transparent background, the rounded square fills about 80% of the canvas. 1:1.",
+    "date": "2026-10-14T11:56:04.587Z",
+    "bytes": 16170
+  },
+  {
+    "id": "home/tile-connect",
+    "provider": "openai",
+    "model": "gpt-image-2.5-flare",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single app-icon style rounded square made of frosted glass with glossy depth, filled with a sky blue #38BDF8 gradient, with a subtle embossed white pair of linked rings in the centre, soft drop shadow beneath. Isolated object centred on a fully transparent background, the rounded square fills about 80% of the canvas. 1:1.",
+    "date": "2026-10-14T11:56:11.455Z",
+    "bytes": 15194
+  },
+  {
+    "id": "home/tile-upload",
+    "provider": "openai",
+    "model": "gpt-image-2.5-flare",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single app-icon style rounded square made of frosted glass with glossy depth, filled with a indigo #556ADC gradient, with a subtle embossed white page with an upward chevron in the centre, soft drop shadow beneath. Isolated object centred on a fully transparent background, the rounded square fills about 80% of the canvas. 1:1.",
+    "date": "2026-10-14T11:56:25.409Z",
+    "bytes": 15618
+  },
+  {
+    "id": "use-cases/product-analytics-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: a symmetric row of rising rounded bar arches, tallest in the middle. 16:9 landscape.",
+    "date": "2026-10-14T11:56:43.944Z",
+    "bytes": 24350
+  },
+  {
+    "id": "guides/query-mongodb-in-plain-english",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: a nested speech-bubble arch. 16:9 landscape.",
+    "date": "2026-10-14T11:57:01.476Z",
+    "bytes": 25460
+  },
+  {
+    "id": "home/pillar-sheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single saturated sky blue #38BDF8 to periwinkle #A5BBFC gradient field filling the whole frame, smooth and evenly lit, symmetric left to right, no dark corners or blotches, with faint thin concentric curved lines in white at low opacity radiating from the centre. Exactly centred, upright and front-facing, small enough to leave wide margins: a frosted translucent white rounded grid of nine soft square cells, three by three. Soft inner glow, gentle soft shadow beneath. Wide 5:3 composition.",
+    "date": "2026-10-14T12:05:28.025Z",
+    "bytes": 16516
+  },
+  {
+    "id": "home/split-security",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA serene, perfectly mirror-symmetric scene. A soft periwinkle-to-ice-white gradient sky. Three overlapping layers of smooth semicircular hemisphere domes, perfectly round on top with no points, spires or tips, in indigo and royal blue, rising from the bottom edge like a calm modern vault, flat-shaded with soft inner glows. A thin white geometric lattice shield (a hexagonal grid inside a rounded shield outline), drawn in fine monoline, floating in the sky above the domes. 4:3.",
+    "date": "2026-10-14T12:05:37.165Z",
+    "bytes": 16524
+  },
+  {
+    "id": "home/pillar-docs",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA single saturated indigo #556ADC to periwinkle #A5BBFC gradient field filling the whole frame, smooth and evenly lit, symmetric left to right, no dark corners or blotches, with faint thin concentric curved lines in white at low opacity radiating from the centre. Exactly centred, upright and front-facing, small enough to leave wide margins: a frosted translucent white stack of three rounded rectangular paper pages standing upright, seen straight on, with a small white ribbon bookmark hanging from the top edge. Soft inner glow, gentle soft shadow beneath. Wide 5:3 composition.",
+    "date": "2026-10-14T12:06:04.558Z",
+    "bytes": 16006
+  },
+  {
+    "id": "pricing/plan-free",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide banner: a smooth periwinkle #A5BBFC to ice white #F4F7FF gradient filling the frame, with faint thin white concentric elliptical lines centred on the middle. Centred, modest in size with wide empty margins: a frosted translucent white sprouting four-point spark, soft inner glow. Ultra-wide composition.",
+    "date": "2026-10-14T12:06:47.881Z",
+    "bytes": 13402
+  },
+  {
+    "id": "pricing/plan-byok",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide banner: a smooth deep navy #172554 to royal blue #2563EB gradient filling the frame, with faint thin white concentric elliptical lines centred on the middle. Centred, modest in size with wide empty margins: a frosted translucent white rounded key built from overlapping circles, soft inner glow. Ultra-wide composition.",
+    "date": "2026-10-14T12:06:55.778Z",
+    "bytes": 54976
+  },
+  {
+    "id": "mats/blue",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA flat, even risograph-print paper texture in a single solid royal blue #2563EB, with fine subtle grain and gentle noise, very slight tonal variation. No objects, no shapes, no lines, no gradient bands, nothing else. Full frame.",
+    "date": "2026-10-14T12:07:22.532Z",
+    "bytes": 38354
+  },
+  {
+    "id": "mats/sky",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA flat, even risograph-print paper texture in a single solid sky blue #38BDF8, with fine subtle grain and gentle noise, very slight tonal variation. No objects, no shapes, no lines, no gradient bands, nothing else. Full frame.",
+    "date": "2026-10-14T12:07:34.225Z",
+    "bytes": 14066
+  },
+  {
+    "id": "mats/indigo",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA flat, even risograph-print paper texture in a single solid indigo #556ADC, with fine subtle grain and gentle noise, very slight tonal variation. No objects, no shapes, no lines, no gradient bands, nothing else. Full frame.",
+    "date": "2026-10-14T12:07:58.007Z",
+    "bytes": 14634
+  },
+  {
+    "id": "mats/periwinkle",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA flat, even risograph-print paper texture in a single solid periwinkle #A5BBFC, with fine subtle grain and gentle noise, very slight tonal variation. No objects, no shapes, no lines, no gradient bands, nothing else. Full frame.",
+    "date": "2026-10-14T12:08:11.567Z",
+    "bytes": 28804
+  },
+  {
+    "id": "footer/wordmark-texture",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Macro close-up photograph of flowing liquid glass and finely woven silk threads in sapphire, cobalt, sky blue and periwinkle. Soft natural light, shallow depth of field, rich but calm cool tones, the texture fills the entire frame edge to edge. Strictly no warm tones, no text, no logos, no people. Ultra-wide.",
+    "date": "2026-10-14T12:08:36.768Z",
+    "bytes": 73026
+  },
+  {
+    "id": "og/default",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background. A large, heavily blurred sunrise half-disc rising downward from the top edge, centred horizontally: a royal blue #2563EB core fading to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No objects, no shapes, no lines. Balanced, neutral blue. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:08:47.543Z",
+    "bytes": 13415
+  },
+  {
+    "id": "og/guide",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background. A large, heavily blurred sunrise half-disc rising downward from the top edge, centred horizontally: a royal blue #2563EB core fading to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No objects, no shapes, no lines. The core leans slightly toward indigo #556ADC. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:09:09.897Z",
+    "bytes": 15496
+  },
+  {
+    "id": "og/tool",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background. A large, heavily blurred sunrise half-disc rising downward from the top edge, centred horizontally: a royal blue #2563EB core fading to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No objects, no shapes, no lines. The core leans slightly toward sky blue #38BDF8, a touch brighter. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:09:18.783Z",
+    "bytes": 10778
+  },
+  {
+    "id": "og/docs",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background. A large, heavily blurred sunrise half-disc rising downward from the top edge, centred horizontally: a royal blue #2563EB core fading to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No objects, no shapes, no lines. The core leans slightly toward periwinkle #A5BBFC, softer and paler. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:09:41.096Z",
+    "bytes": 12299
+  },
+  {
+    "id": "use-cases/ecommerce-orders-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: nested rounded basket arches, one inside another. 16:9 landscape.",
+    "date": "2026-10-14T12:10:18.240Z",
+    "bytes": 63618
+  },
+  {
+    "id": "use-cases/support-tickets-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from indigo #556ADC to periwinkle #A5BBFC. Motif: two interlocking rounded speech rings. 16:9 landscape.",
+    "date": "2026-10-14T12:10:40.711Z",
+    "bytes": 47930
+  },
+  {
+    "id": "use-cases/sales-pipeline-google-sheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from sky blue #38BDF8 to periwinkle #A5BBFC. Motif: a stepped funnel arch narrowing downward in rounded tiers. 16:9 landscape.",
+    "date": "2026-10-14T12:11:05.022Z",
+    "bytes": 18378
+  },
+  {
+    "id": "use-cases/finance-reporting-google-sheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from sky blue #38BDF8 to periwinkle #A5BBFC. Motif: a balanced scale made of soft discs, perfectly level. 16:9 landscape.",
+    "date": "2026-10-14T12:11:18.137Z",
+    "bytes": 31148
+  },
+  {
+    "id": "use-cases/research-pdfs-and-spreadsheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from indigo #556ADC to periwinkle #A5BBFC. Motif: an open book seen from the front with a soft grid halo behind it. 16:9 landscape.",
+    "date": "2026-10-14T12:11:41.103Z",
+    "bytes": 56526
+  },
+  {
+    "id": "guides/mongodb-aggregation-pipeline-examples",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: a vertical chain of rounded capsules connected end to end. 16:9 landscape.",
+    "date": "2026-10-14T12:11:54.564Z",
+    "bytes": 28344
+  },
+  {
+    "id": "guides/mongodb-read-only-user",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from deep navy #172554 to royal blue #2563EB. Motif: a rounded shield inside a scalloped arch. 16:9 landscape.",
+    "date": "2026-10-14T12:12:14.090Z",
+    "bytes": 23138
+  },
+  {
+    "id": "guides/connect-mongodb-to-chatgpt-or-claude",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: two mirrored arches joined by a gentle bridge between them. 16:9 landscape.",
+    "date": "2026-10-14T12:12:31.341Z",
+    "bytes": 30354
+  },
+  {
+    "id": "guides/sql-to-mongodb-cheat-sheet",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from periwinkle #A5BBFC to ice white #F4F7FF, with indigo #556ADC accents. Motif: square grid tiles on the left gradually morphing into leaf-shaped ovals on the right. 16:9 landscape.",
+    "date": "2026-10-14T12:12:46.985Z",
+    "bytes": 37614
+  },
+  {
+    "id": "guides/chat-with-google-sheets-methods",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from sky blue #38BDF8 to periwinkle #A5BBFC. Motif: a scalloped frame around a grid of soft rounded cells. 16:9 landscape.",
+    "date": "2026-10-14T12:13:05.151Z",
+    "bytes": 32492
+  },
+  {
+    "id": "guides/ask-questions-across-pdfs-and-spreadsheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from indigo #556ADC to periwinkle #A5BBFC. Motif: a neat stack of rounded pages with small circular markers along one edge. 16:9 landscape.",
+    "date": "2026-10-14T12:13:24.851Z",
+    "bytes": 41530
+  },
+  {
+    "id": "guides/why-ai-data-answers-hallucinate",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from indigo #556ADC to periwinkle #A5BBFC. Motif: a soft blurred orb on the left sharpening into a crisp ringed sphere on the right. 16:9 landscape.",
+    "date": "2026-10-14T12:13:42.933Z",
+    "bytes": 36754
+  },
+  {
+    "id": "guides/text-to-sql-vs-text-to-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from periwinkle #A5BBFC to ice white #F4F7FF, with indigo #556ADC accents. Motif: a square-grid arch beside a leaf-shaped arch, side by side. 16:9 landscape.",
+    "date": "2026-10-14T12:14:04.335Z",
+    "bytes": 31446
+  },
+  {
+    "id": "guides/best-ai-data-analyst-tools",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from periwinkle #A5BBFC to ice white #F4F7FF, with indigo #556ADC accents. Motif: a symmetric constellation of rounded capsules orbiting a central ring. 16:9 landscape.",
+    "date": "2026-10-14T12:14:26.050Z",
+    "bytes": 55968
+  },
+  {
+    "id": "guides/byok-explained",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from deep navy #172554 to royal blue #2563EB. Motif: a key made of overlapping circles. 16:9 landscape.",
+    "date": "2026-10-14T12:14:40.185Z",
+    "bytes": 29476
+  },
+  {
+    "id": "guides/is-it-safe-to-connect-database-to-ai",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from deep navy #172554 to royal blue #2563EB. Motif: concentric vault-door rings. 16:9 landscape.",
+    "date": "2026-10-14T12:14:59.200Z",
+    "bytes": 42840
+  },
+  {
+    "id": "guides/infer-mongodb-schema-from-documents",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: scattered dots organising into a symmetric branching line tree. 16:9 landscape.",
+    "date": "2026-10-14T12:15:15.036Z",
+    "bytes": 45312
+  },
+  {
+    "id": "og/connector",
+    "provider": "derived",
+    "model": "og/tool",
+    "prompt": "tint {\"from\":\"og/tool\",\"hue\":-6}",
+    "date": "2026-10-14T12:15:15.075Z",
+    "bytes": 10967
+  },
+  {
+    "id": "og/compare",
+    "provider": "derived",
+    "model": "og/guide",
+    "prompt": "tint {\"from\":\"og/guide\",\"hue\":8}",
+    "date": "2026-10-14T12:15:15.076Z",
+    "bytes": 15316
+  },
+  {
+    "id": "og/use-case",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":-8,\"saturation\":1.05}",
+    "date": "2026-10-14T12:15:15.111Z",
+    "bytes": 13817
+  },
+  {
+    "id": "og/feature",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":6}",
+    "date": "2026-10-14T12:15:15.112Z",
+    "bytes": 13199
+  },
+  {
+    "id": "og/legal",
+    "provider": "derived",
+    "model": "og/docs",
+    "prompt": "tint {\"from\":\"og/docs\",\"saturation\":0.85,\"brightness\":1.01}",
+    "date": "2026-10-14T12:15:15.146Z",
+    "bytes": 11844
+  },
+  {
+    "id": "og/glossary",
+    "provider": "derived",
+    "model": "og/docs",
+    "prompt": "tint {\"from\":\"og/docs\",\"hue\":10}",
+    "date": "2026-10-14T12:15:15.147Z",
+    "bytes": 11974
+  },
+  {
+    "id": "mats/blue",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Texture swatch only. A completely flat, evenly inked risograph print of a single solid royal blue #2563EB ink colour on paper, filling the entire frame edge to edge, with fine subtle grain, gentle speckle noise and very slight tonal mottling. An empty, plain colour field: no objects, no illustration, no shapes, no lines, no borders, no gradient bands, no text, no warm tones. Full-bleed abstract background texture.",
+    "date": "2026-10-14T12:16:06.893Z",
+    "bytes": 23056
+  },
+  {
+    "id": "mats/sky",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Texture swatch only. A completely flat, evenly inked risograph print of a single solid sky blue #38BDF8 ink colour on paper, filling the entire frame edge to edge, with fine subtle grain, gentle speckle noise and very slight tonal mottling. An empty, plain colour field: no objects, no illustration, no shapes, no lines, no borders, no gradient bands, no text, no warm tones. Full-bleed abstract background texture.",
+    "date": "2026-10-14T12:16:24.215Z",
+    "bytes": 26222
+  },
+  {
+    "id": "mats/indigo",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Texture swatch only. A completely flat, evenly inked risograph print of a single solid indigo #556ADC ink colour on paper, filling the entire frame edge to edge, with fine subtle grain, gentle speckle noise and very slight tonal mottling. An empty, plain colour field: no objects, no illustration, no shapes, no lines, no borders, no gradient bands, no text, no warm tones. Full-bleed abstract background texture.",
+    "date": "2026-10-14T12:16:54.677Z",
+    "bytes": 27100
+  },
+  {
+    "id": "mats/periwinkle",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Texture swatch only. A completely flat, evenly inked risograph print of a single solid periwinkle #A5BBFC ink colour on paper, filling the entire frame edge to edge, with fine subtle grain, gentle speckle noise and very slight tonal mottling. An empty, plain colour field: no objects, no illustration, no shapes, no lines, no borders, no gradient bands, no text, no warm tones. Full-bleed abstract background texture.",
+    "date": "2026-10-14T12:17:13.623Z",
+    "bytes": 27712
+  },
+  {
+    "id": "og/default",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background, pure soft light and colour. A very wide, extremely blurred sunrise half-disc hanging down from the top edge, centred horizontally and spanning about 80% of the frame width, its edges dissolving softly like out-of-focus light, no hard edges: a royal blue #2563EB core fading outward to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No rings, no lines, no circles, no objects, no shapes, no dark navy. Balanced, neutral blue. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:17:26.056Z",
+    "bytes": 16372
+  },
+  {
+    "id": "og/guide",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background, pure soft light and colour. A very wide, extremely blurred sunrise half-disc hanging down from the top edge, centred horizontally and spanning about 80% of the frame width, its edges dissolving softly like out-of-focus light, no hard edges: a royal blue #2563EB core fading outward to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No rings, no lines, no circles, no objects, no shapes, no dark navy. The core leans slightly toward indigo #556ADC. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:17:44.610Z",
+    "bytes": 11457
+  },
+  {
+    "id": "og/tool",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background, pure soft light and colour. A very wide, extremely blurred sunrise half-disc hanging down from the top edge, centred horizontally and spanning about 80% of the frame width, its edges dissolving softly like out-of-focus light, no hard edges: a royal blue #2563EB core fading outward to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No rings, no lines, no circles, no objects, no shapes, no dark navy. The core leans slightly toward sky blue #38BDF8, a touch brighter. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:17:56.876Z",
+    "bytes": 9971
+  },
+  {
+    "id": "og/docs",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background, pure soft light and colour. A very wide, extremely blurred sunrise half-disc hanging down from the top edge, centred horizontally and spanning about 80% of the frame width, its edges dissolving softly like out-of-focus light, no hard edges: a royal blue #2563EB core fading outward to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No rings, no lines, no circles, no objects, no shapes, no dark navy. The core leans slightly toward periwinkle #A5BBFC, softer and paler. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:18:28.656Z",
+    "bytes": 8848
+  },
+  {
+    "id": "use-cases/ecommerce-orders-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from royal blue #2563EB to sky blue #38BDF8. Motif: one simple basket silhouette: a wide rounded bowl shape with a single tall rounded arch handle above it, the handle drawn as three nested arch contours; no circles, no extra elements. 16:9 landscape.",
+    "date": "2026-10-14T12:19:04.543Z",
+    "bytes": 25896
+  },
+  {
+    "id": "og/connector",
+    "provider": "derived",
+    "model": "og/tool",
+    "prompt": "tint {\"from\":\"og/tool\",\"hue\":-6}",
+    "date": "2026-10-14T12:19:04.584Z",
+    "bytes": 10120
+  },
+  {
+    "id": "og/compare",
+    "provider": "derived",
+    "model": "og/guide",
+    "prompt": "tint {\"from\":\"og/guide\",\"hue\":8}",
+    "date": "2026-10-14T12:19:04.585Z",
+    "bytes": 10893
+  },
+  {
+    "id": "og/use-case",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":-8,\"saturation\":1.05}",
+    "date": "2026-10-14T12:19:04.620Z",
+    "bytes": 16842
+  },
+  {
+    "id": "og/feature",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":6}",
+    "date": "2026-10-14T12:19:04.621Z",
+    "bytes": 16001
+  },
+  {
+    "id": "og/legal",
+    "provider": "derived",
+    "model": "og/docs",
+    "prompt": "tint {\"from\":\"og/docs\",\"saturation\":0.85,\"brightness\":1.01}",
+    "date": "2026-10-14T12:19:04.656Z",
+    "bytes": 8526
+  },
+  {
+    "id": "og/glossary",
+    "provider": "derived",
+    "model": "og/docs",
+    "prompt": "tint {\"from\":\"og/docs\",\"hue\":10}",
+    "date": "2026-10-14T12:19:04.657Z",
+    "bytes": 8956
+  },
+  {
+    "id": "guides/mongodb-read-only-user",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from deep navy #172554 to royal blue #2563EB. Motif: a classic heraldic shield silhouette (flat top, curved sides meeting in a point at the bottom) standing inside a larger scalloped arch frame with small lobes along its edge. 16:9 landscape.",
+    "date": "2026-10-14T12:19:53.789Z",
+    "bytes": 28532
+  },
+  {
+    "id": "guides/ask-questions-across-pdfs-and-spreadsheets",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from indigo #556ADC to periwinkle #A5BBFC. Motif: a neat fanned stack of four rounded rectangular paper sheets, slightly offset, with a column of small circular markers along the right edge of the top sheet. 16:9 landscape.",
+    "date": "2026-10-14T12:19:54.320Z",
+    "bytes": 28424
+  },
+  {
+    "id": "guides/text-to-sql-vs-text-to-mongodb",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from periwinkle #A5BBFC to ice white #F4F7FF, with indigo #556ADC accents. Motif: two separate standalone shapes side by side with clear empty space between them: on the left an arch filled with a fine square grid, on the right a pointed leaf-shaped arch with a central vein. 16:9 landscape.",
+    "date": "2026-10-14T12:20:41.258Z",
+    "bytes": 41422
+  },
+  {
+    "id": "guides/best-ai-data-analyst-tools",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from periwinkle #A5BBFC to ice white #F4F7FF, with indigo #556ADC accents. Motif: a perfectly mirror-symmetric constellation: six identical rounded capsules evenly spaced on an orbit around a central ring, connected to it by thin white lines. 16:9 landscape.",
+    "date": "2026-10-14T12:20:52.857Z",
+    "bytes": 51862
+  },
+  {
+    "id": "guides/is-it-safe-to-connect-database-to-ai",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nBold editorial cover illustration. One large symmetric abstract shape, centred, filling about 70% of the frame with generous even padding, rendered as a matte soft-gradient form with three to five nested inner contour layers, each slightly lighter toward the centre, and a few thin white line-art accents. Flat, calm background in the same two-tone gradient. The centre of the shape is calm, smooth and empty so a title can be overlaid later. Subtle film grain. Absolutely no text or letters. Two-tone gradient from deep navy #172554 to royal blue #2563EB. Motif: a round vault door seen face-on: perfectly circular concentric rings, a small solid circular hub in the centre, and evenly spaced short bolt notches around the outer ring. 16:9 landscape.",
+    "date": "2026-10-14T12:21:30.454Z",
+    "bytes": 37468
+  },
+  {
+    "id": "og/default",
+    "provider": "gemini",
+    "model": "gemini-nano-banana-2.1",
+    "prompt": "Soft, luminous, minimal digital illustration. Cool blue palette only: royal blue #2563EB, sky blue #38BDF8, periwinkle #A5BBFC, indigo #556ADC, deep navy #172554, ice white #F4F7FF. Smooth gradients with subtle film grain. Rounded, symmetric geometric forms with thin white line-art details. Calm, premium, generous negative space. Strictly no orange, red, yellow, green or warm tones. No text, letters, numbers, logos, watermarks, user interface or people.\n\nA wide social card background, pure soft light and colour. A very wide, extremely blurred sunrise half-disc hanging down from the top edge, centred horizontally and spanning about 80% of the frame width, its edges dissolving softly like out-of-focus light, no hard edges: a royal blue #2563EB core fading outward to sky blue #38BDF8, then periwinkle #A5BBFC, then ice white #F4F7FF. The glow occupies only the top 35% of the frame. The lower 65% of the frame, especially the lower-left area, is calm, almost flat, very light ice white #F4F7FF with fine film grain. No rings, no lines, no circles, no objects, no shapes, no dark navy. Balanced, neutral blue. Wide 1.9:1 composition.",
+    "date": "2026-10-14T12:22:20.803Z",
+    "bytes": 10632
+  },
+  {
+    "id": "og/feature",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":6}",
+    "date": "2026-10-14T12:22:20.845Z",
+    "bytes": 10574
+  },
+  {
+    "id": "og/use-case",
+    "provider": "derived",
+    "model": "og/default",
+    "prompt": "tint {\"from\":\"og/default\",\"hue\":-8,\"saturation\":1.05}",
+    "date": "2026-10-14T12:22:20.846Z",
+    "bytes": 11132
+  },
+  {
+    "id": "og/glossary",
+    "provider": "derived",
+    "model": "og/docs",
+    "prompt": "tint {\"from\":\"og/docs\",\"hue\":-10,\"saturation\":0.95}",
+    "date": "2026-10-14T12:22:42.903Z",
+    "bytes": 9149
+  },
+  {
+    "id": "og/compare",
+    "provider": "derived",
+    "model": "og/guide",
+    "prompt": "tint {\"from\":\"og/guide\",\"hue\":-6}",
+    "date": "2026-10-14T12:22:42.905Z",
+    "bytes": 11146
+  }
+]

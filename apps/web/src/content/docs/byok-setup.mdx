@@ -1,0 +1,80 @@
+export const metadata = {
+  title: "Bring your own key: set up OpenAI, Claude and more",
+  description: "Add your own OpenAI, Anthropic, OpenRouter or Gemini API key to wuup for unlimited questions. wuup charges nothing; you pay your AI provider directly.",
+  h1: "Bring your own key",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Models"],
+  primaryKeyword: "wuup bring your own key",
+  status: "published",
+  priority: "P0",
+  group: "Models",
+  order: 20,
+  navLabel: "Bring your own key",
+  related: ["/guides/byok-explained", "/pricing", "/docs/troubleshooting"],
+  og: { eyebrow: "Docs" },
+}
+
+wuup's free tier gives you 50 questions on Gemini. To keep going, or to use a different model, add your own API key from OpenAI, Anthropic, OpenRouter or Google Gemini in **Settings**. With your key, questions are unlimited on the wuup side and wuup charges nothing: your provider bills you directly for the tokens you use. wuup checks the key when you save it, shows it masked afterwards, and you can remove it at any time.
+
+## Supported providers
+
+| Provider | Where to create a key | Notes |
+| --- | --- | --- |
+| OpenAI | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Needs billing set up on your OpenAI account |
+| Anthropic | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | Claude models, billed by Anthropic |
+| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | One key for many model vendors, prepaid credits |
+| Gemini | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Google AI Studio key |
+
+Each provider shows the full secret only once, when you create it. Copy it straight into wuup or a password manager.
+
+## Add your key
+
+<Steps>
+
+1. In wuup, open **Settings**, then **API key**.
+2. Choose the provider.
+3. Paste the key and choose **Save**.
+
+</Steps>
+
+wuup validates the key by asking the provider for its model list. Listing models does not spend tokens. If the provider accepts the key, wuup saves it, stores the list of models your key can use, and the model picker in the chat switches to those models. If the provider rejects it, nothing is saved and you see an error such as "Invalid Anthropic API key". See [Troubleshooting](/docs/troubleshooting#byok-key-rejected) if that happens.
+
+<Callout type="tip" title="Set a spending limit at your provider">
+
+Your provider bills every question you ask with your key. Most consoles let you set a monthly budget or a credit limit per key. Set one before you start a long research session.
+
+</Callout>
+
+## Choose a model
+
+After you save a key, the model picker lists the models your key can access. Pick one per chat, or leave it on the default:
+
+- OpenAI defaults to `gpt-4o-mini`.
+- Anthropic defaults to a current Claude model.
+- OpenRouter defaults to `google/gemini-2.5-flash`.
+- Gemini uses wuup's rotation of current Gemini models.
+
+Every answer records which model produced it and whether your own key was used.
+
+## How your key is used
+
+- wuup sends your key only to the provider you chose, to stream the answer and to run tool calls such as database queries.
+- After saving, the key is never shown in full again. Settings shows a masked hint with the first four and last four characters, for example `sk-p••••a1b2`.
+- Questions asked with your key do not count against the free tier.
+- wuup adds no markup and no per-question fee.
+
+## Remove or replace your key
+
+Open **Settings**, then **API key**, and choose **Remove**. wuup deletes the stored key and its model list, and new questions go back to the free tier if you have questions left. To switch providers, remove the old key and add the new one. Rotating the key at your provider also cuts off wuup immediately.
+
+## FAQ
+
+### Which provider should I pick?
+
+For data questions, any current mid-size model works well. OpenRouter is useful if you want to try several vendors with one key. Our guide [BYOK explained](/guides/byok-explained) compares the trade-offs.
+
+### Do I still need a wuup account?
+
+Yes. Your key pays for the model, while wuup runs the connections, the read-only guard, charts and chat history.

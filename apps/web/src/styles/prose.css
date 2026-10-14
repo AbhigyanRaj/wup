@@ -1,0 +1,437 @@
+/* ==========================================================================
+   wuup long-form prose (guides, docs, changelog, legal).
+   Kit sources: pages/blog-post.md 2.3 (article), pages/docs.md 2.3 (docs),
+   pages/legal.md 2.4 (legal). Imported by the article, docs and legal
+   layouts, not by globals.css. Lives in @layer components so Tailwind
+   utilities still override it.
+   ========================================================================== */
+
+@layer components {
+  /* ---------- Base: 16px / 1.65, 20px uniform block rhythm ---------- */
+  .prose {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.65;
+    font-weight: var(--fw-regular);
+    color: var(--color-tx);
+    min-width: 0;
+  }
+  .prose > * { margin: 0; min-width: 0; }
+  .prose p, .prose li { text-wrap: pretty; }
+  .prose strong { font-weight: 600; color: var(--color-tx); }
+  .prose em { font-style: italic; }
+
+  /* ---------- Headings: sans semibold, big space above ---------- */
+  .prose h2, .prose h3, .prose h4 {
+    position: relative;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--color-tx);
+    line-height: 1.25;
+    scroll-margin-top: 112px;
+    text-wrap: balance;
+  }
+  .prose h2 { font-size: 24px; letter-spacing: -0.01em; margin-top: 32px; }   /* 32 + 20 gap = 52px above */
+  .prose h3 { font-size: 20px; letter-spacing: -0.005em; margin-top: 28px; }  /* 48px above */
+  .prose h4 { font-size: 16px; margin-top: 12px; }
+  @media (min-width: 768px) {
+    .prose h2 { font-size: 28px; }
+    .prose h3 { font-size: 24px; }
+    .prose h4 { font-size: 18px; }
+  }
+  .prose > :first-child { margin-top: 0; }
+
+  /* "#" link to the left of a heading, on hover (legal.md 4) */
+  .heading-anchor {
+    position: absolute;
+    left: -1.1em;
+    top: 0;
+    width: 1em;
+    color: var(--color-tx-tertiary);
+    font-weight: var(--fw-regular);
+    opacity: 0;
+    transition: opacity 150ms var(--ease-standard);
+    text-decoration: none;
+  }
+  .prose h2:hover .heading-anchor,
+  .prose h3:hover .heading-anchor,
+  .prose h4:hover .heading-anchor { opacity: 1; }
+  @media (max-width: 767px) { .heading-anchor { display: none; } }
+
+  /* ---------- Links: indigo-700, 25% underline -> 100% on hover ---------- */
+  .prose-link {
+    color: var(--indigo-700);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in srgb, var(--indigo-700) 25%, transparent);
+    transition: text-decoration-color 150ms var(--ease-standard);
+    overflow-wrap: anywhere;
+  }
+  .prose-link:hover { text-decoration-color: var(--indigo-700); }
+
+  /* ---------- Lists: quiet "•" bullets, 10px item gap ---------- */
+  .prose ul, .prose ol { list-style: none; padding: 0; margin: 0; }
+  .prose li { position: relative; padding-left: 1.5em; line-height: 1.65; }
+  .prose li + li { margin-top: 10px; }
+  .prose ul > li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    width: 1em;
+    font-size: 0.75em;
+    line-height: 2.15;
+    color: var(--color-tx-secondary);
+  }
+  .prose ol { counter-reset: prose-ol; }
+  .prose ol > li { counter-increment: prose-ol; }
+  .prose ol > li::before {
+    content: counter(prose-ol) ".";
+    position: absolute;
+    left: 0;
+    width: 1.25em;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-tx-secondary);
+  }
+  .prose li > ul, .prose li > ol { margin-top: 8px; }
+  .prose li > p { margin: 0; }
+  .prose li > p + p { margin-top: 10px; }
+
+  /* ---------- Inline code ---------- */
+  .prose :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--color-sf-tertiary);
+    color: var(--color-tx);
+    overflow-wrap: anywhere;
+  }
+  .prose h2 :not(pre) > code, .prose h3 :not(pre) > code { font-size: 0.85em; }
+
+  /* ---------- Blockquote (kit callout): 3px rule, display 20px ---------- */
+  .prose blockquote {
+    padding-left: 24px;
+    border-left: 3px solid #d4d4d4;
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.65;
+    color: var(--color-tx);
+  }
+
+  .prose hr { border: 0; border-top: 1px solid var(--color-st); margin: 12px 0; }
+
+  /* ---------- Callout component ---------- */
+  .callout {
+    margin-block: 4px;
+    padding: 2px 0 2px 24px;
+    border-left: 3px solid #d4d4d4;
+  }
+  .callout--tip { border-left-color: var(--indigo-300); }
+  .callout--warning { border-left-color: var(--yellow-500, #e0b23f); }
+  .callout--security { border-left-color: var(--blue-600); }
+  .callout__label {
+    margin: 0 0 6px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-tx-tertiary);
+  }
+  .callout__body {
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.65;
+    color: var(--color-tx);
+  }
+  .callout__body > * { margin: 0; }
+  .callout__body > * + * { margin-top: 12px; }
+  .callout__body strong { font-weight: 600; }
+  .callout__body :not(pre) > code { font-size: 0.75em; }
+  .callout__body li + li { margin-top: 6px; }
+
+  /* ---------- Code blocks (kit .sw-code: 14px / 1.7, 20px 24px) ---------- */
+  .prose .code { margin-block: 4px; }
+  .prose .code pre,
+  .query-example .code pre {
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 20px 24px;
+    tab-size: 2;
+    background: #fafafa;
+  }
+  @media (min-width: 768px) {
+    .prose .code pre, .query-example .code pre { font-size: 14px; }
+  }
+  .mdx-code__lines .line { display: inline; }
+  .code__title { font-family: var(--font-sans); }
+
+  /* ---------- Tables (kit pricing table) ---------- */
+  .prose-table {
+    width: 100%;
+    overflow-x: auto;
+    background: #fff;
+    border: 1px solid var(--color-st-secondary);
+    border-radius: 16px;
+    overscroll-behavior-x: contain;
+  }
+  .prose-table:focus-visible { outline: 2px solid var(--indigo-400); outline-offset: 2px; }
+  .prose-table table { width: 100%; border-collapse: collapse; text-align: left; font-size: 15px; line-height: 1.5; }
+  .prose-table th {
+    padding: 12px 16px;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-tx-tertiary);
+    background: rgb(245 245 245 / 0.4);
+    border-bottom: 1px solid var(--color-st-secondary);
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+  .prose-table td {
+    padding: 12px 16px;
+    vertical-align: top;
+    color: var(--color-tx);
+    border-top: 1px solid var(--color-st-secondary);
+    min-width: 120px;
+  }
+  .prose-table tr:first-child td { border-top: 0; }
+  .prose-table td.is-num { font-variant-numeric: tabular-nums; }
+  .prose-table td :not(pre) > code { white-space: nowrap; }
+
+  /* ---------- Steps ---------- */
+  .steps ol { counter-reset: step; display: flex; flex-direction: column; }
+  .steps ol > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 44px;
+    padding-bottom: 20px;
+  }
+  .steps ol > li + li { margin-top: 0; }
+  .steps ol > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: var(--fw-medium);
+    font-variant-numeric: tabular-nums;
+    color: var(--indigo-800);
+    background: var(--indigo-50);
+    box-shadow: inset 0 0 0 1px var(--indigo-200);
+  }
+  .steps ol > li::after {
+    content: "";
+    position: absolute;
+    left: 13.5px;
+    top: 34px;
+    bottom: 6px;
+    width: 1px;
+    background: var(--color-st);
+  }
+  .steps ol > li:last-child { padding-bottom: 0; }
+  .steps ol > li:last-child::after { display: none; }
+
+  /* ---------- Tool CTA card ---------- */
+  .tool-cta {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid var(--color-st-secondary);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: box-shadow 300ms var(--ease-standard), border-color 200ms;
+  }
+  .tool-cta:hover { box-shadow: var(--shadow-card-hover); border-color: var(--color-st); }
+  .tool-cta__tile {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--indigo-400), var(--blue-600));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  }
+  .tool-cta__tile svg { width: 22px; height: 22px; }
+  .tool-cta__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tool-cta__eyebrow { font-size: 12px; line-height: 16px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-tx-tertiary); font-weight: var(--fw-medium); }
+  .tool-cta__title { font-size: 18px; line-height: 1.4; font-weight: var(--fw-medium); color: var(--color-tx); letter-spacing: -0.01em; }
+  .tool-cta__desc { font-size: 15px; line-height: 1.55; color: var(--color-tx-tertiary); }
+  .tool-cta__go {
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 15px;
+    font-weight: var(--fw-medium);
+    color: var(--indigo-700);
+  }
+  .tool-cta__go svg { width: 16px; height: 16px; transition: transform 200ms var(--ease-standard); }
+  .tool-cta:hover .tool-cta__go svg { transform: translateX(3px); }
+
+  /* ---------- Query example ---------- */
+  .query-example {
+    margin: 4px 0;
+    padding: 6px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--indigo-50), var(--indigo-200));
+    border: 1px solid var(--indigo-100);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .query-example__q, .query-example__result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px 20px;
+    background: #fff;
+    border-radius: 14px;
+  }
+  .query-example__label { font-size: 12px; line-height: 16px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-tx-tertiary); font-weight: var(--fw-medium); }
+  .query-example__question { font-family: var(--font-display); font-size: 20px; line-height: 1.4; color: var(--color-tx); }
+  .query-example .code { border-radius: 14px; border-color: transparent; }
+  .query-example__table { border-radius: 12px; }
+  .query-example__table td { min-width: 80px; }
+  .query-example__note { margin: 0; font-size: 14px; line-height: 1.55; color: var(--color-tx-tertiary); }
+
+  /* ---------- Figures and images ---------- */
+  .mdx-figure { margin: 4px 0; }
+  .mdx-figure img, .mdx-img { width: 100%; height: auto; border-radius: 6px; }
+  .mdx-figure figcaption { margin-top: 16px; font-size: 14px; line-height: 1.625; color: var(--color-tx-secondary); }
+
+  /* ==========================================================================
+     Docs variant (docs.md 2.3): 16px / 1.75 body, smaller section headings.
+     ========================================================================== */
+  .prose--docs { line-height: 1.75; }
+  .prose--docs li { line-height: 1.75; }
+  .prose--docs h2 { font-size: 22px; margin-top: 28px; letter-spacing: -0.015em; }
+  .prose--docs h3 { font-size: 18px; margin-top: 16px; }
+  @media (min-width: 768px) {
+    .prose--docs h2 { font-size: 24px; }
+    .prose--docs h3 { font-size: 19px; }
+  }
+
+  /* Changelog entries: headings sit under the entry title. */
+  .prose--changelog h3 { font-size: 18px; margin-top: 12px; }
+  .prose--changelog h4 { font-size: 16px; margin-top: 4px; }
+
+  /* ==========================================================================
+     Legal variant (legal.md 2.4): sans H2 28/525, 48px between sections,
+     bordered square tables with a #fafafa header row.
+     ========================================================================== */
+  .prose--legal h2 { font-weight: var(--fw-medium); font-size: 24px; line-height: 1.2; margin-top: 28px; letter-spacing: -0.01em; }
+  .prose--legal h3 { font-weight: var(--fw-medium); font-size: 20px; margin-top: 8px; }
+  @media (min-width: 768px) {
+    .prose--legal h2 { font-size: 28px; }
+  }
+  .prose--legal .prose-table { border: 0; border-radius: 0; background: transparent; }
+  .prose--legal .prose-table table { font-size: 16px; line-height: 1.5; }
+  .prose--legal .prose-table th {
+    border: 1px solid #e5e5e5;
+    background: #fafafa;
+    color: var(--color-tx);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    vertical-align: top;
+  }
+  .prose--legal .prose-table td,
+  .prose--legal .prose-table tr:first-child td { border: 1px solid #e5e5e5; min-width: 160px; }
+
+  /* ==========================================================================
+     Cover art (guide covers with the title set in HTML)
+     ========================================================================== */
+  .cover-art {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(135deg, #1e3a8a 0%, var(--blue-600) 55%, var(--sky-400, #38bdf8) 100%);
+    container-type: inline-size;
+  }
+  .cover-art__img { object-fit: cover; transition: transform 500ms var(--ease-standard); }
+  .cover-art__glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 70% at 50% 55%, rgb(255 255 255 / 0.28), transparent 70%),
+      radial-gradient(40% 50% at 80% 10%, rgb(165 187 252 / 0.6), transparent 70%);
+  }
+  .cover-art__glow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-url);
+    background-size: 256px;
+    mix-blend-mode: soft-light;
+    opacity: 0.5;
+  }
+  /* A soft indigo veil behind the title so white type reads on the pale centre panels. */
+  .cover-art__scrim {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(40% 32% at 50% 50%, rgb(20 27 80 / 0.44), rgb(20 27 80 / 0.14) 60%, transparent 82%);
+    pointer-events: none;
+  }
+  .cover-art--fallback .cover-art__scrim { display: none; }
+  .cover-art__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14%;
+    text-align: center;
+    pointer-events: none;
+  }
+  .cover-art__eyebrow {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.8);
+    font-weight: var(--fw-medium);
+  }
+  .cover-art__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    color: #fff;
+    font-size: clamp(22px, 10cqi, 72px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    text-shadow: 0 1px 1px rgb(17 17 91 / 0.35), 0 2px 18px rgb(17 17 91 / 0.45);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .cover-art--lg .cover-art__title { font-size: clamp(30px, 9cqi, 72px); }
+}
+

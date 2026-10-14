@@ -1,0 +1,125 @@
+/* Streaming states. Every loop stops under prefers-reduced-motion. */
+
+.orb {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #a5bbfc 0%, var(--indigo-600) 60%, var(--indigo-800) 100%);
+  box-shadow: 0 0 0 3px var(--indigo-100);
+  animation: orb-breathe 1.8s var(--ease-standard) infinite;
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.85);
+    box-shadow: 0 0 0 2px var(--indigo-100);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgb(210 223 249 / 0.6);
+  }
+}
+
+.shimmer {
+  color: transparent;
+  background: linear-gradient(90deg, #3d3d3d 0%, #3d3d3d 35%, #a7c0f1 50%, #3d3d3d 65%, #3d3d3d 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: text-shimmer 2.2s linear infinite;
+}
+
+@keyframes text-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin: 0 3.5px;
+  border-radius: 999px;
+  background: var(--indigo-600);
+  animation: dot-pulse 1.2s var(--ease-standard) infinite;
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.rowIn {
+  animation: row-in 300ms var(--ease-reveal) both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.typing {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 20px;
+}
+
+.typing span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--indigo-400);
+  animation: typing 1.2s var(--ease-standard) infinite;
+}
+
+.typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .shimmer,
+  .dot,
+  .rowIn,
+  .typing span {
+    animation: none;
+  }
+  .shimmer {
+    color: var(--color-tx-secondary);
+    background: none;
+  }
+}

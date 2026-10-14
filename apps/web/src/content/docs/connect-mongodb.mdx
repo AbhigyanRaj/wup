@@ -1,0 +1,106 @@
+export const metadata = {
+  title: "Connect MongoDB to wuup",
+  description: "Connect a MongoDB or Atlas database to wuup with a read-only user: test the connection, choose collections, review hidden fields and start asking questions.",
+  h1: "Connect MongoDB",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "MongoDB"],
+  primaryKeyword: "connect mongodb to wuup",
+  status: "published",
+  priority: "P0",
+  group: "Connect data",
+  order: 10,
+  navLabel: "Connect MongoDB",
+  related: ["/docs/scopes-and-redaction", "/guides/mongodb-read-only-user", "/docs/troubleshooting", "/chat-with-mongodb"],
+  og: { eyebrow: "Docs" },
+}
+
+To connect MongoDB to wuup, paste a connection string for a read-only database user, test it, choose which databases and collections wuup may read, and review the fields it will hide. wuup then scans the schema in the background and suggests starter questions. Every query it runs afterwards is read-only, limited to the collections you picked, and capped at 100 rows, 50 KB and 10 seconds. This page walks through each step and what happens behind it.
+
+## Before you start
+
+You need three things:
+
+- **A public MongoDB address.** MongoDB Atlas works out of the box. Self-hosted servers must be reachable from the internet. wuup refuses hosts that resolve to private, loopback or link-local addresses.
+- **A database user with read access only.** Create one with the built-in `read` role on the databases you want to use. Our guide on [creating a MongoDB read-only user](/guides/mongodb-read-only-user) has the Atlas and `mongosh` steps.
+- **Network access for wuup.** On Atlas, open **Network Access** and add an IP access list entry that lets wuup connect. While testing you can allow `0.0.0.0/0`, then narrow it later (email us for wuup's current outbound addresses).
+
+## Get your connection string
+
+In Atlas, open your cluster, choose **Connect**, then **Drivers**, and copy the string. It looks like this:
+
+```text
+mongodb+srv://wuup_reader:<password>@cluster0.abcde.mongodb.net/shop?retryWrites=true&w=majority
+```
+
+Replace `<password>` with the user's password. If the password contains characters such as `@`, `:`, `/` or `%`, URL-encode them (`@` becomes `%40`). The database name after the host (here `shop`) is optional. wuup uses it as the default when the user cannot list databases.
+
+Both `mongodb://` and `mongodb+srv://` strings are accepted. Anything else is rejected with "That doesn't look like a MongoDB URL. It should start with mongodb:// or mongodb+srv://".
+
+## Test and connect
+
+<Steps>
+
+1. In wuup, open **Data**, choose **Connect a source**, then **MongoDB**.
+2. Give the bridge a name, for example "Shop production". Names are unique per account.
+3. Paste the connection string and choose **Test connection**. wuup connects without saving anything, lists the databases and collections it can see, and samples the largest collections (up to 30) to find sensitive-looking fields.
+4. **Pick the scope.** Tick the databases and collections wuup may query. You can allow every collection in a database or choose them one by one.
+5. **Review hidden fields.** Fields such as `password`, `token` or `card_number` are pre-selected for hiding. Add or remove fields, then save.
+
+</Steps>
+
+When you save, wuup pings the cluster once more, encrypts the connection string with AES-256-GCM and stores it. The connection string is never returned to the browser again.
+
+## What happens after you connect
+
+The bridge status shows **scanning** while wuup reads a sample of each in-scope collection in the background. For each collection it records:
+
+- field paths up to three levels deep, with their types and how often they appear (from a sample of 100 documents),
+- the document count and index names,
+- any new sensitive fields, which are hidden automatically.
+
+When the scan finishes, the status becomes **active** and the bridge shows a few starter questions written from your schema. If the scan fails, the status becomes **error** with a message you can act on, such as an authentication or network problem. See [Troubleshooting](/docs/troubleshooting).
+
+## How wuup queries your data
+
+During a chat, the model can call six read-only tools on the bridge: list sources, describe a collection, `find`, `count`, `distinct` and `aggregate`. Every call goes through the same checks:
+
+1. The bridge belongs to you and is enabled for this chat.
+2. The database and collection are inside the bridge scope.
+3. The query passes the read-only guard: only allowlisted aggregation stages, no server-side JavaScript, no references to hidden fields.
+4. It runs with hard limits, then hidden fields are stripped from the result before the model sees it.
+
+| Limit | Value |
+| --- | --- |
+| Rows per query | 100 maximum, 20 by default |
+| Result size | 50 KB |
+| Time per query | 10 seconds (`maxTimeMS`) |
+| Distinct values | 200 |
+| Disk use in aggregations | Off (`allowDiskUse: false`) |
+
+wuup reads from secondaries when your cluster has them (`secondaryPreferred`), so analytical questions put less load on the primary. Every query wuup ran is shown under **Queries used** in the answer.
+
+## Manage a bridge
+
+Open a bridge from **Data** to see its status, schema, hidden fields and last scan time.
+
+- **Refresh** re-scans the schema, for example after you add a collection.
+- **Rename** changes the label shown in chats.
+- **Edit scope** adds or removes collections. Changing the scope starts a new scan.
+- **Edit hidden fields** changes what the model can see. See [Scopes and redaction](/docs/scopes-and-redaction).
+- **Delete** removes the bridge, closes its pooled connection and detaches it from your chats.
+
+## FAQ
+
+### Can wuup write to my database?
+
+No. The guard only accepts read tools and an allowlist of aggregation stages, so `$out`, `$merge`, `$function` and `$where` are refused before anything is sent. A `read`-role user means the database itself would refuse a write too.
+
+### Does wuup copy my collections?
+
+No. It stores the encrypted connection string, the schema summary from the scan (field names, types and counts) and the rows each answer used in your chat history. It does not keep copies of your collections.
+
+### Can I connect a local MongoDB?
+
+Not to the hosted service. wuup only connects to publicly reachable hosts. Use Atlas or a server with a public address and an IP access list.

@@ -1,0 +1,112 @@
+export const metadata = {
+  title: "Scopes and redaction for MongoDB bridges",
+  description: "How wuup limits a MongoDB bridge to the collections you choose, hides sensitive fields at any depth, and blocks writes and server-side JavaScript.",
+  h1: "Scopes and redaction",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "MongoDB", "Security"],
+  primaryKeyword: "mongodb field redaction ai",
+  status: "published",
+  priority: "P0",
+  group: "Connect data",
+  order: 11,
+  navLabel: "Scopes and redaction",
+  related: ["/docs/connect-mongodb", "/guides/is-it-safe-to-connect-database-to-ai", "/guides/mongodb-read-only-user"],
+  og: { eyebrow: "Docs" },
+}
+
+A MongoDB bridge in wuup has two privacy controls. The **scope** decides which databases and collections the AI may query at all. **Redaction** hides individual fields, such as passwords or tokens, inside those collections. Both are enforced on the server for every query, before anything reaches your database, and hidden fields are stripped from results again on the way back. A third layer, the read-only guard, refuses writes and server-side JavaScript. This page explains exactly how each one behaves.
+
+## Scope: which collections are queryable
+
+A scope is a list of entries, each naming one database and the collections allowed in it.
+
+```json
+[
+  { "db": "shop", "collections": ["orders", "products"] },
+  { "db": "analytics", "collections": ["*"] }
+]
+```
+
+The rules:
+
+- `"*"` allows every collection in that database, including collections created later.
+- A database that is not listed cannot be queried.
+- An **empty scope** allows every database except the system ones.
+- The system databases `admin`, `local` and `config`, and any collection whose name starts with `system.`, are never queryable, whatever the scope says.
+
+If the model asks for something outside the scope, the query is refused with a message such as "shop.users is not enabled for this bridge", and the model can pick a collection that is enabled.
+
+### Joins stay inside the scope
+
+`$lookup`, `$graphLookup` and `$unionWith` read a second collection. wuup checks that collection against the scope too, and it must be in the same database as the query. A join into another database, or into a collection you did not enable, is refused.
+
+## Redaction: which fields are hidden
+
+When you test a connection and when wuup scans a new collection, it marks fields as hidden if their name matches a sensitive pattern or if they hold binary data (for example embedding vectors). The match is case-insensitive and uses the last segment of the field path, so `auth.passwordHash` and `profile.apiKey` are both caught.
+
+| Pattern group | Field names that match |
+| --- | --- |
+| Credentials | `password`, `passwd`, `pwd`, `secret`, `salt`, `hash` |
+| Tokens and keys | `token`, `jwt`, `api_key`, `apikey`, `private_key`, `otp` |
+| Identity and payment | `ssn`, `cvv`, `card_number`, `credit_card` |
+| Binary data | any field whose sampled type is binary |
+
+You can change the list for each collection: add a field the patterns missed (for example `phone` or `dob`) or remove a false positive. Your edits are kept when the bridge is re-scanned. Only collections wuup has not seen before get automatic suggestions.
+
+<Callout type="tip" title="Hide by name, everywhere">
+
+Enforcement works on the field name at any depth, across every collection in the database. If `password` is hidden in `users`, a `$lookup` from `orders` into `users` still cannot return it, and neither can a nested path like `customer.password`.
+
+</Callout>
+
+## What the model sees
+
+For a hidden field, the model never receives a value:
+
+- `describe` lists the hidden field names but not their types or sample values, and sample documents have those fields removed.
+- Query results are walked recursively and hidden keys are dropped, including inside arrays and `distinct` results.
+- Each tool result includes a `hiddenFields` list, so the model can tell you "that field is hidden for privacy" instead of claiming it does not exist.
+- The schema cache never stores sample values for hidden fields.
+
+A query that references a hidden field, as a key, a `"$path"`, a `"$$ROOT.path"` variable path or a field-name argument like `localField`, is refused with "The field ... is hidden by this bridge's privacy settings and can't be queried." Excluding a hidden field in a projection (`{ "password": 0 }`) is always allowed.
+
+When any field in the database is hidden, operators that enumerate keys or search text dynamically are blocked too: `$objectToArray`, `$arrayToObject` and `$text`. They could otherwise reach a hidden value that a static path check cannot see.
+
+## The read-only guard
+
+Every pipeline is checked against an allowlist. Each stage must be a single-key object, and a pipeline can have at most 30 stages. The allowed stages are:
+
+```text
+$match  $project  $addFields  $set  $unset  $group  $sort  $limit  $skip
+$unwind  $count  $sortByCount  $bucket  $bucketAuto  $facet  $lookup
+$graphLookup  $unionWith  $replaceRoot  $replaceWith  $sample
+$setWindowFields  $densify  $fill  $geoNear
+```
+
+Anything else is refused, including `$out`, `$merge`, `$currentOp`, `$listSessions` and any stage MongoDB adds in the future. Inside every stage and filter, these operators are always refused: `$where`, `$function`, `$accumulator` and `$jsonSchema`. The `$$USER_ROLES` variable is blocked as well.
+
+Queries must be plain JSON, nested at most 32 levels deep and at most 5,000 values in total, so a pathological query cannot tie up the guard.
+
+## Limits on every query
+
+Even an allowed query runs inside fixed limits:
+
+- at most 100 rows (20 by default) and 50 KB of results,
+- a 10 second `maxTimeMS`, after which MongoDB stops the query,
+- `allowDiskUse` off for aggregations,
+- reads routed to secondaries when available.
+
+## Edit scope and hidden fields
+
+Open the bridge from **Data**:
+
+<Steps>
+
+1. Choose **Edit scope** to add or remove databases and collections. Saving a changed scope starts a background re-scan.
+2. Choose **Hidden fields** to review the list for each collection. Tick fields to hide, untick to reveal, then save. Changes apply to the next query.
+
+</Steps>
+
+For a defence in depth setup, combine these controls with a database user that only has the `read` role. Our guide [Is it safe to connect a database to AI?](/guides/is-it-safe-to-connect-database-to-ai) walks through the full checklist.

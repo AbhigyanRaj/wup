@@ -1,0 +1,41 @@
+export const metadata = {
+  title: "Example guide: how the MDX pipeline works",
+  description: "A draft example that proves the wuup MDX pipeline: metadata parsing, GFM tables, heading ids, table of contents and reading time.",
+  h1: "Example guide:\nthe MDX pipeline",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["example", "internal"],
+  primaryKeyword: "mdx pipeline example",
+  status: "draft",
+  priority: "P2",
+  related: ["/guides", "/docs"],
+  og: { eyebrow: "Guide" },
+}
+
+This file starts with an underscore, so it is never listed in production builds. Its status is `draft`, so it only appears in the registry when `NEXT_PUBLIC_SHOW_DRAFTS=1`.
+
+## What the metadata export does
+
+MDX in Next 16 has no frontmatter. Each file declares `export const metadata = { ... }` as a plain object literal. `src/lib/mdx.ts` reads it with JSON5, validates it with `assertMeta()` and the registry turns it into a page entry.
+
+## GFM works
+
+| Feature | Plugin |
+| --- | --- |
+| Tables, task lists, autolinks | remark-gfm |
+| Heading ids | rehype-slug |
+
+- [x] Tables render
+- [ ] Your next guide
+
+### Code blocks stay out of the table of contents
+
+```js
+// ## This is not a heading
+db.orders.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }])
+```
+
+## What the metadata export does
+
+Duplicate headings get a `-1` suffix, exactly as rehype-slug assigns them, so `toc()` links always match.

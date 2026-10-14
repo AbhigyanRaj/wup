@@ -1,0 +1,99 @@
+export const metadata = {
+  title: "Troubleshooting wuup connections and keys",
+  description: "Fix common wuup errors: Atlas IP access list, failed authentication, SRV DNS lookups, unshared sheets, stuck PDFs, rejected API keys and the free limit.",
+  h1: "Troubleshooting",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Help"],
+  primaryKeyword: "wuup troubleshooting",
+  status: "published",
+  priority: "P1",
+  group: "Help",
+  order: 40,
+  navLabel: "Troubleshooting",
+  related: ["/docs/connect-mongodb", "/docs/connect-google-sheets", "/docs/upload-documents", "/docs/byok-setup"],
+  og: { eyebrow: "Docs" },
+}
+
+Most wuup errors come from one of seven causes: the database's IP access list, a wrong or unencoded password, a hostname that does not resolve, a sheet that is not shared, a document that stalled while indexing, an API key the provider rejected, or a used-up free tier. Each section below quotes the exact message wuup shows, explains what it means and lists the fix. If your problem is not here, email us with the message text and the time it happened.
+
+## IP allowlist
+
+**Message:** "Couldn't reach the cluster. If it's on MongoDB Atlas, open Network Access and allow this server's IP address (or 0.0.0.0/0 while testing)."
+
+wuup connected to nothing within 8 seconds. On Atlas this almost always means the IP access list does not include wuup's servers.
+
+<Steps>
+
+1. In Atlas, open your project and choose **Network Access**.
+2. Choose **Add IP Address**. To confirm the cause quickly, add `0.0.0.0/0` (allow from anywhere) while testing. For a permanent entry, email us for wuup's current outbound addresses.
+3. Wait for the entry to become **Active**, then choose **Test connection** again in wuup.
+4. If you used `0.0.0.0/0`, narrow it once the test passes, and keep relying on a `read`-only user and a strong password.
+
+</Steps>
+
+For a self-hosted server, check that the port (usually 27017) is open to the internet and that `bindIp` is not limited to localhost.
+
+A different message, "That host isn't reachable from wuup. Use a public MongoDB address (for example MongoDB Atlas).", means the hostname resolves to a private, loopback or link-local address. wuup never connects to those, so use a public address.
+
+## Authentication failed
+
+**Message:** "Authentication failed. Check the username and password in the URL (special characters in the password must be URL-encoded)."
+
+- Check the username and password against the **Database Access** page in Atlas. Database users are separate from your Atlas login.
+- URL-encode special characters in the password. For example `p@ss:word` becomes `p%40ss%3Aword`.
+- If the user was created in a database other than `admin`, add `authSource=<that db>` to the connection string.
+
+If the connection works but questions fail with "This database user doesn't have permission for that operation", give the user the `read` role on the databases in the bridge scope.
+
+## SRV DNS errors
+
+**Message:** "Couldn't find that cluster host. Check the hostname in the URL."
+
+This covers `querySrv ENOTFOUND` and `getaddrinfo ENOTFOUND` errors. A `mongodb+srv://` string needs a DNS SRV lookup for the cluster name, and it failed.
+
+- Copy the string again from Atlas (**Connect**, then **Drivers**). A typo in the cluster name, such as `cluster0.abcd.mongodb.net`, is the usual cause.
+- Make sure there is no port in an SRV string. `mongodb+srv://` hosts never include `:27017`.
+- If the cluster was paused or deleted, the hostname stops resolving. Resume it in Atlas.
+
+## Sheet not shared
+
+**Message:** "Share the sheet with ... as a Viewer" (code `SHEETS_NOT_SHARED`)
+
+Google refused to let wuup's service account read the file. Open the sheet, choose **Share**, add the service account email shown on wuup's connect screen as a **Viewer**, and test again. Sharing with "Anyone with the link" is not needed. If you see "We couldn't find that spreadsheet. Check the link.", the link points to a deleted file or the ID is wrong. See [Connect Google Sheets](/docs/connect-google-sheets).
+
+## PDF stuck indexing
+
+A document that sits in **Indexing** without progress for five minutes, or in **Pending** for fifteen, is marked as failed by a watchdog.
+
+- If it says "Indexing stalled. Click Retry to try again.", choose **Retry**. wuup reuses the text it already extracted.
+- If it says "Indexing stalled. Please upload the file again.", delete it and upload again.
+- If the status is **Error (quota)**, the embedding quota ran out partway through. Retry later.
+- A scanned PDF with no text layer indexes nothing useful. Run OCR on it first.
+- Large files can hit the passage limits (500 per file, 5,000 per account). The document is then marked as truncated.
+
+See [Upload documents](/docs/upload-documents) for all statuses.
+
+## BYOK key rejected
+
+**Message:** "Invalid ... API key or unable to reach provider" (code `PROVIDER_AUTH`)
+
+wuup checks a key by listing the provider's models. The check failed.
+
+- Make sure you picked the right provider. An OpenRouter key will not work as an OpenAI key.
+- Copy the key again without spaces or line breaks. Keys are shown in full only once at creation, so create a new one if needed.
+- Check that billing or credits are active. Some providers reject keys from accounts with no payment method.
+- For Gemini, the key must come from Google AI Studio and have the Generative Language API enabled.
+
+See [Bring your own key](/docs/byok-setup).
+
+## Free tier exhausted
+
+**Message:** "You have used all of your free messages. Add your own API key in Settings to keep chatting." (code `FREE_LIMIT_REACHED`, HTTP 429)
+
+The free tier includes 50 questions on Gemini. Research questions use more than one. To keep going, add your own key from OpenAI, Anthropic, OpenRouter or Gemini in **Settings**. wuup does not charge for questions asked with your key, and your existing chats and connections stay as they are.
+
+## Still stuck?
+
+Email [abhigyan23018@iiitd.ac.in](mailto:abhigyan23018@iiitd.ac.in) with the exact message, the time and what you were doing. Never send your password or full connection string.

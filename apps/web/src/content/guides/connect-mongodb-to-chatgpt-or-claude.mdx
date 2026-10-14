@@ -1,0 +1,174 @@
+export const metadata = {
+  title: "How to connect MongoDB to ChatGPT or Claude",
+  description: "Three ways to connect MongoDB to ChatGPT or Claude: export files, run the MongoDB MCP server, or use a hosted analyst. Setup, limits and safety for each.",
+  h1: "How to connect MongoDB\nto ChatGPT or Claude",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["MongoDB", "AI and data", "Integrations"],
+  primaryKeyword: "connect mongodb to chatgpt",
+  status: "published",
+  priority: "P0",
+  related: [
+    "/guides/mongodb-read-only-user",
+    "/guides/is-it-safe-to-connect-database-to-ai",
+    "/chat-with-mongodb",
+    "/docs/byok-setup",
+    "/tools/mongodb-query-generator",
+  ],
+  og: { eyebrow: "Guide" },
+}
+
+There are three practical ways to connect MongoDB to ChatGPT or Claude. You can **export** a collection to CSV or JSON and upload the file to the chat. You can run the official **MongoDB MCP server**, which lets an MCP client such as Claude Desktop query your database directly. Or you can use a **hosted AI analyst** that connects to MongoDB for you and answers in its own interface. Exports are quick but go stale. MCP is live but needs local setup, and ChatGPT only talks to remote MCP servers. A hosted analyst is live with no install, but it is a separate app. Facts below are as of October 2026.
+
+## The three options at a glance
+
+| | Export and upload | MongoDB MCP server | Hosted analyst (for example wuup) |
+| --- | --- | --- | --- |
+| Data freshness | Snapshot at export time | Live | Live |
+| Works in ChatGPT | Yes, as file uploads | Only as a remote server, on plans with developer mode | No, separate app |
+| Works in Claude | Yes, as file uploads | Yes, Claude Desktop runs it locally | No, separate app |
+| Setup | `mongoexport`, then upload | Node.js, a config file, a connection string | Paste a connection string in a web form |
+| Write protection | Not applicable | `--readOnly` flag plus a read-only user | Read-only user plus the analyst's own guard |
+| Sensitive fields | You remove them before export | Whatever the user can read reaches the model | Depends on the product; wuup hides them by default |
+| Best for | One-off questions on a small dataset | Developers already working in an MCP client | Teams who want answers, charts and audit trails |
+
+Whichever you choose, start with a [MongoDB read-only user](/guides/mongodb-read-only-user). It is the one control that works for all three.
+
+## Option 1: export a collection and upload it
+
+This works on any ChatGPT or Claude plan that supports file uploads, and it requires no integration at all. `mongoexport` ships with the MongoDB Database Tools:
+
+```bash
+mongoexport \
+  --uri="mongodb+srv://reader:<password>@cluster0.example.mongodb.net/shop" \
+  --collection=orders \
+  --type=csv \
+  --fields=_id,status,total,channel,createdAt \
+  --query='{"createdAt": {"$gte": {"$date": "2026-09-01T00:00:00Z"}}}' \
+  --out=orders-sept.csv
+```
+
+CSV exports require `--fields`, which is a feature: list only the columns the question needs and leave out emails, addresses and anything else personal. `--query` takes Extended JSON, so dates use `$date`. For nested documents, export JSON instead (`--type=json`) or flatten the fields you need with an aggregation first.
+
+Then upload the file. ChatGPT analyses spreadsheets by running Python over them. OpenAI's help center lists a hard limit of 512 MB per file, with CSV and spreadsheet files capped at roughly 50 MB depending on row size ([OpenAI file uploads FAQ](https://help.openai.com/en/articles/8555545-file-uploads-faq)). Claude accepts uploads in chats and projects, with its own size and count limits ([Claude help center](https://support.claude.com/en/articles/8241126-uploading-files-to-claude)).
+
+**Where it falls short:**
+
+- The answer is only as fresh as the export. Tomorrow's question needs a new file.
+- Large collections do not fit. You end up sampling or pre-aggregating, which is the work you wanted the AI to do.
+- The model sees rows, not your schema, indexes or relationships between collections, so cross-collection questions need joined exports.
+- Once uploaded, the data sits in the chat provider's storage under its retention policy, not yours.
+
+If you are going to pre-aggregate anyway, our free [MongoDB aggregation generator](/tools/mongodb-aggregation-generator) can write the pipeline from a plain English description, and you can export its output with `mongoexport` against a view or a temporary collection.
+
+## Option 2: run the MongoDB MCP server
+
+The Model Context Protocol (MCP) is an open standard for connecting AI applications to tools and data ([modelcontextprotocol.io](https://modelcontextprotocol.io/)). MongoDB maintains an official server, `mongodb-mcp-server`, in the [mongodb-js/mongodb-mcp-server](https://github.com/mongodb-js/mongodb-mcp-server) repository under the Apache-2.0 license. It exposes database tools such as `find`, `aggregate`, `count`, `collection-schema`, `collection-indexes` and `explain`, plus optional Atlas tools for managing clusters, users and access lists when you provide Atlas service account credentials.
+
+### Set it up in Claude Desktop
+
+Claude Desktop runs MCP servers locally over stdio. Add the server to its configuration file:
+
+```json
+{
+  "mcpServers": {
+    "MongoDB": {
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server@latest", "--readOnly"],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "mongodb+srv://reader:<password>@cluster0.example.mongodb.net/shop"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop and the MongoDB tools appear in the chat. MongoDB's [get started guide](https://www.mongodb.com/docs/mcp-server/get-started/) has client-specific steps for Claude Desktop, Cursor, VS Code and others.
+
+Settings worth knowing, all from the server's README:
+
+- `--readOnly` (or `MDB_MCP_READ_ONLY=true`) registers only read, connect and metadata tools. **It is off by default**, so the server allows writes unless you set it. MongoDB's own docs say to typically always enable it.
+- `--disabledTools` removes tools or whole categories, for example `create,update,delete,atlas`.
+- `--indexCheck` rejects queries that would scan a whole collection.
+- Server-side JavaScript such as `$where` is disabled by default, and pipelines with `$out` or `$merge` ask for confirmation.
+- Telemetry can be turned off with `--telemetry disabled` or `DO_NOT_TRACK=1`.
+- The README recommends passing the connection string as an environment variable rather than a CLI argument, because arguments can show up in process lists.
+
+<Callout type="warning" title="Read-only mode is not a substitute for a read-only user">
+
+`--readOnly` is enforced by the MCP server process on your machine. If the config file is edited or the flag is dropped, the server can write again. Connect with a database user that only has the `read` role, so MongoDB refuses writes regardless of the client.
+
+</Callout>
+
+### What about ChatGPT?
+
+ChatGPT supports MCP through developer mode, but only for **remote** MCP servers reached over HTTPS, not local stdio processes. OpenAI's help center describes full MCP support, including write actions, as a beta for Business, Enterprise and Edu workspaces, enabled by an admin, with Pro users limited to read and fetch actions in developer mode ([OpenAI: developer mode and MCP apps](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt)). Plan rules have changed several times in 2026, so check that page for your plan.
+
+The MongoDB MCP server can run over HTTP (`--transport http`), but its README is explicit that the CLI ships with no built-in authentication, is meant for single-user local use, and refuses to bind to a non-loopback address unless you set `MDB_MCP_DANGEROUS_HOST_BINDING=true`. To reach it from ChatGPT you would need to host it somewhere public and put your own authentication in front of it. That is a real deployment project, not a settings change.
+
+### Trade-offs of the MCP route
+
+- **Pros:** live data, the full query language, works inside a chat you already use, open source and free to run.
+- **Cons:** whatever the database user can read can reach the model, including personal fields, because there is no field-level redaction in the protocol itself. Results come back as raw tool output with no charts. Each person sets it up on their own machine, and there is no shared audit of which queries ran.
+
+## Option 3: use a hosted AI analyst
+
+A hosted analyst connects to MongoDB from its own servers and gives you a chat built for data questions. wuup is one of these, and it is ours, so weigh this section accordingly.
+
+**wuup does not offer an MCP server**, and it does not plug into ChatGPT or Claude. You ask questions in wuup itself. The connection flow:
+
+<Steps>
+
+1. Create a [read-only user](/guides/mongodb-read-only-user) and allow wuup's server on your Atlas IP access list.
+2. Paste the connection string in wuup. We test it, list your databases and collections, and flag fields that look sensitive.
+3. Tick the collections wuup may query. We scan a sample of documents to learn the schema.
+4. Ask in plain English. Each answer shows the exact query used, and charts and tables are built from the rows that query returned.
+
+</Steps>
+
+What wuup adds on top of the read-only user: a stage allowlist that refuses `$out`, `$merge` and server-side JavaScript; collection scope; automatic hiding of fields such as `password`, `token` and `card_number` at any depth; and limits of 100 rows, 50 KB and 10 seconds per query. Details are on the [chat with MongoDB](/chat-with-mongodb) page and in the [scopes and redaction docs](/docs/scopes-and-redaction).
+
+If the reason you wanted ChatGPT or Claude is the model itself, you can [bring your own OpenAI or Anthropic key](/docs/byok-setup) to wuup and pay the provider directly. The free tier gives you 50 questions on Gemini without a key.
+
+**Where it falls short:** it is another app and another vendor in your data path, it is not inside the chat window you already have open, and it supports MongoDB, Google Sheets and PDF or TXT documents only.
+
+## Which option should you pick?
+
+- **You have one question about a few thousand rows:** export and upload. It takes five minutes and needs nothing new.
+- **You are a developer who lives in Claude Desktop or an IDE:** run the MongoDB MCP server locally with `--readOnly` and a read-only user.
+- **You need ChatGPT specifically, on live data:** you need a remote MCP server with your own authentication, on a ChatGPT plan with developer mode. Budget real engineering time.
+- **You want several people asking live questions with redaction, charts and a record of every query:** use a hosted analyst.
+
+Before any of these, try writing the query yourself with the free [MongoDB query generator](/tools/mongodb-query-generator). If a single query answers the question, you may not need an integration at all.
+
+<ToolCta href="/tools/mongodb-query-generator" title="Try it without connecting anything" description="Describe a question about your collection and get a MongoDB query you can review and run yourself. Free to use." />
+
+## FAQ
+
+### Can ChatGPT connect to MongoDB directly?
+
+Not natively. ChatGPT can analyse files you upload, or call a remote MCP server through developer mode on eligible plans. There is no built-in MongoDB connector, so you either export data or host an MCP server with authentication.
+
+### Is the MongoDB MCP server read-only?
+
+Only if you start it with `--readOnly` or set `MDB_MCP_READ_ONLY=true`. The default allows write operations. Use the flag and a database user with only the `read` role.
+
+### Does wuup have an MCP server?
+
+No. wuup is a hosted app with its own chat. It connects to MongoDB directly through a read-only user and enforces its own query guard. You can use OpenAI or Anthropic models inside wuup with your own key.
+
+### Is it safe to give an AI model access to production MongoDB?
+
+It can be, with layered controls: a read-only user, a network allowlist, collection scope, hidden sensitive fields and query time limits. Our [safety checklist](/guides/is-it-safe-to-connect-database-to-ai) covers twelve controls and the threats they address.
+
+## Sources
+
+Checked in October 2026:
+
+- [mongodb-js/mongodb-mcp-server README](https://github.com/mongodb-js/mongodb-mcp-server): tools, `--readOnly`, `--transport`, host binding and authentication notes.
+- [MongoDB MCP server: get started](https://www.mongodb.com/docs/mcp-server/get-started/) and [enable or disable features](https://www.mongodb.com/docs/mcp-server/local-mcp/configuration/enable-or-disable-features/).
+- [OpenAI: developer mode and MCP apps in ChatGPT](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt).
+- [OpenAI: file uploads FAQ](https://help.openai.com/en/articles/8555545-file-uploads-faq).
+- [Anthropic: uploading files to Claude](https://support.claude.com/en/articles/8241126-uploading-files-to-claude).
+- [Model Context Protocol](https://modelcontextprotocol.io/).

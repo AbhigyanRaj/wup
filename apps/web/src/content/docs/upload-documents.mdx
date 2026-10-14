@@ -1,0 +1,77 @@
+export const metadata = {
+  title: "Upload documents to your knowledge base",
+  description: "Upload PDF and TXT files to wuup's private knowledge base and get answers with numbered citations. File limits, indexing statuses, retries and deletion.",
+  h1: "Upload documents",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Documents"],
+  primaryKeyword: "upload pdf to ai knowledge base",
+  status: "published",
+  priority: "P0",
+  group: "Connect data",
+  order: 13,
+  navLabel: "Upload documents",
+  related: ["/chat-with-pdf", "/guides/ask-questions-across-pdfs-and-spreadsheets", "/docs/troubleshooting"],
+  og: { eyebrow: "Docs" },
+}
+
+To ask questions about your documents in wuup, upload PDF or TXT files to your knowledge base from **Data**. wuup extracts the text, splits it into overlapping passages, and indexes them for search. When a question touches your documents, wuup finds the most relevant passages and answers with numbered citations that point back to the file and page. Your knowledge base is private to your account. Support for MD, CSV and DOCX files is coming soon.
+
+## Upload a file
+
+<Steps>
+
+1. Open **Data** and choose **Upload documents**, or drop a file onto the upload area.
+2. Pick a PDF or TXT file up to 20 MB.
+3. The file appears in your list with status **Pending**, then **Indexing** with a progress bar, then **Indexed**.
+
+</Steps>
+
+You can start chatting while a file indexes. It is used in answers as soon as it reaches **Indexed**.
+
+wuup checks the real file type from its contents, not from the name or the browser's label. A file that is not a real PDF or text file is rejected with "Unsupported file type."
+
+## Limits
+
+| Limit | Default |
+| --- | --- |
+| File size | 20 MB |
+| Documents per account | 20 |
+| Indexed passages (chunks) per account | 5,000 |
+| Passages per file | 500 |
+| Uploads | 10 per hour |
+
+If a file would push you past the passage limit, wuup indexes as much as fits and marks the document as truncated. Delete documents you no longer need to free space.
+
+Uploading the same file twice is blocked while the first copy is indexing or indexed: wuup compares a SHA-256 fingerprint of the bytes and replies "This document is already indexed."
+
+## How indexing works
+
+1. **Extract.** wuup reads the text from the file. Scanned PDFs without a text layer have no text to extract, so run them through OCR first.
+2. **Split.** The text is split into passages of about 1,800 characters, roughly 512 tokens, with 200 characters of overlap so a sentence that crosses a boundary is not lost.
+3. **Embed.** Each passage is turned into a vector with Google's Gemini embedding model and stored with its file name and page number.
+
+The original file is never written to disk. It is processed in memory and discarded. wuup keeps the extracted text, so a failed indexing run can be retried without uploading again.
+
+## Statuses and retries
+
+| Status | Meaning | What to do |
+| --- | --- | --- |
+| Pending | Queued, not started | Wait |
+| Indexing | Passages are being embedded | Wait, progress is shown |
+| Indexed | Ready for questions | Ask away |
+| Error | Indexing failed, the message says why | Choose **Retry** if offered |
+| Error (quota) | The embedding quota ran out mid-file | Retry later |
+
+A watchdog marks a document as stalled if indexing makes no progress for five minutes, or if it stays pending for fifteen. When the extracted text was saved, the message reads "Indexing stalled. Click Retry to try again." Otherwise you need to upload the file again.
+
+## Answers with citations
+
+When an answer uses your documents, each claim that comes from a passage carries a number like `[1]`. The sources list under the answer shows the file name and page for each number, so you can check the original wording. Passages below a minimum similarity are dropped. If none are relevant, wuup says "I couldn't find this in your documents." before answering from general knowledge, so you always know which parts are grounded in your files.
+
+You can mix documents with MongoDB and Google Sheets in the same chat, for example to compare a contract's terms with the numbers in your orders collection. Our guide on [asking questions across PDFs and spreadsheets](/guides/ask-questions-across-pdfs-and-spreadsheets) shows how.
+
+## Delete a document
+
+Open **Data**, find the document and choose **Delete**. wuup removes the document record, every indexed passage and the stored text. If the file is still indexing, the job is cancelled and anything it wrote is removed. Deleting your account removes all of your documents too.

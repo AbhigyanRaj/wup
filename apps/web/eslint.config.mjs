@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Binary/static assets and throwaway scripts written by local tooling.
+    "assets/**",
+    "**/.*-tmp*",
   ]),
 ]);
 

@@ -1,0 +1,122 @@
+/*
+ * Home "live ask box" hero. Only what Tailwind utilities cannot express:
+ * the backdrop (dot grid + rising glow), keyframes and the staged reveals
+ * driven by data-* attributes from hero-ask-demo.tsx.
+ */
+
+/* ---------- Backdrop ---------- */
+.dots {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1180px;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(42, 44, 51, 0.16) 0.8px, transparent 1.3px);
+  background-size: 16px 16px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 58% 52% at 50% 46%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  mask-image: radial-gradient(ellipse 58% 52% at 50% 46%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+}
+
+.glow {
+  position: absolute;
+  left: 50%;
+  top: 150px;
+  z-index: -1;
+  width: min(1180px, 150vw);
+  height: 560px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  filter: blur(56px);
+  opacity: 0.7;
+  background:
+    radial-gradient(ellipse 30% 36% at 50% 70%, rgba(11, 92, 255, 0.45) 0%, transparent 100%),
+    radial-gradient(ellipse 50% 52% at 36% 58%, rgba(125, 211, 252, 0.55) 0%, transparent 100%),
+    radial-gradient(ellipse 48% 50% at 66% 56%, rgba(196, 181, 253, 0.55) 0%, transparent 100%);
+}
+@media (max-width: 767px) {
+  .glow { top: 170px; height: 640px; filter: blur(40px); opacity: 0.5; }
+}
+
+/* ---------- Ask box ---------- */
+.prompt {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 24px 48px -24px rgba(37, 56, 120, 0.22);
+}
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  margin-left: 1px;
+  border-radius: 1px;
+  vertical-align: -0.2em;
+  background: var(--indigo-700);
+  animation: caret 1.05s steps(1, end) infinite;
+}
+@keyframes caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.send { transition: transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard), background-color 160ms var(--ease-standard); }
+.send[data-pressed="true"] { transform: scale(0.88); box-shadow: 0 0 0 5px rgba(85, 106, 220, 0.18); }
+
+/* ---------- Answer card ---------- */
+.card { transition: opacity 320ms var(--ease-reveal), transform 420ms var(--ease-reveal); }
+.card[data-shown="false"] { opacity: 0; transform: translateY(10px); }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--indigo-200);
+  border-top-color: var(--indigo-700);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.check { animation: pop 260ms var(--ease-reveal); }
+@keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.tok { transition: opacity 260ms var(--ease-out), filter 260ms var(--ease-out); }
+.tok[data-on="false"] { opacity: 0; filter: blur(2px); }
+
+.shimmer {
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f2f3f6 0%, #e9ecf4 40%, #f2f3f6 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+.fade { transition: opacity 360ms var(--ease-out), transform 360ms var(--ease-reveal); }
+.fade[data-on="false"] { opacity: 0; transform: translateY(4px); }
+
+/* Bars grow from the baseline, staggered by --i. */
+.bar {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition: transform 720ms var(--ease-reveal);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.chart[data-on="false"] .bar { transform: scaleY(0); transition: none; }
+.barLabel { transition: opacity 300ms var(--ease-out); transition-delay: calc(400ms + var(--i, 0) * 70ms); }
+.chart[data-on="false"] .barLabel { opacity: 0; transition: none; }
+
+/* Line draws left to right; area and markers follow. */
+.line { stroke-dasharray: 1; stroke-dashoffset: 0; transition: stroke-dashoffset 1100ms var(--ease-in-out); }
+.chart[data-on="false"] .line { stroke-dashoffset: 1; transition: none; }
+.area, .marker { transition: opacity 500ms var(--ease-out) 700ms; }
+.chart[data-on="false"] .area, .chart[data-on="false"] .marker { opacity: 0; transition: none; }
+
+.quote { transition: opacity 360ms var(--ease-out), transform 420ms var(--ease-reveal); transition-delay: calc(var(--i, 0) * 160ms); }
+.chart[data-on="false"] .quote { opacity: 0; transform: translateY(6px); transition: none; }
+
+/* ---------- Quiet marquee ---------- */
+.marqueeRow { gap: 44px; animation-duration: 48s; }
+.marqueeRow > * { height: 24px; opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .caret, .spinner, .shimmer { animation: none; }
+  .card, .tok, .fade, .bar, .barLabel, .line, .area, .marker, .quote, .send, .check { transition: none !important; animation: none !important; }
+}

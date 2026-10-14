@@ -98,6 +98,34 @@ export function sanitizeSteps(list: unknown): Record<string, unknown>[] {
     }));
 }
 
+/** Same texts as @wup/brain's FOUND_ROWS_TEXT / NO_ANSWER_TEXT / CLARIFY_FALLBACK. */
+export const FOUND_ROWS_TEXT = "Here is what I found.";
+export const EMPTY_ANSWER_TEXT = "I couldn't produce an answer this time. Try rephrasing the question.";
+const CLARIFY_FALLBACK = "Could you clarify what you need?";
+
+/**
+ * A complete answer is never stored (or sent in `done`) with empty content.
+ * The brain already guarantees this; this is the API's safety net for any
+ * brain result that slips through. `refund` is true when nothing useful was
+ * produced, so the caller settles the quota as "no output".
+ */
+export function ensureAnswerContent(
+  status: "complete" | "stopped" | "error",
+  content: string,
+  result: BrainResult | null
+): { content: string; refund: boolean } {
+  const text = (content ?? "").trim();
+  if (status !== "complete" || text) return { content: text, refund: false };
+  const c = result?.clarification;
+  if (isRecord(c)) {
+    const q = typeof c.question === "string" ? c.question.trim() : "";
+    return { content: q || CLARIFY_FALLBACK, refund: false };
+  }
+  const t = result?.tableData as { rows?: unknown[] } | null | undefined;
+  if (isRecord(t) && Array.isArray(t.rows) && t.rows.length > 0) return { content: FOUND_ROWS_TEXT, refund: false };
+  return { content: EMPTY_ANSWER_TEXT, refund: true };
+}
+
 export interface PersistInput {
   _id: mongoose.Types.ObjectId;
   chatId: string;

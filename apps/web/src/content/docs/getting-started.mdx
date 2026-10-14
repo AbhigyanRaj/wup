@@ -1,0 +1,92 @@
+export const metadata = {
+  title: "Getting started with wuup",
+  description: "Create a wuup account, connect MongoDB, Google Sheets or a PDF, and ask your first question in plain English. Setup takes about five minutes.",
+  h1: "Getting started",
+  date: "2026-10-14",
+  updated: "2026-10-14",
+  author: "abhigyan-raj",
+  tags: ["Docs", "Setup"],
+  primaryKeyword: "wuup getting started",
+  status: "published",
+  priority: "P0",
+  group: "Get started",
+  order: 1,
+  navLabel: "Getting started",
+  related: ["/docs/connect-mongodb", "/docs/upload-documents", "/docs/byok-setup", "/docs/faq"],
+  og: { eyebrow: "Docs" },
+}
+
+wuup is an AI data analyst. You connect a data source (a MongoDB database, a Google Sheet, or PDF and TXT documents), ask a question in plain English, and get an answer built from your real data, with a chart or table when it helps and the exact queries it ran. This page takes you from a new account to your first answer in about five minutes. You need an email address and, if you want to query a database, a MongoDB connection string for a read-only user.
+
+## Create an account
+
+wuup accounts use email and password. Continue with Google is coming soon.
+
+<Steps>
+
+1. Open [wuup.in/login](/login?mode=signup) and choose **Sign up**.
+2. Enter your email and a password. Your name is optional.
+3. You land in the chat. A new account gets 50 free questions on Gemini, with no card required.
+
+</Steps>
+
+If you only want to look around first, choose **Try the demo**. The demo opens an isolated sandbox with sample data that is separate from every other visitor, and it expires on its own.
+
+## Connect a data source
+
+wuup answers from three kinds of sources. You can connect one or several, and pick which ones each chat uses.
+
+| Source | What you provide | What wuup can do |
+| --- | --- | --- |
+| MongoDB | A `mongodb+srv://` connection string | Read-only queries on the collections you choose |
+| Google Sheets | A sheet link, shared with wuup's service account | Read the tabs and ranges you ask about |
+| Documents | PDF or TXT files | Search the text and cite the passages it used |
+
+Start with the guide for your source:
+
+- [Connect MongoDB](/docs/connect-mongodb): test the connection, pick databases and collections, review hidden fields.
+- [Connect Google Sheets](/docs/connect-google-sheets): share the sheet with the service account and paste the link.
+- [Upload documents](/docs/upload-documents): add PDF or TXT files to your private knowledge base.
+
+<Callout type="security" title="Use a read-only database user">
+
+wuup only runs read queries, and a guard blocks writes before they reach your database. A database user with the built-in `read` role adds a second layer that you control. See [how to create a MongoDB read-only user](/guides/mongodb-read-only-user).
+
+</Callout>
+
+## Ask your first question
+
+Open a new chat, select the sources you want it to use, and type a question the way you would ask a colleague.
+
+```text
+How many orders did we get each week this quarter, split by status?
+```
+
+While wuup works, you see live status lines such as "Querying shop.orders...". The answer streams in as it is written. A good first question is specific about the time range, the measure and the grouping. If the question is ambiguous, wuup asks a short clarifying question instead of guessing.
+
+## Read the answer
+
+Every answer can include:
+
+- **Text** that explains the result in plain language.
+- **A chart or table** built from the rows the query returned, not from numbers the model wrote.
+- **Queries used**: the exact `find`, `count`, `distinct` or `aggregate` call for each database query, with the row count and time taken.
+- **Numbered citations** when the answer comes from your documents or the web.
+- **Follow-up suggestions** you can click to keep exploring.
+
+If a number looks wrong, open **Queries used** first. You can see which collection was read, which filter was applied, and whether the result hit a row limit.
+
+## Limits to know on day one
+
+- Each database query returns at most 100 rows (20 when the model does not ask for more) and 50 KB of data, and stops after 10 seconds.
+- The free tier includes 50 questions on Gemini.
+- Web search is off unless you turn it on for a question.
+
+When you run out of free questions, add your own key from OpenAI, Anthropic, OpenRouter or Gemini. wuup does not charge for questions asked with your key. See [Bring your own key](/docs/byok-setup).
+
+## Next steps
+
+- Learn how [scopes and redaction](/docs/scopes-and-redaction) keep sensitive fields away from the model.
+- Browse the [FAQ](/docs/faq) for quick answers.
+- If something fails, check [Troubleshooting](/docs/troubleshooting).
+- Read the [Terms of Service](/terms) and the [Acceptable Use Policy](/acceptable-use) before you connect production data.
